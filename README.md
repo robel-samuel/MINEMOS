@@ -647,9 +647,9 @@ This is a research codebase in active development. Contributions that:
 
 ## License
 
-> **No license has been selected for this repository.**
->
-> Until a license is explicitly added, this code is not available for use, modification, or distribution under any open-source terms. If you wish to use this code, contact the repository owner.
+MINEMOS is licensed under the Apache License 2.0.
+
+See the [LICENSE](LICENSE) file for the complete license text.
 
 ---
 
