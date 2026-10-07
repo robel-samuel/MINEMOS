@@ -1,4 +1,4 @@
-# MINEMOS — Black Hole Memory
+# MINEMOS
 
 **Experimental persistent-memory architecture for language-model systems, focused on memory consolidation, contradiction handling, adaptive retention, and retrieval under constrained memory.**
 
@@ -35,7 +35,7 @@
 
 MINEMOS investigates a concrete question: **how should a constrained-memory system absorb, update, and retrieve factual knowledge from a streaming sequence of natural-language observations?**
 
-The name "Black Hole Memory" reflects the original design constraint: memory capacity is hard and finite, like an event horizon. What goes in may be evicted. What survives must be genuinely useful.
+The architecture is built around hard, finite memory capacity: memory resources are constrained, unreinforced facts may be evicted under pressure, and retained knowledge must remain consolidated and retrievable.
 
 The system is built around a slot-based memory architecture where each slot holds a dense vector representation of a fact, a confidence score, and a timestamp. Incoming observations are encoded and routed to the most similar existing slot (update / consolidation) or allocated a new slot (insertion), subject to a hard capacity limit.
 
