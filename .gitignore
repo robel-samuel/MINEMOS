@@ -1,0 +1,117 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# MINEMOS / Black Hole Memory — .gitignore
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env.local
+
+# Python compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+dist/
+build/
+wheels/
+MANIFEST
+.eggs/
+
+# Test / coverage artefacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# Type checker caches
+.mypy_cache/
+.pytype/
+.pyre/
+.ruff_cache/
+pyrightconfig.json
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V7
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Environment / secrets — NEVER commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+secrets.json
+credentials.json
+
+# Model weights / checkpoints — large binaries
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.pkl
+*.pickle
+models/
+checkpoints/
+
+# HuggingFace cached model downloads (these are in ~/.cache by default;
+# if you redirect HF_HOME here, exclude them)
+hf_cache/
+
+# Experiment output (scratch results are not committed — use reports/ instead)
+scratch/*.json
+scratch/*.tmp
+scratch/*.log
+
+# Temporary / local logs
+*.log
+logs/
+tmp/
+temp/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Compiled extensions
+*.so
+*.dylib
+*.dll
+*.pyd

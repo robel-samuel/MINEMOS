@@ -1,0 +1,61 @@
+=== 1. TOP-K RETRIEVAL ABLATION ===
+k=1 : top1=0.3731, topk=0.3731, cond_nli=0.8557, e2e=0.6808, true_cons=0.5000, false_cons=0.0400, contra_ret=0.9600, time=128.79s, nli=1499
+k=3 : top1=0.4538, topk=0.5615, cond_nli=0.8630, e2e=0.7615, true_cons=0.7000, false_cons=0.2400, contra_ret=0.7600, time=325.63s, nli=4238
+k=5 : top1=0.4615, topk=0.6077, cond_nli=0.8418, e2e=0.7615, true_cons=0.7937, false_cons=0.2800, contra_ret=0.7200, time=459.58s, nli=6910
+k=10: top1=0.4615, topk=0.7077, cond_nli=0.7989, e2e=0.7000, true_cons=0.8000, false_cons=0.4500, contra_ret=0.5500, time=1116.29s, nli=13489
+
+=== 2. SAFETY TEST ===
+Sys A: true_cons=0.8000, false_cons=0.0000, contra_ret=1.0000, unrel_sep=1.0000, e2e=0.9000
+Sys B: true_cons=0.7500, false_cons=0.3500, contra_ret=0.6500, unrel_sep=1.0000, e2e=0.7000
+Sys C: true_cons=0.8000, false_cons=0.0000, contra_ret=1.0000, unrel_sep=1.0000, e2e=0.9000
+Sys D: true_cons=0.7500, false_cons=0.3500, contra_ret=0.6500, unrel_sep=1.0000, e2e=0.7000
+
+=== 3. CAPACITY FACTORIAL ===
+-- C = 1500 --
+  Sys A: topk=0.8846, cond_nli=0.9087, e2e=0.8769, true_cons=0.8000, false_cons=0.0000, contra_ret=1.0000, evicts=0, time=175.46s
+  Sys B: topk=0.5615, cond_nli=0.8630, e2e=0.7615, true_cons=0.7000, false_cons=0.2400, contra_ret=0.7600, evicts=0, time=467.17s
+  Sys C: topk=0.8846, cond_nli=0.9087, e2e=0.8769, true_cons=0.8000, false_cons=0.0000, contra_ret=1.0000, evicts=0, time=183.12s
+  Sys D: topk=0.5615, cond_nli=0.8630, e2e=0.7615, true_cons=0.7000, false_cons=0.2400, contra_ret=0.7600, evicts=0, time=354.55s
+-- C = 200 --
+  Sys A: topk=0.0077, cond_nli=0.5000, e2e=0.6923, true_cons=0.2375, false_cons=0.1000, contra_ret=0.9000, evicts=1220, time=106.88s
+  Sys B: topk=0.0500, cond_nli=0.5385, e2e=0.5962, true_cons=0.2375, false_cons=0.1000, contra_ret=0.9000, evicts=1195, time=309.22s
+  Sys C: topk=0.2038, cond_nli=0.9811, e2e=0.8769, true_cons=0.9313, false_cons=0.8600, contra_ret=0.1400, evicts=1172, time=103.33s
+  Sys D: topk=0.1692, cond_nli=0.9545, e2e=0.7231, true_cons=0.7812, false_cons=0.7300, contra_ret=0.2700, evicts=1161, time=447.29s
+-- C = 100 --
+  Sys A: topk=0.0038, cond_nli=0.0000, e2e=0.6923, true_cons=0.1812, false_cons=0.0500, contra_ret=0.9500, evicts=1320, time=151.43s
+  Sys B: topk=0.0615, cond_nli=0.5000, e2e=0.5923, true_cons=0.1812, false_cons=0.0500, contra_ret=0.9500, evicts=1295, time=338.97s
+  Sys C: topk=0.0846, cond_nli=0.6364, e2e=0.7385, true_cons=0.5938, false_cons=0.5500, contra_ret=0.4500, evicts=1307, time=103.64s
+  Sys D: topk=0.0385, cond_nli=0.7000, e2e=0.6038, true_cons=0.3125, false_cons=0.4000, contra_ret=0.6000, evicts=1291, time=339.04s
+-- C = 50 --
+  Sys A: topk=0.0500, cond_nli=0.2308, e2e=0.6962, true_cons=0.3438, false_cons=0.2100, contra_ret=0.7900, evicts=1361, time=100.05s
+  Sys B: topk=0.0962, cond_nli=0.6400, e2e=0.6077, true_cons=0.3438, false_cons=0.2100, contra_ret=0.7900, evicts=1342, time=294.48s
+  Sys C: topk=0.0462, cond_nli=0.2500, e2e=0.6962, true_cons=0.3438, false_cons=0.2100, contra_ret=0.7900, evicts=1366, time=110.00s
+  Sys D: topk=0.0769, cond_nli=0.4500, e2e=0.5808, true_cons=0.1313, false_cons=0.1200, contra_ret=0.8800, evicts=1334, time=347.56s
+
+=== 4. LONG-GAP EXPERIMENT ===
+-- Gap = 10 --
+  Sys A: probe_recall=0.8500, true_cons=0.5000, false_cons=0.0000, contra_ret=1.0000, topk=0.1500, e2e=0.8500
+  Sys B: probe_recall=0.9000, true_cons=0.5000, false_cons=0.0000, contra_ret=1.0000, topk=0.2000, e2e=0.9000
+  Sys C: probe_recall=0.8500, true_cons=0.9500, false_cons=0.0000, contra_ret=1.0000, topk=0.1500, e2e=0.8500
+  Sys D: probe_recall=0.9000, true_cons=0.9500, false_cons=0.0000, contra_ret=1.0000, topk=0.2000, e2e=0.9000
+-- Gap = 50 --
+  Sys A: probe_recall=0.2000, true_cons=0.4000, false_cons=0.0000, contra_ret=1.0000, topk=0.2000, e2e=0.2000
+  Sys B: probe_recall=0.0500, true_cons=0.4000, false_cons=0.0000, contra_ret=1.0000, topk=0.0500, e2e=0.0500
+  Sys C: probe_recall=0.0000, true_cons=0.4000, false_cons=0.0000, contra_ret=1.0000, topk=0.2000, e2e=0.0000
+  Sys D: probe_recall=0.1000, true_cons=0.2500, false_cons=0.0000, contra_ret=1.0000, topk=0.0500, e2e=0.1000
+-- Gap = 100 --
+  Sys A: probe_recall=0.0000, true_cons=0.4000, false_cons=0.0000, contra_ret=1.0000, topk=0.1500, e2e=0.0000
+  Sys B: probe_recall=0.0000, true_cons=0.4000, false_cons=0.0000, contra_ret=1.0000, topk=0.1500, e2e=0.0000
+  Sys C: probe_recall=0.0000, true_cons=0.2500, false_cons=0.0000, contra_ret=1.0000, topk=0.1000, e2e=0.0000
+  Sys D: probe_recall=0.1000, true_cons=0.2500, false_cons=0.0000, contra_ret=1.0000, topk=0.0500, e2e=0.1000
+-- Gap = 500 --
+  Sys A: probe_recall=0.0000, true_cons=0.4000, false_cons=0.0000, contra_ret=1.0000, topk=0.2000, e2e=0.0000
+  Sys B: probe_recall=0.0000, true_cons=0.4000, false_cons=0.0000, contra_ret=1.0000, topk=0.0500, e2e=0.0000
+  Sys C: probe_recall=0.0000, true_cons=0.4000, false_cons=0.0000, contra_ret=1.0000, topk=0.2000, e2e=0.0000
+  Sys D: probe_recall=0.0000, true_cons=0.4000, false_cons=0.0000, contra_ret=1.0000, topk=0.0500, e2e=0.0000
+
+=== 5. CONTINUAL 5,000-OBSERVATION STREAM ===
+Sys A: top1=0.0230, topk=0.0230, cond_nli=0.6000, e2e=0.4885, true_cons=0.2034, false_cons=0.2500, contra_ret=0.7500, updates=66, evicts=4734, time=437.02s, nli=4999
+Sys B: top1=0.0553, topk=0.1521, cond_nli=0.6364, e2e=0.4424, true_cons=0.2034, false_cons=0.2500, contra_ret=0.7500, updates=82, evicts=4718, time=1383.29s, nli=14861
+Sys C: top1=0.3733, topk=0.3733, cond_nli=0.8642, e2e=0.7972, true_cons=0.8701, false_cons=0.8500, contra_ret=0.1500, updates=133, evicts=4667, time=383.35s, nli=4999
+Sys D: top1=0.2995, topk=0.4470, cond_nli=0.8763, e2e=0.7788, true_cons=0.9492, false_cons=0.8250, contra_ret=0.1750, updates=166, evicts=4634, time=1452.08s, nli=14727
