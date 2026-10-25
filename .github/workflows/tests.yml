@@ -58,7 +58,7 @@ jobs:
       - name: Run dependency vulnerability audit
         run: |
           pip install pip-audit==2.7.3
-          pip-audit -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu --desc
+          pip-audit -s osv -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu --desc
 
       - name: Run test suite
         run: |
