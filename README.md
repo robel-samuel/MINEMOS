@@ -214,7 +214,7 @@ $$v_j(t+1) = (1 - \alpha_t)\, v_j(t) + \alpha_t\, x_t + \lambda\,(k_j - v_j(t))$
 
 where $\alpha_t = 1 - s_j$ (novelty) and $\lambda = 0.20$ (anchor weight, frozen Phase 24).
 
-**Phase 28 finding:** After a 10-step adversarial paraphrase chain, the Phase 23 baseline EMA reached $\cos(v_0, v_{10}) = 0.9520$. The Phase 24 anchor-bounded hybrid maintained $\cos(v_0, v_{10}) = 0.9826$ — a **63.65% reduction in drift**.
+**Phase 28 finding:** After a 10-statement adversarial paraphrase chain (9 update steps), the Phase 23 baseline EMA reached $\cos(v_0, v_9) = 0.9520$. The Phase 24 anchor-bounded hybrid maintained $\cos(v_0, v_9) = 0.9826$ — a **63.65% reduction in drift**.
 
 ---
 
@@ -419,10 +419,10 @@ Retrieval latency: 14–20 ms / query on CPU (< 2.6 ms overhead vs. baseline).
 ### Phase 28: Phase 23 Failure Closure and End-to-End Memory Integrity Validation
 
 **Status:** COMPLETE — all 5 Phase 23 failure modes closed or rigorously characterized  
-**Test suite:** 299/299 passed  
+**Test suite:** 303/303 passed\
 **Report:** [`reports/PHASE_28_REPORT.md`](reports/PHASE_28_REPORT.md)
 
-The definitive integration and validation phase. Confirmed all Phase 23 failure categories are resolved by the Phase 24–27 improvements, and fixed the Phase 27 independent-fact defect via an entity-grounding guard in `absorb()`.
+The definitive integration and validation phase. Confirmed all Phase 23 failure categories are resolved by the Phase 24–27 improvements, and fixed the Phase 27 independent-fact defect via an entity-grounding guard in `absorb()` plus removal of predicate-identity exclusivity in `_is_same_attribute_or_event()`.
 
 **Phase 23 Failure Closure Matrix:**
 
@@ -436,6 +436,8 @@ The definitive integration and validation phase. Confirmed all Phase 23 failure 
 | **Phase 27 defect** — False contradictions | 100.0% | **0.0%** | ✅ VERIFIED FIXED |
 
 Category B (paraphrase rejection) is partially mitigated. The residual 13.3% false rejection rate is an inherent limitation of `cross-encoder/nli-distilroberta-base` on high-lexical-variation paraphrases; a fine-tuned or larger cross-encoder would be required for further improvement.
+
+The false-contradiction row reflects the benchmarked allowlisted cases. Independent facts sharing unlisted multi-valued predicates are covered by the post-publication `_is_same_attribute_or_event()` correction and `tests/test_phase28_false_contradiction_regression.py`.
 
 ---
 
@@ -457,10 +459,10 @@ Category B (paraphrase rejection) is partially mitigated. The residual 13.3% fal
 - Macro accuracy: **90.0%**
 
 **Benchmark 3 — Retrieval Under 4 Interference Conditions:**
-- R@1 = MRR = **1.000** across all conditions
-- Contradiction intrusion = **0.000**
+- R@1 = MRR = **1.000** across all conditions (all five methods tie at this ceiling)
+- Contradiction intrusion = **0.000** (from the cached Phase 27 results)
 
-**Benchmark 4 — Representation Consolidation Drift (10-step chain):**
+**Benchmark 4 — Representation Consolidation Drift (10-statement chain, 9 updates):**
 - Baseline EMA min similarity to v₀: 0.9520
 - Phase 28 anchor-bounded min similarity to v₀: **0.9826**
 - Drift reduction: **63.65%**
@@ -660,6 +662,7 @@ The test suite covers:
 | `tests/test_phase26.py` | Bidirectional NLI verification |
 | `tests/test_phase27.py` | Adaptive retrieval |
 | `tests/test_phase28_adversarial.py` | Phase 28 adversarial integration tests |
+| `tests/test_phase28_false_contradiction_regression.py` | Multi-valued predicate false-contradiction regression tests |
 | `tests/test_adversarial_verification.py` | Adversarial NLI verification cases |
 | `tests/test_checkpoint_integrity.py` | Checkpoint security and integrity |
 | `tests/test_concurrency_safety.py` | Thread safety (single-threaded constraint) |
@@ -670,7 +673,7 @@ The test suite covers:
 **Confirmed results (Phase 28 report, 2026-10-22):**
 
 ```
-Total: 299/299 passed in ~588s
+Total: 303/303 passed in ~616s
 ```
 
 ---
@@ -748,7 +751,7 @@ MINEMOS/
 │   ├── TASK7_SECURITY_REMEDIATION_REPORT.md
 │   └── TASK7_1_VERIFICATION_REPORT.md
 │
-├── tests/                           # Complete automated regression test suite (299 tests)
+├── tests/                           # Complete automated regression test suite (303 tests)
 │   ├── test_adversarial_verification.py
 │   ├── test_basic.py
 │   ├── test_checkpoint.py
@@ -761,6 +764,7 @@ MINEMOS/
 │   ├── test_phase12_addressing.py
 │   ├── test_phase13.py – test_phase27.py
 │   ├── test_phase28_adversarial.py
+│   ├── test_phase28_false_contradiction_regression.py
 │   ├── test_security_remediation.py
 │   └── test_semantic_encoder.py
 │

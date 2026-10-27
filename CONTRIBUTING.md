@@ -54,7 +54,7 @@ AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 python -m pytest tests/ -v
 ```
 
-All 299 tests must pass before submitting a pull request.
+All 303 tests must pass before submitting a pull request.
 
 ---
 

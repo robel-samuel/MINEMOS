@@ -178,7 +178,7 @@ class BlackHoleMemory:
         }
 
         EXCLUSIVE_SYNONYM_GROUPS = [
-            {"residence", "lives in", "lives", "resides in", "resides", "location", "located in", "headquarters"},
+            {"residence", "lives in", "lives", "resides in", "resides", "location", "located in", "headquarters", "city"},
             {"employed by", "works at", "employer", "company"},
             {"role", "title", "position", "current_role", "current_title"},
             {"status", "state", "operational_state"},
@@ -211,18 +211,15 @@ class BlackHoleMemory:
             if dense_sim >= 0.65:
                 return True
 
-        # 3. Exclusive attribute groups
+        # 3. Exclusive attribute groups.  Predicate identity alone is not
+        # sufficient: NLI often marks independent facts sharing a verb
+        # (e.g. "leads team A" vs "leads team B") as contradictions.
         if slot_pred and cand_pred:
-            if slot_pred == cand_pred and slot_pred not in CUMULATIVE_PREDICATES:
-                GENERIC = {"is", "was", "are", "were", "has", "had", "states", "says", ""}
-                if slot_pred not in GENERIC:
+            for grp in EXCLUSIVE_SYNONYM_GROUPS:
+                in_slot = any(m in slot_pred for m in grp)
+                in_cand = any(m in cand_pred for m in grp)
+                if in_slot and in_cand:
                     return True
-            else:
-                for grp in EXCLUSIVE_SYNONYM_GROUPS:
-                    in_slot = any(m in slot_pred for m in grp)
-                    in_cand = any(m in cand_pred for m in grp)
-                    if in_slot and in_cand:
-                        return True
 
         # 4. Antonyms
         ANTONYMS = {

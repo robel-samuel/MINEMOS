@@ -150,7 +150,7 @@ def run_benchmark_3_retrieval():
     Re-uses the Phase 27 Experiment A harness which benchmarks 4 interference conditions.
     """
     print("\n--- Benchmark 3: Retrieval Under Vocabulary Divergence & Distractors ---")
-    p27_file = os.path.join(os.path.dirname(__file__), "phase27_results.json")
+    p27_file = os.path.join(os.path.dirname(__file__), "results", "phase27_results.json")
     if os.path.exists(p27_file):
         print(f"  Loading multi-seed Phase 27 Experiment A baseline results from {p27_file}")
         with open(p27_file, "r", encoding="utf-8") as f:
@@ -371,7 +371,7 @@ def run_benchmark_6_held_out():
     Re-uses run_experiment_d_held_out to ensure strict comparability.
     """
     print("\n--- Benchmark 6: Frozen Held-Out End-to-End Generalization ---")
-    p27_file = os.path.join(os.path.dirname(__file__), "phase27_results.json")
+    p27_file = os.path.join(os.path.dirname(__file__), "results", "phase27_results.json")
     if os.path.exists(p27_file):
         print(f"  Loading multi-seed Phase 27 Experiment D held-out results from {p27_file}")
         with open(p27_file, "r", encoding="utf-8") as f:
