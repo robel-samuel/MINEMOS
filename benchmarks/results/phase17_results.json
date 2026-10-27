@@ -1,0 +1,1465 @@
+{
+  "scenario_1": {
+    "10": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 17,
+          "n_inserts": 50,
+          "n_evicts": 163,
+          "rejected_candidates": 212,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 209,
+            "nli_accept": 17,
+            "rejected_neutral": 3
+          },
+          "true_consolidation_rate": 0.5,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.5,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9992,
+          "wall_seconds": 25.71
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.15,
+          "nli_accuracy_given_retrieval": 1.0,
+          "end_to_end_accuracy": 0.85
+        },
+        "wall_seconds": 25.71,
+        "probe_recall_rate": 0.85
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 20,
+          "n_inserts": 50,
+          "n_evicts": 160,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 50,
+            "oracle_accept": 20,
+            "oracle_evict": 160
+          },
+          "true_consolidation_rate": 0.5,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.5,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9992,
+          "wall_seconds": 0.24
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.15,
+          "nli_accuracy_given_retrieval": 1.0,
+          "end_to_end_accuracy": 1.0
+        },
+        "wall_seconds": 0.24,
+        "probe_recall_rate": 1.0
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 17,
+          "n_inserts": 50,
+          "n_evicts": 163,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 50,
+            "lexical_accept": 17,
+            "evict_insert": 163
+          },
+          "true_consolidation_rate": 0.5,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.5,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9992,
+          "wall_seconds": 0.27
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.15,
+          "nli_accuracy_given_retrieval": 0.6667,
+          "end_to_end_accuracy": 0.8
+        },
+        "wall_seconds": 0.27,
+        "probe_recall_rate": 0.8
+      }
+    },
+    "50": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 0,
+          "n_inserts": 50,
+          "n_evicts": 980,
+          "rejected_candidates": 1029,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 1029
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 87.71
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.25,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 87.71,
+        "probe_recall_rate": 0.0
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 0,
+          "n_inserts": 50,
+          "n_evicts": 980,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 50,
+            "oracle_evict": 980
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 0.94
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.25,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 0.94,
+        "probe_recall_rate": 0.0
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 11,
+          "n_inserts": 50,
+          "n_evicts": 969,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 50,
+            "evict_insert": 969,
+            "lexical_accept": 11
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 0.73
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.2,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.2
+        },
+        "wall_seconds": 0.73,
+        "probe_recall_rate": 0.2
+      }
+    },
+    "100": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 0,
+          "n_inserts": 50,
+          "n_evicts": 1980,
+          "rejected_candidates": 2029,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 2029
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 162.77
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.2,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 162.77,
+        "probe_recall_rate": 0.0
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 0,
+          "n_inserts": 50,
+          "n_evicts": 1980,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 50,
+            "oracle_evict": 1980
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 1.98
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.2,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 1.98,
+        "probe_recall_rate": 0.0
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 14,
+          "n_inserts": 50,
+          "n_evicts": 1966,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 50,
+            "evict_insert": 1966,
+            "lexical_accept": 14
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 1.86
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.2,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 1.86,
+        "probe_recall_rate": 0.0
+      }
+    },
+    "500": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 0,
+          "n_inserts": 50,
+          "n_evicts": 9980,
+          "rejected_candidates": 10029,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 10028,
+            "rejected_neutral": 1
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 832.5
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.2,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 832.5,
+        "probe_recall_rate": 0.0
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 0,
+          "n_inserts": 50,
+          "n_evicts": 9980,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 50,
+            "oracle_evict": 9980
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 8.52
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.2,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 8.52,
+        "probe_recall_rate": 0.0
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 70,
+          "n_inserts": 50,
+          "n_evicts": 9910,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 50,
+            "evict_insert": 9910,
+            "lexical_accept": 70
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 6.62
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "candidate_retrieval_recall": 0.2,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 6.62,
+        "probe_recall_rate": 0.0
+      }
+    },
+    "recall_vs_gap": {
+      "A_nli": {
+        "10": 0.85,
+        "50": 0.0,
+        "100": 0.0,
+        "500": 0.0
+      },
+      "B_oracle": {
+        "10": 1.0,
+        "50": 0.0,
+        "100": 0.0,
+        "500": 0.0
+      },
+      "C_lexical": {
+        "10": 0.8,
+        "50": 0.2,
+        "100": 0.0,
+        "500": 0.0
+      }
+    }
+  },
+  "scenario_2": {
+    "A_nli": {
+      "metrics": {
+        "system": "A_nli",
+        "capacity": 100,
+        "final_slots": 100,
+        "n_updates": 39,
+        "n_inserts": 100,
+        "n_evicts": 341,
+        "rejected_candidates": 440,
+        "gate_counts": {
+          "new_slot": 1,
+          "rejected_contra": 436,
+          "nli_accept": 39,
+          "rejected_neutral": 4
+        },
+        "true_consolidation_rate": 0.0,
+        "false_consolidation_rate": 0.0,
+        "contradiction_retention": 1.0,
+        "paraphrase_consolidation": 0.0,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 1.0,
+        "wall_seconds": 39.26
+      },
+      "contradiction_retention_over_time": {
+        "0": 0.5,
+        "20": 0.5,
+        "40": 0.5,
+        "60": 0.5,
+        "80": 0.5,
+        "100": null
+      },
+      "diagnostics": {
+        "total_probes": 80,
+        "candidate_retrieval_recall": 0.05,
+        "nli_accuracy_given_retrieval": 0.75,
+        "end_to_end_accuracy": 0.5125
+      },
+      "wall_seconds": 39.26
+    },
+    "B_oracle": {
+      "metrics": {
+        "system": "B_oracle",
+        "capacity": 100,
+        "final_slots": 100,
+        "n_updates": 20,
+        "n_inserts": 100,
+        "n_evicts": 360,
+        "rejected_candidates": 0,
+        "gate_counts": {
+          "oracle_new": 100,
+          "oracle_accept": 20,
+          "oracle_evict": 360
+        },
+        "true_consolidation_rate": 0.0,
+        "false_consolidation_rate": 0.05,
+        "contradiction_retention": 0.95,
+        "paraphrase_consolidation": 0.0,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 1.0,
+        "wall_seconds": 0.61
+      },
+      "contradiction_retention_over_time": {
+        "0": 1.0,
+        "20": 1.0,
+        "40": 1.0,
+        "60": 1.0,
+        "80": 1.0,
+        "100": null
+      },
+      "diagnostics": {
+        "total_probes": 80,
+        "candidate_retrieval_recall": 0.025,
+        "nli_accuracy_given_retrieval": 1.0,
+        "end_to_end_accuracy": 0.75
+      },
+      "wall_seconds": 0.61
+    },
+    "C_lexical": {
+      "metrics": {
+        "system": "C_lexical",
+        "capacity": 100,
+        "final_slots": 100,
+        "n_updates": 60,
+        "n_inserts": 100,
+        "n_evicts": 320,
+        "rejected_candidates": 0,
+        "gate_counts": {
+          "new_slot": 100,
+          "lexical_accept": 60,
+          "evict_insert": 320
+        },
+        "true_consolidation_rate": 0.0,
+        "false_consolidation_rate": 0.3,
+        "contradiction_retention": 0.7,
+        "paraphrase_consolidation": 0.0,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9992,
+        "wall_seconds": 0.58
+      },
+      "contradiction_retention_over_time": {
+        "0": 0.125,
+        "20": 0.125,
+        "40": 0.0,
+        "60": 0.125,
+        "80": 0.125,
+        "100": null
+      },
+      "diagnostics": {
+        "total_probes": 80,
+        "candidate_retrieval_recall": 0.0625,
+        "nli_accuracy_given_retrieval": 0.4,
+        "end_to_end_accuracy": 0.3
+      },
+      "wall_seconds": 0.58
+    }
+  },
+  "scenario_3": {
+    "A_nli": {
+      "metrics": {
+        "system": "A_nli",
+        "capacity": 100,
+        "final_slots": 100,
+        "n_updates": 92,
+        "n_inserts": 100,
+        "n_evicts": 348,
+        "rejected_candidates": 447,
+        "gate_counts": {
+          "new_slot": 1,
+          "rejected_contra": 439,
+          "nli_accept": 92,
+          "rejected_neutral": 8
+        },
+        "true_consolidation_rate": 0.15,
+        "false_consolidation_rate": 0.0,
+        "contradiction_retention": 1.0,
+        "paraphrase_consolidation": 0.15,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9998,
+        "wall_seconds": 43.03
+      },
+      "bounded_head_amplification": {
+        "n_concepts": 420,
+        "initial_contradiction_merges": 0,
+        "initial_error_rate": 0.0,
+        "bounded_head_step2_merges": 0,
+        "bounded_amplification_ratio": 0.0,
+        "mean_recovery_key_sim": 0.68,
+        "mean_recovery_val_sim": 0.6788
+      },
+      "diagnostics": {
+        "total_probes": 40,
+        "candidate_retrieval_recall": 0.025,
+        "nli_accuracy_given_retrieval": 1.0,
+        "end_to_end_accuracy": 0.9
+      },
+      "wall_seconds": 43.03
+    },
+    "B_oracle": {
+      "metrics": {
+        "system": "B_oracle",
+        "capacity": 100,
+        "final_slots": 100,
+        "n_updates": 100,
+        "n_inserts": 100,
+        "n_evicts": 340,
+        "rejected_candidates": 0,
+        "gate_counts": {
+          "oracle_new": 100,
+          "oracle_accept": 100,
+          "oracle_evict": 340
+        },
+        "true_consolidation_rate": 0.55,
+        "false_consolidation_rate": 0.2,
+        "contradiction_retention": 0.8,
+        "paraphrase_consolidation": 0.55,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9998,
+        "wall_seconds": 1.64
+      },
+      "bounded_head_amplification": {
+        "n_concepts": 420,
+        "initial_contradiction_merges": 0,
+        "initial_error_rate": 0.0,
+        "bounded_head_step2_merges": 0,
+        "bounded_amplification_ratio": 0.0,
+        "mean_recovery_key_sim": 0.68,
+        "mean_recovery_val_sim": 0.6788
+      },
+      "diagnostics": {
+        "total_probes": 40,
+        "candidate_retrieval_recall": 0.075,
+        "nli_accuracy_given_retrieval": 1.0,
+        "end_to_end_accuracy": 1.0
+      },
+      "wall_seconds": 1.64
+    },
+    "C_lexical": {
+      "metrics": {
+        "system": "C_lexical",
+        "capacity": 100,
+        "final_slots": 100,
+        "n_updates": 114,
+        "n_inserts": 100,
+        "n_evicts": 326,
+        "rejected_candidates": 0,
+        "gate_counts": {
+          "new_slot": 100,
+          "lexical_accept": 114,
+          "evict_insert": 326
+        },
+        "true_consolidation_rate": 0.55,
+        "false_consolidation_rate": 0.35,
+        "contradiction_retention": 0.65,
+        "paraphrase_consolidation": 0.55,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9995,
+        "wall_seconds": 0.75
+      },
+      "bounded_head_amplification": {
+        "n_concepts": 420,
+        "initial_contradiction_merges": 16,
+        "initial_error_rate": 0.0381,
+        "bounded_head_step2_merges": 2,
+        "bounded_amplification_ratio": 0.125,
+        "mean_recovery_key_sim": 0.6865,
+        "mean_recovery_val_sim": 0.6839
+      },
+      "diagnostics": {
+        "total_probes": 40,
+        "candidate_retrieval_recall": 0.025,
+        "nli_accuracy_given_retrieval": 1.0,
+        "end_to_end_accuracy": 0.5
+      },
+      "wall_seconds": 0.75
+    }
+  },
+  "scenario_4": {
+    "A_nli": {
+      "metrics": {
+        "system": "A_nli",
+        "capacity": 100,
+        "final_slots": 100,
+        "n_updates": 26,
+        "n_inserts": 100,
+        "n_evicts": 294,
+        "rejected_candidates": 393,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 26,
+          "rejected_contra": 362,
+          "rejected_neutral": 31
+        },
+        "true_consolidation_rate": 0.0,
+        "false_consolidation_rate": 0.0,
+        "contradiction_retention": 1.0,
+        "paraphrase_consolidation": 0.0,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9988,
+        "wall_seconds": 32.42
+      },
+      "diagnostics": {
+        "total_probes": 100,
+        "candidate_retrieval_recall": 0.03,
+        "nli_accuracy_given_retrieval": 0.3333,
+        "end_to_end_accuracy": 0.46
+      },
+      "wall_seconds": 32.42
+    },
+    "B_oracle": {
+      "metrics": {
+        "system": "B_oracle",
+        "capacity": 100,
+        "final_slots": 100,
+        "n_updates": 80,
+        "n_inserts": 100,
+        "n_evicts": 240,
+        "rejected_candidates": 0,
+        "gate_counts": {
+          "oracle_new": 100,
+          "oracle_accept": 80,
+          "oracle_evict": 240
+        },
+        "true_consolidation_rate": 0.0,
+        "false_consolidation_rate": 0.05,
+        "contradiction_retention": 0.95,
+        "paraphrase_consolidation": 0.0,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.994,
+        "wall_seconds": 0.64
+      },
+      "diagnostics": {
+        "total_probes": 100,
+        "candidate_retrieval_recall": 0.01,
+        "nli_accuracy_given_retrieval": 1.0,
+        "end_to_end_accuracy": 1.0
+      },
+      "wall_seconds": 0.64
+    },
+    "C_lexical": {
+      "metrics": {
+        "system": "C_lexical",
+        "capacity": 100,
+        "final_slots": 100,
+        "n_updates": 50,
+        "n_inserts": 100,
+        "n_evicts": 270,
+        "rejected_candidates": 0,
+        "gate_counts": {
+          "new_slot": 100,
+          "lexical_accept": 50,
+          "evict_insert": 270
+        },
+        "true_consolidation_rate": 0.0,
+        "false_consolidation_rate": 0.1,
+        "contradiction_retention": 0.9,
+        "paraphrase_consolidation": 0.0,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9989,
+        "wall_seconds": 0.63
+      },
+      "diagnostics": {
+        "total_probes": 100,
+        "candidate_retrieval_recall": 0.04,
+        "nli_accuracy_given_retrieval": 0.0,
+        "end_to_end_accuracy": 0.46
+      },
+      "wall_seconds": 0.63
+    }
+  },
+  "scenario_5": {
+    "50": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 100,
+          "final_slots": 62,
+          "n_updates": 8,
+          "n_inserts": 62,
+          "n_evicts": 0,
+          "rejected_candidates": 61,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 59,
+            "nli_accept": 8,
+            "rejected_neutral": 2
+          },
+          "true_consolidation_rate": 0.8,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.8,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9986,
+          "wall_seconds": 5.08
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 1.0,
+          "nli_accuracy_given_retrieval": 0.8,
+          "end_to_end_accuracy": 0.8
+        },
+        "wall_seconds": 5.08
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 100,
+          "final_slots": 60,
+          "n_updates": 10,
+          "n_inserts": 60,
+          "n_evicts": 0,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 60,
+            "oracle_accept": 10
+          },
+          "true_consolidation_rate": 1.0,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 1.0,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9986,
+          "wall_seconds": 0.06
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 1.0,
+          "nli_accuracy_given_retrieval": 1.0,
+          "end_to_end_accuracy": 1.0
+        },
+        "wall_seconds": 0.06
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 100,
+          "final_slots": 62,
+          "n_updates": 8,
+          "n_inserts": 62,
+          "n_evicts": 0,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 62,
+            "lexical_accept": 8
+          },
+          "true_consolidation_rate": 0.8,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.8,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9992,
+          "wall_seconds": 0.06
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 1.0,
+          "nli_accuracy_given_retrieval": 0.8,
+          "end_to_end_accuracy": 0.8
+        },
+        "wall_seconds": 0.06
+      }
+    },
+    "100": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 0,
+          "n_inserts": 100,
+          "n_evicts": 20,
+          "rejected_candidates": 119,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 118,
+            "rejected_neutral": 1
+          },
+          "true_consolidation_rate": 1.0,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 1.0,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 8.33
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 0.1,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 8.33
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 0,
+          "n_inserts": 100,
+          "n_evicts": 20,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 100,
+            "oracle_evict": 20
+          },
+          "true_consolidation_rate": 1.0,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 1.0,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 0.14
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 0.1,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 0.14
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 0,
+          "n_inserts": 100,
+          "n_evicts": 20,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 100,
+            "evict_insert": 20
+          },
+          "true_consolidation_rate": 1.0,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 1.0,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 0.11
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 0.1,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 0.11
+      }
+    },
+    "200": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 0,
+          "n_inserts": 100,
+          "n_evicts": 120,
+          "rejected_candidates": 219,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 219
+          },
+          "true_consolidation_rate": 1.0,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 1.0,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 18.4
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 0.1,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 18.4
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 0,
+          "n_inserts": 100,
+          "n_evicts": 120,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 100,
+            "oracle_evict": 120
+          },
+          "true_consolidation_rate": 1.0,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 1.0,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 0.6
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 0.1,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 0.6
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 1,
+          "n_inserts": 100,
+          "n_evicts": 119,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 100,
+            "evict_insert": 119,
+            "lexical_accept": 1
+          },
+          "true_consolidation_rate": 1.0,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 1.0,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9999,
+          "wall_seconds": 0.86
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 0.1,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 0.86
+      }
+    },
+    "500": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 0,
+          "n_inserts": 100,
+          "n_evicts": 420,
+          "rejected_candidates": 519,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 519
+          },
+          "true_consolidation_rate": 1.0,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 1.0,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 42.1
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 0.1,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 42.1
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 0,
+          "n_inserts": 100,
+          "n_evicts": 420,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 100,
+            "oracle_evict": 420
+          },
+          "true_consolidation_rate": 1.0,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 1.0,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 0.67
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 0.1,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 0.67
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 5,
+          "n_inserts": 100,
+          "n_evicts": 415,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 100,
+            "evict_insert": 415,
+            "lexical_accept": 5
+          },
+          "true_consolidation_rate": 1.0,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 1.0,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 0.64
+        },
+        "diagnostics": {
+          "total_probes": 10,
+          "candidate_retrieval_recall": 0.1,
+          "nli_accuracy_given_retrieval": 0.0,
+          "end_to_end_accuracy": 0.0
+        },
+        "wall_seconds": 0.64
+      }
+    }
+  },
+  "scenario_6": {
+    "1500": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 1500,
+          "final_slots": 1137,
+          "n_updates": 363,
+          "n_inserts": 1137,
+          "n_evicts": 0,
+          "rejected_candidates": 1136,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 1120,
+            "nli_accept": 363,
+            "rejected_neutral": 16
+          },
+          "true_consolidation_rate": 0.635,
+          "false_consolidation_rate": 0.04,
+          "contradiction_retention": 0.96,
+          "paraphrase_consolidation": 0.635,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9988,
+          "wall_seconds": 130.19
+        },
+        "diagnostics": {
+          "total_probes": 300,
+          "candidate_retrieval_recall": 0.4633,
+          "nli_accuracy_given_retrieval": 0.9353,
+          "end_to_end_accuracy": 0.6133
+        },
+        "wall_seconds": 130.19
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 1500,
+          "final_slots": 1273,
+          "n_updates": 227,
+          "n_inserts": 1273,
+          "n_evicts": 0,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 1273,
+            "oracle_accept": 227
+          },
+          "true_consolidation_rate": 0.86,
+          "false_consolidation_rate": 0.38,
+          "contradiction_retention": 0.62,
+          "paraphrase_consolidation": 0.86,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9971,
+          "wall_seconds": 17.47
+        },
+        "diagnostics": {
+          "total_probes": 300,
+          "candidate_retrieval_recall": 0.6333,
+          "nli_accuracy_given_retrieval": 1.0,
+          "end_to_end_accuracy": 0.8433
+        },
+        "wall_seconds": 17.47
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 1500,
+          "final_slots": 1003,
+          "n_updates": 497,
+          "n_inserts": 1003,
+          "n_evicts": 0,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 1003,
+            "lexical_accept": 497
+          },
+          "true_consolidation_rate": 0.79,
+          "false_consolidation_rate": 0.66,
+          "contradiction_retention": 0.34,
+          "paraphrase_consolidation": 0.79,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9975,
+          "wall_seconds": 11.22
+        },
+        "diagnostics": {
+          "total_probes": 300,
+          "candidate_retrieval_recall": 0.59,
+          "nli_accuracy_given_retrieval": 0.6554,
+          "end_to_end_accuracy": 0.54
+        },
+        "wall_seconds": 11.22
+      }
+    },
+    "100": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 62,
+          "n_inserts": 100,
+          "n_evicts": 1338,
+          "rejected_candidates": 1437,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 1430,
+            "nli_accept": 62,
+            "rejected_neutral": 7
+          },
+          "true_consolidation_rate": 0.235,
+          "false_consolidation_rate": 0.23,
+          "contradiction_retention": 0.77,
+          "paraphrase_consolidation": 0.235,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 118.45
+        },
+        "diagnostics": {
+          "total_probes": 300,
+          "candidate_retrieval_recall": 0.0367,
+          "nli_accuracy_given_retrieval": 0.2727,
+          "end_to_end_accuracy": 0.4067
+        },
+        "wall_seconds": 118.45
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 56,
+          "n_inserts": 100,
+          "n_evicts": 1344,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 100,
+            "oracle_evict": 1344,
+            "oracle_accept": 56
+          },
+          "true_consolidation_rate": 0.305,
+          "false_consolidation_rate": 0.22,
+          "contradiction_retention": 0.78,
+          "paraphrase_consolidation": 0.305,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 2.01
+        },
+        "diagnostics": {
+          "total_probes": 300,
+          "candidate_retrieval_recall": 0.0367,
+          "nli_accuracy_given_retrieval": 0.3636,
+          "end_to_end_accuracy": 0.47
+        },
+        "wall_seconds": 2.01
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 100,
+          "final_slots": 100,
+          "n_updates": 95,
+          "n_inserts": 100,
+          "n_evicts": 1305,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 100,
+            "lexical_accept": 95,
+            "evict_insert": 1305
+          },
+          "true_consolidation_rate": 0.22,
+          "false_consolidation_rate": 0.22,
+          "contradiction_retention": 0.78,
+          "paraphrase_consolidation": 0.22,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9997,
+          "wall_seconds": 4.09
+        },
+        "diagnostics": {
+          "total_probes": 300,
+          "candidate_retrieval_recall": 0.0467,
+          "nli_accuracy_given_retrieval": 0.3571,
+          "end_to_end_accuracy": 0.36
+        },
+        "wall_seconds": 4.09
+      }
+    },
+    "50": {
+      "A_nli": {
+        "metrics": {
+          "system": "A_nli",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 36,
+          "n_inserts": 50,
+          "n_evicts": 1414,
+          "rejected_candidates": 1463,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 1456,
+            "nli_accept": 36,
+            "rejected_neutral": 7
+          },
+          "true_consolidation_rate": 0.295,
+          "false_consolidation_rate": 0.3,
+          "contradiction_retention": 0.7,
+          "paraphrase_consolidation": 0.295,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 114.1
+        },
+        "diagnostics": {
+          "total_probes": 300,
+          "candidate_retrieval_recall": 0.07,
+          "nli_accuracy_given_retrieval": 0.381,
+          "end_to_end_accuracy": 0.3833
+        },
+        "wall_seconds": 114.1
+      },
+      "B_oracle": {
+        "metrics": {
+          "system": "B_oracle",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 35,
+          "n_inserts": 50,
+          "n_evicts": 1415,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "oracle_new": 50,
+            "oracle_evict": 1415,
+            "oracle_accept": 35
+          },
+          "true_consolidation_rate": 0.225,
+          "false_consolidation_rate": 0.3,
+          "contradiction_retention": 0.7,
+          "paraphrase_consolidation": 0.225,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 0.92
+        },
+        "diagnostics": {
+          "total_probes": 300,
+          "candidate_retrieval_recall": 0.1033,
+          "nli_accuracy_given_retrieval": 0.3548,
+          "end_to_end_accuracy": 0.4133
+        },
+        "wall_seconds": 0.92
+      },
+      "C_lexical": {
+        "metrics": {
+          "system": "C_lexical",
+          "capacity": 50,
+          "final_slots": 50,
+          "n_updates": 58,
+          "n_inserts": 50,
+          "n_evicts": 1392,
+          "rejected_candidates": 0,
+          "gate_counts": {
+            "new_slot": 50,
+            "lexical_accept": 58,
+            "evict_insert": 1392
+          },
+          "true_consolidation_rate": 0.225,
+          "false_consolidation_rate": 0.3,
+          "contradiction_retention": 0.7,
+          "paraphrase_consolidation": 0.225,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 2.41
+        },
+        "diagnostics": {
+          "total_probes": 300,
+          "candidate_retrieval_recall": 0.0933,
+          "nli_accuracy_given_retrieval": 0.4286,
+          "end_to_end_accuracy": 0.3467
+        },
+        "wall_seconds": 2.41
+      }
+    }
+  },
+  "scenario_7": {
+    "A_nli": {
+      "metrics": {
+        "system": "A_nli",
+        "capacity": 200,
+        "final_slots": 200,
+        "n_updates": 319,
+        "n_inserts": 200,
+        "n_evicts": 4481,
+        "rejected_candidates": 4680,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 319,
+          "rejected_contra": 4599,
+          "rejected_neutral": 81
+        },
+        "true_consolidation_rate": 0.1942,
+        "false_consolidation_rate": 0.215,
+        "contradiction_retention": 0.785,
+        "paraphrase_consolidation": 0.1942,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 1.0,
+        "wall_seconds": 293.72
+      },
+      "diagnostics": {
+        "total_probes": 684,
+        "candidate_retrieval_recall": 0.0,
+        "nli_accuracy_given_retrieval": 0.0,
+        "end_to_end_accuracy": 0.7588
+      },
+      "wall_seconds": 293.72
+    },
+    "B_oracle": {
+      "metrics": {
+        "system": "B_oracle",
+        "capacity": 200,
+        "final_slots": 200,
+        "n_updates": 400,
+        "n_inserts": 200,
+        "n_evicts": 4400,
+        "rejected_candidates": 0,
+        "gate_counts": {
+          "oracle_new": 200,
+          "oracle_accept": 400,
+          "oracle_evict": 4400
+        },
+        "true_consolidation_rate": 0.1942,
+        "false_consolidation_rate": 0.215,
+        "contradiction_retention": 0.785,
+        "paraphrase_consolidation": 0.1942,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 1.0,
+        "wall_seconds": 11.65
+      },
+      "diagnostics": {
+        "total_probes": 684,
+        "candidate_retrieval_recall": 0.0,
+        "nli_accuracy_given_retrieval": 0.0,
+        "end_to_end_accuracy": 0.8772
+      },
+      "wall_seconds": 11.65
+    },
+    "C_lexical": {
+      "metrics": {
+        "system": "C_lexical",
+        "capacity": 200,
+        "final_slots": 200,
+        "n_updates": 592,
+        "n_inserts": 200,
+        "n_evicts": 4208,
+        "rejected_candidates": 0,
+        "gate_counts": {
+          "new_slot": 200,
+          "lexical_accept": 592,
+          "evict_insert": 4208
+        },
+        "true_consolidation_rate": 0.2624,
+        "false_consolidation_rate": 0.205,
+        "contradiction_retention": 0.795,
+        "paraphrase_consolidation": 0.2624,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 1.0,
+        "wall_seconds": 9.86
+      },
+      "diagnostics": {
+        "total_probes": 684,
+        "candidate_retrieval_recall": 0.0278,
+        "nli_accuracy_given_retrieval": 0.5789,
+        "end_to_end_accuracy": 0.5263
+      },
+      "wall_seconds": 9.86
+    }
+  }
+}

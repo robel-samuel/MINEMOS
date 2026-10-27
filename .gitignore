@@ -94,10 +94,8 @@ checkpoints/
 # if you redirect HF_HOME here, exclude them)
 hf_cache/
 
-# Experiment output (scratch results are not committed — use reports/ instead)
-scratch/*.json
-scratch/*.tmp
-scratch/*.log
+# Local scratch directory
+scratch/
 
 # Temporary / local logs
 *.log

@@ -1,0 +1,103 @@
+{
+  "phase": 25,
+  "timestamp": 1792052175.4384556,
+  "checks": {
+    "All initial facts inserted": {
+      "passed": true,
+      "detail": "actions: ['insert', 'insert', 'insert', 'insert', 'insert']"
+    },
+    "Memory contains 5 slots": {
+      "passed": true,
+      "detail": "actual: 5"
+    },
+    "All slots have valid_from timestamps": {
+      "passed": true,
+      "detail": "valid_froms: [100.0, 101.0, 102.0, 103.0, 104.0]"
+    },
+    "Paraphrase does not false-merge (action is insert, consolidate, or temporal_update)": {
+      "passed": true,
+      "detail": "action=temporal_update"
+    },
+    "Memory stays bounded at capacity": {
+      "passed": true,
+      "detail": "slots=16, capacity=20"
+    },
+    "Alice (high-value) survived distractor flood": {
+      "passed": true,
+      "detail": "tiered eviction should protect previously touched slots"
+    },
+    "Temporal revision creates a new slot or updates": {
+      "passed": true,
+      "detail": "action=temporal_update"
+    },
+    "Current active Alice recall returns exactly 1 result": {
+      "passed": true,
+      "detail": "active count=1"
+    },
+    "Superseded Alice slot has valid_until set": {
+      "passed": true,
+      "detail": "superseded slots=1"
+    },
+    "Historical recall at t=150 finds original Alice fact": {
+      "passed": true,
+      "detail": "found=1 slots at t=150"
+    },
+    "Contradiction is NOT merged into an existing Bob slot": {
+      "passed": true,
+      "detail": "action=temporal_update"
+    },
+    "Bob's original PhD fact survives after contradiction": {
+      "passed": true,
+      "detail": "PhD facts found=1"
+    },
+    "Alice history contains at least 2 entries (original + revised)": {
+      "passed": true,
+      "detail": "history entries=2"
+    },
+    "Alice history is sorted by valid_from": {
+      "passed": true,
+      "detail": "valid_froms=[100.0, 300.0]"
+    },
+    "Query returns results for relevant topic": {
+      "passed": true,
+      "detail": "results=3"
+    },
+    "Top query result mentions quantum physics or Bob": {
+      "passed": true,
+      "detail": "top text: 'Bob does not hold a PhD in quantum physics.'"
+    },
+    "total_absorbed tracked correctly": {
+      "passed": true,
+      "detail": "total_absorbed=18"
+    },
+    "NLI calls tracked": {
+      "passed": true,
+      "detail": "total_nli_calls=178"
+    },
+    "Memory footprint is positive": {
+      "passed": true,
+      "detail": "footprint=590256 bytes"
+    }
+  },
+  "summary": {
+    "total_checks": 19,
+    "passed": 19,
+    "failed": 0,
+    "all_passed": true,
+    "status": {
+      "capacity": 20,
+      "total_slots": 18,
+      "active_slots": 15,
+      "provisional_slots": 15,
+      "consolidated_slots": 0,
+      "superseded_slots": 3,
+      "total_absorbed": 18,
+      "total_updates": 0,
+      "total_inserts": 15,
+      "total_temporal_updates": 3,
+      "total_evictions": 0,
+      "total_nli_calls": 178,
+      "footprint_bytes": 590256
+    }
+  }
+}

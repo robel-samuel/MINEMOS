@@ -2,7 +2,7 @@
 ## Retention Hardening, Semantic Verification Recalibration, and Drift-Resistant Consolidation
 
 **Status:** COMPLETE  
-**Primary Result File:** `scratch/phase24_results.json`  
+**Primary Result File:** `benchmarks/results/phase24_results.json`\
 **Test Suite:** 20/20 passed (12 Phase 24 tests + 8 Phase 23 tests, 268 total across repo)  
 **Historical Results Preserved:** Phase 20, 21, 22, and 23 reports, data, and baselines remain untouched.
 
@@ -38,7 +38,7 @@ Before implementing Phase 24 modifications, the frozen Phase 23 baseline configu
   - Exp 3 (Retention Oracle): E2E = 0.40, Survival = 0.0862, Failures = Category B (6) / SUCCESS (4).
   - Exp 7 (Held-Out Seed=2323): E2E = 0.00, FMR = 0.00, ContraAcc = 1.00, Survival = 0.0644.
 
-Baseline integrity is verified and preserved in `scratch/phase23_results.json`.
+Baseline integrity is verified and preserved in `benchmarks/results/phase23_results.json`.
 
 ---
 

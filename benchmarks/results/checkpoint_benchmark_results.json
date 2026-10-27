@@ -1,0 +1,47 @@
+{
+  "slots_10": {
+    "n_slots": 10,
+    "dim": 4096,
+    "file_size_bytes": 350810,
+    "file_size_kb": 342.59,
+    "in_memory_footprint_bytes": 327920,
+    "save_latency_mean_ms": 9.19,
+    "save_latency_median_ms": 9.345,
+    "save_latency_min_ms": 7.284,
+    "save_latency_max_ms": 10.828,
+    "load_latency_mean_ms": 8.491,
+    "load_latency_median_ms": 6.393,
+    "load_latency_min_ms": 5.605,
+    "load_latency_max_ms": 24.019
+  },
+  "slots_50": {
+    "n_slots": 50,
+    "dim": 4096,
+    "file_size_bytes": 1733370,
+    "file_size_kb": 1692.74,
+    "in_memory_footprint_bytes": 1639600,
+    "save_latency_mean_ms": 19.063,
+    "save_latency_median_ms": 18.999,
+    "save_latency_min_ms": 16.367,
+    "save_latency_max_ms": 21.205,
+    "load_latency_mean_ms": 21.418,
+    "load_latency_median_ms": 19.65,
+    "load_latency_min_ms": 17.81,
+    "load_latency_max_ms": 37.398
+  },
+  "slots_100": {
+    "n_slots": 100,
+    "dim": 4096,
+    "file_size_bytes": 3461420,
+    "file_size_kb": 3380.29,
+    "in_memory_footprint_bytes": 3279200,
+    "save_latency_mean_ms": 31.799,
+    "save_latency_median_ms": 31.844,
+    "save_latency_min_ms": 28.431,
+    "save_latency_max_ms": 33.717,
+    "load_latency_mean_ms": 33.323,
+    "load_latency_median_ms": 31.776,
+    "load_latency_min_ms": 29.119,
+    "load_latency_max_ms": 48.573
+  }
+}

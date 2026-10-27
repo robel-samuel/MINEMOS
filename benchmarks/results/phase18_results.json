@@ -1,0 +1,1716 @@
+{
+  "top_k_ablation": {
+    "1": {
+      "metrics": {
+        "system": "B",
+        "capacity": 1500,
+        "top_k": 1,
+        "final_slots": 1412,
+        "n_updates": 88,
+        "n_inserts": 1412,
+        "n_evicts": 0,
+        "nli_calls": 1499,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 88,
+          "rejected_contra": 1387,
+          "rejected_neutral": 24
+        },
+        "true_consolidation_rate": 0.5,
+        "false_consolidation_rate": 0.04,
+        "contradiction_retention": 0.96,
+        "paraphrase_consolidation": 0.5,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9997,
+        "wall_seconds": 128.79,
+        "obs_per_second": 11.65,
+        "time_embedding": 27.817,
+        "time_retrieval": 2.755,
+        "time_nli": 97.876
+      },
+      "diagnostics": {
+        "total_probes": 260,
+        "top1_retrieval_recall": 0.3731,
+        "topk_retrieval_recall": 0.3731,
+        "conditional_nli_accuracy": 0.8557,
+        "end_to_end_accuracy": 0.6808,
+        "avg_candidates_examined": 1.0
+      },
+      "wall_seconds": 128.79
+    },
+    "3": {
+      "metrics": {
+        "system": "B",
+        "capacity": 1500,
+        "top_k": 3,
+        "final_slots": 1348,
+        "n_updates": 152,
+        "n_inserts": 1348,
+        "n_evicts": 0,
+        "nli_calls": 4238,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 152,
+          "rejected_contra": 1329,
+          "rejected_neutral": 18
+        },
+        "true_consolidation_rate": 0.7,
+        "false_consolidation_rate": 0.24,
+        "contradiction_retention": 0.76,
+        "paraphrase_consolidation": 0.7,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9987,
+        "wall_seconds": 325.63,
+        "obs_per_second": 4.61,
+        "time_embedding": 29.624,
+        "time_retrieval": 2.758,
+        "time_nli": 292.877
+      },
+      "diagnostics": {
+        "total_probes": 260,
+        "top1_retrieval_recall": 0.4538,
+        "topk_retrieval_recall": 0.5615,
+        "conditional_nli_accuracy": 0.863,
+        "end_to_end_accuracy": 0.7615,
+        "avg_candidates_examined": 2.03
+      },
+      "wall_seconds": 325.63
+    },
+    "5": {
+      "metrics": {
+        "system": "B",
+        "capacity": 1500,
+        "top_k": 5,
+        "final_slots": 1338,
+        "n_updates": 162,
+        "n_inserts": 1338,
+        "n_evicts": 0,
+        "nli_calls": 6910,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 162,
+          "rejected_contra": 1320,
+          "rejected_neutral": 17
+        },
+        "true_consolidation_rate": 0.7937,
+        "false_consolidation_rate": 0.28,
+        "contradiction_retention": 0.72,
+        "paraphrase_consolidation": 0.7937,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9986,
+        "wall_seconds": 459.58,
+        "obs_per_second": 3.26,
+        "time_embedding": 26.042,
+        "time_retrieval": 2.541,
+        "time_nli": 430.655
+      },
+      "diagnostics": {
+        "total_probes": 260,
+        "top1_retrieval_recall": 0.4615,
+        "topk_retrieval_recall": 0.6077,
+        "conditional_nli_accuracy": 0.8418,
+        "end_to_end_accuracy": 0.7615,
+        "avg_candidates_examined": 2.83
+      },
+      "wall_seconds": 459.58
+    },
+    "10": {
+      "metrics": {
+        "system": "B",
+        "capacity": 1500,
+        "top_k": 10,
+        "final_slots": 1320,
+        "n_updates": 180,
+        "n_inserts": 1320,
+        "n_evicts": 0,
+        "nli_calls": 13489,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 180,
+          "rejected_contra": 1302,
+          "rejected_neutral": 17
+        },
+        "true_consolidation_rate": 0.8,
+        "false_consolidation_rate": 0.45,
+        "contradiction_retention": 0.55,
+        "paraphrase_consolidation": 0.8,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9986,
+        "wall_seconds": 1116.29,
+        "obs_per_second": 1.34,
+        "time_embedding": 35.963,
+        "time_retrieval": 3.331,
+        "time_nli": 1076.562
+      },
+      "diagnostics": {
+        "total_probes": 260,
+        "top1_retrieval_recall": 0.4615,
+        "topk_retrieval_recall": 0.7077,
+        "conditional_nli_accuracy": 0.7989,
+        "end_to_end_accuracy": 0.7,
+        "avg_candidates_examined": 4.53
+      },
+      "wall_seconds": 1116.29
+    }
+  },
+  "safety_test": {
+    "A": {
+      "metrics": {
+        "system": "A",
+        "capacity": 100,
+        "top_k": 3,
+        "final_slots": 64,
+        "n_updates": 16,
+        "n_inserts": 64,
+        "n_evicts": 0,
+        "nli_calls": 79,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 16,
+          "rejected_contra": 55,
+          "rejected_neutral": 8
+        },
+        "true_consolidation_rate": 0.8,
+        "false_consolidation_rate": 0.0,
+        "contradiction_retention": 1.0,
+        "paraphrase_consolidation": 0.8,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9974,
+        "wall_seconds": 4.82,
+        "obs_per_second": 16.58,
+        "time_embedding": 0.0,
+        "time_retrieval": 0.045,
+        "time_nli": 4.763
+      },
+      "diagnostics": {
+        "total_probes": 40,
+        "top1_retrieval_recall": 0.925,
+        "topk_retrieval_recall": 0.925,
+        "conditional_nli_accuracy": 0.8919,
+        "end_to_end_accuracy": 0.9,
+        "avg_candidates_examined": 1.0
+      },
+      "wall_seconds": 4.82
+    },
+    "B": {
+      "metrics": {
+        "system": "B",
+        "capacity": 100,
+        "top_k": 3,
+        "final_slots": 55,
+        "n_updates": 25,
+        "n_inserts": 55,
+        "n_evicts": 0,
+        "nli_calls": 190,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 25,
+          "rejected_contra": 50,
+          "rejected_neutral": 4
+        },
+        "true_consolidation_rate": 0.75,
+        "false_consolidation_rate": 0.35,
+        "contradiction_retention": 0.65,
+        "paraphrase_consolidation": 0.75,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9917,
+        "wall_seconds": 15.88,
+        "obs_per_second": 5.04,
+        "time_embedding": 1.572,
+        "time_retrieval": 0.014,
+        "time_nli": 14.276
+      },
+      "diagnostics": {
+        "total_probes": 40,
+        "top1_retrieval_recall": 0.475,
+        "topk_retrieval_recall": 0.675,
+        "conditional_nli_accuracy": 0.7407,
+        "end_to_end_accuracy": 0.7,
+        "avg_candidates_examined": 1.88
+      },
+      "wall_seconds": 15.88
+    },
+    "C": {
+      "metrics": {
+        "system": "C",
+        "capacity": 100,
+        "top_k": 3,
+        "final_slots": 64,
+        "n_updates": 16,
+        "n_inserts": 64,
+        "n_evicts": 0,
+        "nli_calls": 79,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 16,
+          "rejected_contra": 55,
+          "rejected_neutral": 8
+        },
+        "true_consolidation_rate": 0.8,
+        "false_consolidation_rate": 0.0,
+        "contradiction_retention": 1.0,
+        "paraphrase_consolidation": 0.8,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9974,
+        "wall_seconds": 7.51,
+        "obs_per_second": 10.65,
+        "time_embedding": 0.0,
+        "time_retrieval": 0.066,
+        "time_nli": 7.423
+      },
+      "diagnostics": {
+        "total_probes": 40,
+        "top1_retrieval_recall": 0.925,
+        "topk_retrieval_recall": 0.925,
+        "conditional_nli_accuracy": 0.8919,
+        "end_to_end_accuracy": 0.9,
+        "avg_candidates_examined": 1.0
+      },
+      "wall_seconds": 7.51
+    },
+    "D": {
+      "metrics": {
+        "system": "D",
+        "capacity": 100,
+        "top_k": 3,
+        "final_slots": 55,
+        "n_updates": 25,
+        "n_inserts": 55,
+        "n_evicts": 0,
+        "nli_calls": 190,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 25,
+          "rejected_contra": 50,
+          "rejected_neutral": 4
+        },
+        "true_consolidation_rate": 0.75,
+        "false_consolidation_rate": 0.35,
+        "contradiction_retention": 0.65,
+        "paraphrase_consolidation": 0.75,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9917,
+        "wall_seconds": 19.7,
+        "obs_per_second": 4.06,
+        "time_embedding": 2.184,
+        "time_retrieval": 0.016,
+        "time_nli": 17.48
+      },
+      "diagnostics": {
+        "total_probes": 40,
+        "top1_retrieval_recall": 0.475,
+        "topk_retrieval_recall": 0.675,
+        "conditional_nli_accuracy": 0.7407,
+        "end_to_end_accuracy": 0.7,
+        "avg_candidates_examined": 1.88
+      },
+      "wall_seconds": 19.7
+    }
+  },
+  "capacity_factorial": {
+    "1500": {
+      "A": {
+        "metrics": {
+          "system": "A",
+          "capacity": 1500,
+          "top_k": 3,
+          "final_slots": 1372,
+          "n_updates": 128,
+          "n_inserts": 1372,
+          "n_evicts": 0,
+          "nli_calls": 1499,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 128,
+            "rejected_contra": 1330,
+            "rejected_neutral": 41
+          },
+          "true_consolidation_rate": 0.8,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.8,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.999,
+          "wall_seconds": 175.46,
+          "obs_per_second": 8.55,
+          "time_embedding": 0.0,
+          "time_retrieval": 27.374,
+          "time_nli": 147.526
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.8846,
+          "topk_retrieval_recall": 0.8846,
+          "conditional_nli_accuracy": 0.9087,
+          "end_to_end_accuracy": 0.8769,
+          "avg_candidates_examined": 1.0
+        },
+        "wall_seconds": 175.46
+      },
+      "B": {
+        "metrics": {
+          "system": "B",
+          "capacity": 1500,
+          "top_k": 3,
+          "final_slots": 1348,
+          "n_updates": 152,
+          "n_inserts": 1348,
+          "n_evicts": 0,
+          "nli_calls": 4238,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 152,
+            "rejected_contra": 1329,
+            "rejected_neutral": 18
+          },
+          "true_consolidation_rate": 0.7,
+          "false_consolidation_rate": 0.24,
+          "contradiction_retention": 0.76,
+          "paraphrase_consolidation": 0.7,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9987,
+          "wall_seconds": 467.17,
+          "obs_per_second": 3.21,
+          "time_embedding": 43.585,
+          "time_retrieval": 4.083,
+          "time_nli": 418.967
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.4538,
+          "topk_retrieval_recall": 0.5615,
+          "conditional_nli_accuracy": 0.863,
+          "end_to_end_accuracy": 0.7615,
+          "avg_candidates_examined": 2.03
+        },
+        "wall_seconds": 467.17
+      },
+      "C": {
+        "metrics": {
+          "system": "C",
+          "capacity": 1500,
+          "top_k": 3,
+          "final_slots": 1372,
+          "n_updates": 128,
+          "n_inserts": 1372,
+          "n_evicts": 0,
+          "nli_calls": 1499,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 128,
+            "rejected_contra": 1330,
+            "rejected_neutral": 41
+          },
+          "true_consolidation_rate": 0.8,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.8,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.999,
+          "wall_seconds": 183.12,
+          "obs_per_second": 8.19,
+          "time_embedding": 0.0,
+          "time_retrieval": 27.343,
+          "time_nli": 155.229
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.8846,
+          "topk_retrieval_recall": 0.8846,
+          "conditional_nli_accuracy": 0.9087,
+          "end_to_end_accuracy": 0.8769,
+          "avg_candidates_examined": 1.0
+        },
+        "wall_seconds": 183.12
+      },
+      "D": {
+        "metrics": {
+          "system": "D",
+          "capacity": 1500,
+          "top_k": 3,
+          "final_slots": 1348,
+          "n_updates": 152,
+          "n_inserts": 1348,
+          "n_evicts": 0,
+          "nli_calls": 4238,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 152,
+            "rejected_contra": 1329,
+            "rejected_neutral": 18
+          },
+          "true_consolidation_rate": 0.7,
+          "false_consolidation_rate": 0.24,
+          "contradiction_retention": 0.76,
+          "paraphrase_consolidation": 0.7,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9987,
+          "wall_seconds": 354.55,
+          "obs_per_second": 4.23,
+          "time_embedding": 33.366,
+          "time_retrieval": 2.813,
+          "time_nli": 317.999
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.4538,
+          "topk_retrieval_recall": 0.5615,
+          "conditional_nli_accuracy": 0.863,
+          "end_to_end_accuracy": 0.7615,
+          "avg_candidates_examined": 2.03
+        },
+        "wall_seconds": 354.55
+      }
+    },
+    "200": {
+      "A": {
+        "metrics": {
+          "system": "A",
+          "capacity": 200,
+          "top_k": 3,
+          "final_slots": 200,
+          "n_updates": 80,
+          "n_inserts": 200,
+          "n_evicts": 1220,
+          "nli_calls": 1499,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 80,
+            "rejected_contra": 1379,
+            "rejected_neutral": 40
+          },
+          "true_consolidation_rate": 0.2375,
+          "false_consolidation_rate": 0.1,
+          "contradiction_retention": 0.9,
+          "paraphrase_consolidation": 0.2375,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 106.88,
+          "obs_per_second": 14.03,
+          "time_embedding": 0.0,
+          "time_retrieval": 4.583,
+          "time_nli": 101.869
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.0077,
+          "topk_retrieval_recall": 0.0077,
+          "conditional_nli_accuracy": 0.5,
+          "end_to_end_accuracy": 0.6923,
+          "avg_candidates_examined": 1.0
+        },
+        "wall_seconds": 106.88
+      },
+      "B": {
+        "metrics": {
+          "system": "B",
+          "capacity": 200,
+          "top_k": 3,
+          "final_slots": 200,
+          "n_updates": 105,
+          "n_inserts": 200,
+          "n_evicts": 1195,
+          "nli_calls": 4302,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 105,
+            "rejected_contra": 1384,
+            "rejected_neutral": 10
+          },
+          "true_consolidation_rate": 0.2375,
+          "false_consolidation_rate": 0.1,
+          "contradiction_retention": 0.9,
+          "paraphrase_consolidation": 0.2375,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 309.22,
+          "obs_per_second": 4.85,
+          "time_embedding": 26.941,
+          "time_retrieval": 0.665,
+          "time_nli": 281.189
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.0192,
+          "topk_retrieval_recall": 0.05,
+          "conditional_nli_accuracy": 0.5385,
+          "end_to_end_accuracy": 0.5962,
+          "avg_candidates_examined": 2.26
+        },
+        "wall_seconds": 309.22
+      },
+      "C": {
+        "metrics": {
+          "system": "C",
+          "capacity": 200,
+          "top_k": 3,
+          "final_slots": 200,
+          "n_updates": 128,
+          "n_inserts": 200,
+          "n_evicts": 1172,
+          "nli_calls": 1499,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 128,
+            "rejected_contra": 1330,
+            "rejected_neutral": 41
+          },
+          "true_consolidation_rate": 0.9313,
+          "false_consolidation_rate": 0.86,
+          "contradiction_retention": 0.14,
+          "paraphrase_consolidation": 0.9313,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9931,
+          "wall_seconds": 103.33,
+          "obs_per_second": 14.52,
+          "time_embedding": 0.0,
+          "time_retrieval": 4.428,
+          "time_nli": 98.04
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.2038,
+          "topk_retrieval_recall": 0.2038,
+          "conditional_nli_accuracy": 0.9811,
+          "end_to_end_accuracy": 0.8769,
+          "avg_candidates_examined": 1.0
+        },
+        "wall_seconds": 103.33
+      },
+      "D": {
+        "metrics": {
+          "system": "D",
+          "capacity": 200,
+          "top_k": 3,
+          "final_slots": 200,
+          "n_updates": 139,
+          "n_inserts": 200,
+          "n_evicts": 1161,
+          "nli_calls": 4240,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 139,
+            "rejected_contra": 1350,
+            "rejected_neutral": 10
+          },
+          "true_consolidation_rate": 0.7812,
+          "false_consolidation_rate": 0.73,
+          "contradiction_retention": 0.27,
+          "paraphrase_consolidation": 0.7812,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9911,
+          "wall_seconds": 447.29,
+          "obs_per_second": 3.35,
+          "time_embedding": 41.215,
+          "time_retrieval": 0.962,
+          "time_nli": 403.808
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.1308,
+          "topk_retrieval_recall": 0.1692,
+          "conditional_nli_accuracy": 0.9545,
+          "end_to_end_accuracy": 0.7231,
+          "avg_candidates_examined": 2.02
+        },
+        "wall_seconds": 447.29
+      }
+    },
+    "100": {
+      "A": {
+        "metrics": {
+          "system": "A",
+          "capacity": 100,
+          "top_k": 3,
+          "final_slots": 100,
+          "n_updates": 80,
+          "n_inserts": 100,
+          "n_evicts": 1320,
+          "nli_calls": 1499,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 80,
+            "rejected_contra": 1378,
+            "rejected_neutral": 41
+          },
+          "true_consolidation_rate": 0.1812,
+          "false_consolidation_rate": 0.05,
+          "contradiction_retention": 0.95,
+          "paraphrase_consolidation": 0.1812,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 151.43,
+          "obs_per_second": 9.91,
+          "time_embedding": 0.0,
+          "time_retrieval": 3.477,
+          "time_nli": 147.417
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.0038,
+          "topk_retrieval_recall": 0.0038,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.6923,
+          "avg_candidates_examined": 1.0
+        },
+        "wall_seconds": 151.43
+      },
+      "B": {
+        "metrics": {
+          "system": "B",
+          "capacity": 100,
+          "top_k": 3,
+          "final_slots": 100,
+          "n_updates": 105,
+          "n_inserts": 100,
+          "n_evicts": 1295,
+          "nli_calls": 4302,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 105,
+            "rejected_contra": 1384,
+            "rejected_neutral": 10
+          },
+          "true_consolidation_rate": 0.1812,
+          "false_consolidation_rate": 0.05,
+          "contradiction_retention": 0.95,
+          "paraphrase_consolidation": 0.1812,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 338.97,
+          "obs_per_second": 4.43,
+          "time_embedding": 31.378,
+          "time_retrieval": 0.452,
+          "time_nli": 306.71
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.0231,
+          "topk_retrieval_recall": 0.0615,
+          "conditional_nli_accuracy": 0.5,
+          "end_to_end_accuracy": 0.5923,
+          "avg_candidates_examined": 2.26
+        },
+        "wall_seconds": 338.97
+      },
+      "C": {
+        "metrics": {
+          "system": "C",
+          "capacity": 100,
+          "top_k": 3,
+          "final_slots": 100,
+          "n_updates": 93,
+          "n_inserts": 100,
+          "n_evicts": 1307,
+          "nli_calls": 1499,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 93,
+            "rejected_contra": 1365,
+            "rejected_neutral": 41
+          },
+          "true_consolidation_rate": 0.5938,
+          "false_consolidation_rate": 0.55,
+          "contradiction_retention": 0.45,
+          "paraphrase_consolidation": 0.5938,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9934,
+          "wall_seconds": 103.64,
+          "obs_per_second": 14.47,
+          "time_embedding": 0.0,
+          "time_retrieval": 2.491,
+          "time_nli": 100.479
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.0846,
+          "topk_retrieval_recall": 0.0846,
+          "conditional_nli_accuracy": 0.6364,
+          "end_to_end_accuracy": 0.7385,
+          "avg_candidates_examined": 1.0
+        },
+        "wall_seconds": 103.64
+      },
+      "D": {
+        "metrics": {
+          "system": "D",
+          "capacity": 100,
+          "top_k": 3,
+          "final_slots": 100,
+          "n_updates": 109,
+          "n_inserts": 100,
+          "n_evicts": 1291,
+          "nli_calls": 4297,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 109,
+            "rejected_contra": 1379,
+            "rejected_neutral": 11
+          },
+          "true_consolidation_rate": 0.3125,
+          "false_consolidation_rate": 0.4,
+          "contradiction_retention": 0.6,
+          "paraphrase_consolidation": 0.3125,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9862,
+          "wall_seconds": 339.04,
+          "obs_per_second": 4.42,
+          "time_embedding": 30.188,
+          "time_retrieval": 0.453,
+          "time_nli": 307.68
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.0115,
+          "topk_retrieval_recall": 0.0385,
+          "conditional_nli_accuracy": 0.7,
+          "end_to_end_accuracy": 0.6038,
+          "avg_candidates_examined": 2.24
+        },
+        "wall_seconds": 339.04
+      }
+    },
+    "50": {
+      "A": {
+        "metrics": {
+          "system": "A",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 89,
+          "n_inserts": 50,
+          "n_evicts": 1361,
+          "nli_calls": 1499,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 89,
+            "rejected_contra": 1366,
+            "rejected_neutral": 44
+          },
+          "true_consolidation_rate": 0.3438,
+          "false_consolidation_rate": 0.21,
+          "contradiction_retention": 0.79,
+          "paraphrase_consolidation": 0.3438,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 100.05,
+          "obs_per_second": 14.99,
+          "time_embedding": 0.0,
+          "time_retrieval": 1.266,
+          "time_nli": 98.421
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.05,
+          "topk_retrieval_recall": 0.05,
+          "conditional_nli_accuracy": 0.2308,
+          "end_to_end_accuracy": 0.6962,
+          "avg_candidates_examined": 1.0
+        },
+        "wall_seconds": 100.05
+      },
+      "B": {
+        "metrics": {
+          "system": "B",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 108,
+          "n_inserts": 50,
+          "n_evicts": 1342,
+          "nli_calls": 4302,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 108,
+            "rejected_contra": 1379,
+            "rejected_neutral": 12
+          },
+          "true_consolidation_rate": 0.3438,
+          "false_consolidation_rate": 0.21,
+          "contradiction_retention": 0.79,
+          "paraphrase_consolidation": 0.3438,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 294.48,
+          "obs_per_second": 5.09,
+          "time_embedding": 25.696,
+          "time_retrieval": 0.27,
+          "time_nli": 268.155
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.0269,
+          "topk_retrieval_recall": 0.0962,
+          "conditional_nli_accuracy": 0.64,
+          "end_to_end_accuracy": 0.6077,
+          "avg_candidates_examined": 2.26
+        },
+        "wall_seconds": 294.48
+      },
+      "C": {
+        "metrics": {
+          "system": "C",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 84,
+          "n_inserts": 50,
+          "n_evicts": 1366,
+          "nli_calls": 1499,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 84,
+            "rejected_contra": 1372,
+            "rejected_neutral": 43
+          },
+          "true_consolidation_rate": 0.3438,
+          "false_consolidation_rate": 0.21,
+          "contradiction_retention": 0.79,
+          "paraphrase_consolidation": 0.3438,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 110.0,
+          "obs_per_second": 13.64,
+          "time_embedding": 0.0,
+          "time_retrieval": 1.37,
+          "time_nli": 108.074
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.0462,
+          "topk_retrieval_recall": 0.0462,
+          "conditional_nli_accuracy": 0.25,
+          "end_to_end_accuracy": 0.6962,
+          "avg_candidates_examined": 1.0
+        },
+        "wall_seconds": 110.0
+      },
+      "D": {
+        "metrics": {
+          "system": "D",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 116,
+          "n_inserts": 50,
+          "n_evicts": 1334,
+          "nli_calls": 4289,
+          "gate_counts": {
+            "new_slot": 1,
+            "nli_accept": 116,
+            "rejected_contra": 1371,
+            "rejected_neutral": 12
+          },
+          "true_consolidation_rate": 0.1313,
+          "false_consolidation_rate": 0.12,
+          "contradiction_retention": 0.88,
+          "paraphrase_consolidation": 0.1313,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9726,
+          "wall_seconds": 347.56,
+          "obs_per_second": 4.32,
+          "time_embedding": 31.731,
+          "time_retrieval": 0.301,
+          "time_nli": 314.988
+        },
+        "diagnostics": {
+          "total_probes": 260,
+          "top1_retrieval_recall": 0.0115,
+          "topk_retrieval_recall": 0.0769,
+          "conditional_nli_accuracy": 0.45,
+          "end_to_end_accuracy": 0.5808,
+          "avg_candidates_examined": 2.21
+        },
+        "wall_seconds": 347.56
+      }
+    }
+  },
+  "long_gap_experiment": {
+    "10": {
+      "A": {
+        "metrics": {
+          "system": "A",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 18,
+          "n_inserts": 50,
+          "n_evicts": 162,
+          "nli_calls": 229,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 208,
+            "nli_accept": 18,
+            "rejected_neutral": 3
+          },
+          "true_consolidation_rate": 0.5,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.5,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9992,
+          "wall_seconds": 16.47,
+          "obs_per_second": 13.96,
+          "time_embedding": 0.0,
+          "time_retrieval": 0.175,
+          "time_nli": 16.243
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.15,
+          "topk_retrieval_recall": 0.15,
+          "conditional_nli_accuracy": 1.0,
+          "end_to_end_accuracy": 0.85,
+          "avg_candidates_examined": 1.0
+        },
+        "probe_recall_rate": 0.85,
+        "wall_seconds": 16.47
+      },
+      "B": {
+        "metrics": {
+          "system": "B",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 19,
+          "n_inserts": 50,
+          "n_evicts": 161,
+          "nli_calls": 649,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 208,
+            "nli_accept": 19,
+            "rejected_neutral": 2
+          },
+          "true_consolidation_rate": 0.5,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.5,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9992,
+          "wall_seconds": 65.24,
+          "obs_per_second": 3.53,
+          "time_embedding": 6.098,
+          "time_retrieval": 0.058,
+          "time_nli": 59.012
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.15,
+          "topk_retrieval_recall": 0.2,
+          "conditional_nli_accuracy": 1.0,
+          "end_to_end_accuracy": 0.9,
+          "avg_candidates_examined": 1.3
+        },
+        "probe_recall_rate": 0.9,
+        "wall_seconds": 65.24
+      },
+      "C": {
+        "metrics": {
+          "system": "C",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 18,
+          "n_inserts": 50,
+          "n_evicts": 162,
+          "nli_calls": 229,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 207,
+            "nli_accept": 18,
+            "rejected_neutral": 4
+          },
+          "true_consolidation_rate": 0.95,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.95,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9959,
+          "wall_seconds": 21.8,
+          "obs_per_second": 10.55,
+          "time_embedding": 0.0,
+          "time_retrieval": 0.238,
+          "time_nli": 21.462
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.15,
+          "topk_retrieval_recall": 0.15,
+          "conditional_nli_accuracy": 1.0,
+          "end_to_end_accuracy": 0.85,
+          "avg_candidates_examined": 1.0
+        },
+        "probe_recall_rate": 0.85,
+        "wall_seconds": 21.8
+      },
+      "D": {
+        "metrics": {
+          "system": "D",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 19,
+          "n_inserts": 50,
+          "n_evicts": 161,
+          "nli_calls": 650,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 208,
+            "nli_accept": 19,
+            "rejected_neutral": 2
+          },
+          "true_consolidation_rate": 0.95,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.95,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9977,
+          "wall_seconds": 69.21,
+          "obs_per_second": 3.32,
+          "time_embedding": 5.982,
+          "time_retrieval": 0.052,
+          "time_nli": 63.08
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.1,
+          "topk_retrieval_recall": 0.2,
+          "conditional_nli_accuracy": 1.0,
+          "end_to_end_accuracy": 0.9,
+          "avg_candidates_examined": 1.35
+        },
+        "probe_recall_rate": 0.9,
+        "wall_seconds": 69.21
+      }
+    },
+    "50": {
+      "A": {
+        "metrics": {
+          "system": "A",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 9,
+          "n_inserts": 50,
+          "n_evicts": 971,
+          "nli_calls": 1029,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 1017,
+            "nli_accept": 9,
+            "rejected_neutral": 3
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 108.0,
+          "obs_per_second": 9.54,
+          "time_embedding": 0.0,
+          "time_retrieval": 1.408,
+          "time_nli": 106.208
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.2,
+          "topk_retrieval_recall": 0.2,
+          "conditional_nli_accuracy": 0.5,
+          "end_to_end_accuracy": 0.2,
+          "avg_candidates_examined": 1.0
+        },
+        "probe_recall_rate": 0.2,
+        "wall_seconds": 108.0
+      },
+      "B": {
+        "metrics": {
+          "system": "B",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 4,
+          "n_inserts": 50,
+          "n_evicts": 976,
+          "nli_calls": 3080,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 1023,
+            "nli_accept": 4,
+            "rejected_neutral": 2
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 269.4,
+          "obs_per_second": 3.82,
+          "time_embedding": 23.33,
+          "time_retrieval": 0.232,
+          "time_nli": 245.54
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.0,
+          "topk_retrieval_recall": 0.05,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.05,
+          "avg_candidates_examined": 2.9
+        },
+        "probe_recall_rate": 0.05,
+        "wall_seconds": 269.4
+      },
+      "C": {
+        "metrics": {
+          "system": "C",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 3,
+          "n_inserts": 50,
+          "n_evicts": 977,
+          "nli_calls": 1029,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 1022,
+            "nli_accept": 3,
+            "rejected_neutral": 4
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 118.87,
+          "obs_per_second": 8.66,
+          "time_embedding": 0.0,
+          "time_retrieval": 1.613,
+          "time_nli": 116.679
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.2,
+          "topk_retrieval_recall": 0.2,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.0,
+          "avg_candidates_examined": 1.0
+        },
+        "probe_recall_rate": 0.0,
+        "wall_seconds": 118.87
+      },
+      "D": {
+        "metrics": {
+          "system": "D",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 5,
+          "n_inserts": 50,
+          "n_evicts": 975,
+          "nli_calls": 3079,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 1023,
+            "nli_accept": 5,
+            "rejected_neutral": 1
+          },
+          "true_consolidation_rate": 0.25,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.25,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9978,
+          "wall_seconds": 286.33,
+          "obs_per_second": 3.6,
+          "time_embedding": 25.179,
+          "time_retrieval": 0.258,
+          "time_nli": 260.443
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.0,
+          "topk_retrieval_recall": 0.05,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.1,
+          "avg_candidates_examined": 2.85
+        },
+        "probe_recall_rate": 0.1,
+        "wall_seconds": 286.33
+      }
+    },
+    "100": {
+      "A": {
+        "metrics": {
+          "system": "A",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 13,
+          "n_inserts": 50,
+          "n_evicts": 1967,
+          "nli_calls": 2029,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 2012,
+            "nli_accept": 13,
+            "rejected_neutral": 4
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 106.09,
+          "obs_per_second": 19.13,
+          "time_embedding": 0.0,
+          "time_retrieval": 1.336,
+          "time_nli": 104.351
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.15,
+          "topk_retrieval_recall": 0.15,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.0,
+          "avg_candidates_examined": 1.0
+        },
+        "probe_recall_rate": 0.0,
+        "wall_seconds": 106.09
+      },
+      "B": {
+        "metrics": {
+          "system": "B",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 7,
+          "n_inserts": 50,
+          "n_evicts": 1973,
+          "nli_calls": 6082,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 2019,
+            "nli_accept": 7,
+            "rejected_neutral": 3
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 346.29,
+          "obs_per_second": 5.86,
+          "time_embedding": 29.472,
+          "time_retrieval": 0.325,
+          "time_nli": 316.071
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.05,
+          "topk_retrieval_recall": 0.15,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.0,
+          "avg_candidates_examined": 3.0
+        },
+        "probe_recall_rate": 0.0,
+        "wall_seconds": 346.29
+      },
+      "C": {
+        "metrics": {
+          "system": "C",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 8,
+          "n_inserts": 50,
+          "n_evicts": 1972,
+          "nli_calls": 2029,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 2016,
+            "nli_accept": 8,
+            "rejected_neutral": 5
+          },
+          "true_consolidation_rate": 0.25,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.25,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9987,
+          "wall_seconds": 108.19,
+          "obs_per_second": 18.76,
+          "time_embedding": 0.0,
+          "time_retrieval": 1.36,
+          "time_nli": 106.285
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.1,
+          "topk_retrieval_recall": 0.1,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.0,
+          "avg_candidates_examined": 1.0
+        },
+        "probe_recall_rate": 0.0,
+        "wall_seconds": 108.19
+      },
+      "D": {
+        "metrics": {
+          "system": "D",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 5,
+          "n_inserts": 50,
+          "n_evicts": 1975,
+          "nli_calls": 6078,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 2022,
+            "nli_accept": 5,
+            "rejected_neutral": 2
+          },
+          "true_consolidation_rate": 0.25,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.25,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 0.9978,
+          "wall_seconds": 634.42,
+          "obs_per_second": 3.2,
+          "time_embedding": 55.258,
+          "time_retrieval": 0.56,
+          "time_nli": 577.597
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.05,
+          "topk_retrieval_recall": 0.05,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.1,
+          "avg_candidates_examined": 2.8
+        },
+        "probe_recall_rate": 0.1,
+        "wall_seconds": 634.42
+      }
+    },
+    "500": {
+      "A": {
+        "metrics": {
+          "system": "A",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 67,
+          "n_inserts": 50,
+          "n_evicts": 9913,
+          "nli_calls": 10029,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 9943,
+            "nli_accept": 67,
+            "rejected_neutral": 19
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 982.93,
+          "obs_per_second": 10.2,
+          "time_embedding": 0.0,
+          "time_retrieval": 13.938,
+          "time_nli": 965.407
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.2,
+          "topk_retrieval_recall": 0.2,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.0,
+          "avg_candidates_examined": 1.0
+        },
+        "probe_recall_rate": 0.0,
+        "wall_seconds": 982.93
+      },
+      "B": {
+        "metrics": {
+          "system": "B",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 27,
+          "n_inserts": 50,
+          "n_evicts": 9953,
+          "nli_calls": 30083,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 9999,
+            "nli_accept": 27,
+            "rejected_neutral": 3
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 71781.01,
+          "obs_per_second": 0.14,
+          "time_embedding": 277.671,
+          "time_retrieval": 2.747,
+          "time_nli": 71497.054
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.05,
+          "topk_retrieval_recall": 0.05,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.0,
+          "avg_candidates_examined": 3.0
+        },
+        "probe_recall_rate": 0.0,
+        "wall_seconds": 71781.01
+      },
+      "C": {
+        "metrics": {
+          "system": "C",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 42,
+          "n_inserts": 50,
+          "n_evicts": 9938,
+          "nli_calls": 10029,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 9976,
+            "nli_accept": 42,
+            "rejected_neutral": 11
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 679.26,
+          "obs_per_second": 14.77,
+          "time_embedding": 0.0,
+          "time_retrieval": 8.779,
+          "time_nli": 666.937
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.2,
+          "topk_retrieval_recall": 0.2,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.0,
+          "avg_candidates_examined": 1.0
+        },
+        "probe_recall_rate": 0.0,
+        "wall_seconds": 679.26
+      },
+      "D": {
+        "metrics": {
+          "system": "D",
+          "capacity": 50,
+          "top_k": 3,
+          "final_slots": 50,
+          "n_updates": 27,
+          "n_inserts": 50,
+          "n_evicts": 9953,
+          "nli_calls": 30083,
+          "gate_counts": {
+            "new_slot": 1,
+            "rejected_contra": 9999,
+            "nli_accept": 27,
+            "rejected_neutral": 3
+          },
+          "true_consolidation_rate": 0.4,
+          "false_consolidation_rate": 0.0,
+          "contradiction_retention": 1.0,
+          "paraphrase_consolidation": 0.4,
+          "unrelated_separation": 1.0,
+          "mean_slot_kv_similarity": 1.0,
+          "wall_seconds": 2541.52,
+          "obs_per_second": 3.95,
+          "time_embedding": 215.037,
+          "time_retrieval": 2.202,
+          "time_nli": 2320.417
+        },
+        "diagnostics": {
+          "total_probes": 20,
+          "top1_retrieval_recall": 0.05,
+          "topk_retrieval_recall": 0.05,
+          "conditional_nli_accuracy": 0.0,
+          "end_to_end_accuracy": 0.0,
+          "avg_candidates_examined": 3.0
+        },
+        "probe_recall_rate": 0.0,
+        "wall_seconds": 2541.52
+      }
+    }
+  },
+  "continual_5000": {
+    "A": {
+      "metrics": {
+        "system": "A",
+        "capacity": 200,
+        "top_k": 3,
+        "final_slots": 200,
+        "n_updates": 66,
+        "n_inserts": 200,
+        "n_evicts": 4734,
+        "nli_calls": 4999,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 66,
+          "rejected_contra": 4913,
+          "rejected_neutral": 20
+        },
+        "true_consolidation_rate": 0.2034,
+        "false_consolidation_rate": 0.25,
+        "contradiction_retention": 0.75,
+        "paraphrase_consolidation": 0.2034,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 1.0,
+        "wall_seconds": 437.02,
+        "obs_per_second": 11.44,
+        "time_embedding": 0.0,
+        "time_retrieval": 19.457,
+        "time_nli": 415.895
+      },
+      "diagnostics": {
+        "total_probes": 217,
+        "top1_retrieval_recall": 0.023,
+        "topk_retrieval_recall": 0.023,
+        "conditional_nli_accuracy": 0.6,
+        "end_to_end_accuracy": 0.4885,
+        "avg_candidates_examined": 1.0
+      },
+      "wall_seconds": 437.02
+    },
+    "B": {
+      "metrics": {
+        "system": "B",
+        "capacity": 200,
+        "top_k": 3,
+        "final_slots": 200,
+        "n_updates": 82,
+        "n_inserts": 200,
+        "n_evicts": 4718,
+        "nli_calls": 14861,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 82,
+          "rejected_contra": 4909,
+          "rejected_neutral": 8
+        },
+        "true_consolidation_rate": 0.2034,
+        "false_consolidation_rate": 0.25,
+        "contradiction_retention": 0.75,
+        "paraphrase_consolidation": 0.2034,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 1.0,
+        "wall_seconds": 1383.29,
+        "obs_per_second": 3.61,
+        "time_embedding": 117.441,
+        "time_retrieval": 2.812,
+        "time_nli": 1261.251
+      },
+      "diagnostics": {
+        "total_probes": 217,
+        "top1_retrieval_recall": 0.0553,
+        "topk_retrieval_recall": 0.1521,
+        "conditional_nli_accuracy": 0.6364,
+        "end_to_end_accuracy": 0.4424,
+        "avg_candidates_examined": 2.38
+      },
+      "wall_seconds": 1383.29
+    },
+    "C": {
+      "metrics": {
+        "system": "C",
+        "capacity": 200,
+        "top_k": 3,
+        "final_slots": 200,
+        "n_updates": 133,
+        "n_inserts": 200,
+        "n_evicts": 4667,
+        "nli_calls": 4999,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 133,
+          "rejected_contra": 4844,
+          "rejected_neutral": 22
+        },
+        "true_consolidation_rate": 0.8701,
+        "false_consolidation_rate": 0.85,
+        "contradiction_retention": 0.15,
+        "paraphrase_consolidation": 0.8701,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9844,
+        "wall_seconds": 383.35,
+        "obs_per_second": 13.04,
+        "time_embedding": 0.0,
+        "time_retrieval": 17.538,
+        "time_nli": 362.357
+      },
+      "diagnostics": {
+        "total_probes": 217,
+        "top1_retrieval_recall": 0.3733,
+        "topk_retrieval_recall": 0.3733,
+        "conditional_nli_accuracy": 0.8642,
+        "end_to_end_accuracy": 0.7972,
+        "avg_candidates_examined": 1.0
+      },
+      "wall_seconds": 383.35
+    },
+    "D": {
+      "metrics": {
+        "system": "D",
+        "capacity": 200,
+        "top_k": 3,
+        "final_slots": 200,
+        "n_updates": 166,
+        "n_inserts": 200,
+        "n_evicts": 4634,
+        "nli_calls": 14727,
+        "gate_counts": {
+          "new_slot": 1,
+          "nli_accept": 166,
+          "rejected_contra": 4825,
+          "rejected_neutral": 8
+        },
+        "true_consolidation_rate": 0.9492,
+        "false_consolidation_rate": 0.825,
+        "contradiction_retention": 0.175,
+        "paraphrase_consolidation": 0.9492,
+        "unrelated_separation": 1.0,
+        "mean_slot_kv_similarity": 0.9884,
+        "wall_seconds": 1452.08,
+        "obs_per_second": 3.44,
+        "time_embedding": 133.673,
+        "time_retrieval": 3.035,
+        "time_nli": 1310.955
+      },
+      "diagnostics": {
+        "total_probes": 217,
+        "top1_retrieval_recall": 0.2995,
+        "topk_retrieval_recall": 0.447,
+        "conditional_nli_accuracy": 0.8763,
+        "end_to_end_accuracy": 0.7788,
+        "avg_candidates_examined": 1.83
+      },
+      "wall_seconds": 1452.08
+    }
+  }
+}

@@ -10,10 +10,14 @@ def __getattr__(name: str):
     if name == "BlackHoleMemory":
         from phase2.black_hole_memory import BlackHoleMemory
         return BlackHoleMemory
+    if name == "MemoryStore":
+        from core.memory import MemoryStore
+        return MemoryStore
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "BlackHoleMemory",
+    "MemoryStore",
     "MemoryState",
     "MemorySlot",
     "absorb",

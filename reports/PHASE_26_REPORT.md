@@ -4,7 +4,7 @@
 **Date:** 2026-10-15  
 **Phase:** 26 — Semantic Verification Calibration and Contradiction Safety  
 **Status:** COMPLETE (All experiments verified, 19/19 tests pass, zero regressions)  
-**Machine-Readable Artifact:** `scratch/phase26_results.json`
+**Machine-Readable Artifact:** `benchmarks/results/phase26_results.json`
 
 ---
 

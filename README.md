@@ -590,24 +590,28 @@ restored = BlackHoleMemory.load("memory_checkpoint.json")
 ### Run the Phase 28 Benchmark (Most Recent Experiment)
 
 ```bash
-python run_phase28.py
+python runners/run_phase28.py
 ```
 
-Results saved incrementally to `scratch/phase28_results.json`. **Expected runtime:** 30–60 minutes on 4 CPU cores.
+Results saved incrementally to `benchmarks/results/phase28_results.json`. **Expected runtime:** 30–60 minutes on 4 CPU cores.
 
 ### Run Individual Phase Benchmarks
 
-Each phase has its own runner:
+Each phase has its own runner in `runners/`:
 
 ```bash
-python run_phase27.py   # Adaptive retrieval under long-horizon interference
-python run_phase26.py   # Semantic verification calibration
-python run_phase25.py   # BlackHoleMemory E2E validation
-python run_phase24.py   # Retention hardening, calibrated verification, drift
-python run_phase23.py   # Failure attribution experiments
-python run_phase22.py   # Hybrid BM25 + dense retrieval
-python run_phase21.py   # Anchor-beam integration
-python run_phase20.py   # Adaptive anchor management
+python runners/run_phase28.py   # Phase 28: Failure closure & memory integrity validation
+python runners/run_phase27.py   # Phase 27: Adaptive retrieval under long-horizon interference
+python runners/run_phase26.py   # Phase 26: Semantic verification calibration
+python runners/run_phase25.py   # Phase 25: BlackHoleMemory E2E validation
+python runners/run_phase24.py   # Phase 24: Retention hardening, calibrated verification, drift
+python runners/run_phase23.py   # Phase 23: Failure attribution experiments
+python runners/run_phase22.py   # Phase 22: Hybrid BM25 + dense retrieval
+python runners/run_phase21.py   # Phase 21: Anchor-beam integration
+python runners/run_phase20.py   # Phase 20: Adaptive anchor management
+python runners/run_phase19.py   # Phase 19: Contradiction-aware utility
+python runners/run_phase18.py   # Phase 18: Dense retrieval baseline
+python runners/run_phase17.py   # Phase 17: NLI gate calibration
 ```
 
 ### Use the Core Memory Store Directly (Phase 1)
@@ -673,86 +677,102 @@ Total: 299/299 passed in ~588s
 
 ## Project Structure
 
-```
+```text
 MINEMOS/
 │
-├── README.md                        # This file
-├── requirements.txt                 # Pinned dependencies
-├── .gitignore
-├── .env.example                     # Environment variable reference
-│
-├── .github/
-│   └── workflows/
-│       └── tests.yml                # GitHub Actions CI (includes pip-audit)
-│
-├── core/                            # Phase 1: structured fact storage
+├── core/                            # Core memory implementation and legacy components
 │   ├── __init__.py
-│   ├── memory.py                    # MemoryStore — (subject, predicate, object)
-│   └── encoder.py                   # RuleBasedExtractor, LLMExtractor stub
+│   ├── memory.py                    # MemoryStore — Phase 1 structured facts (subject, predicate, object)
+│   ├── encoder.py                   # RuleBasedExtractor, LLMExtractor stub
+│   └── candidate.py                 # Structured triple candidate
 │
-├── phase2/                          # Phase 2+: dense vector memory
+├── phase2/                          # Active Phase 2 memory engine
 │   ├── __init__.py
-│   ├── memory_state.py              # MemorySlot, MemoryState, tiered eviction
+│   ├── black_hole_memory.py         # BlackHoleMemory — unified engine (Phase 25+)
+│   ├── memory_state.py              # MemorySlot, MemoryState, tiered retention
 │   ├── memory_update.py             # absorb(), address(), novelty(), update eq.
 │   ├── recall.py                    # recall(), decode_object()
 │   ├── structured_candidate.py      # Candidate dataclass, encode_full()
-│   ├── encoders.py                  # AtomicEncoder, FieldAwareLexicalEncoder,
-│   │                                #   SemanticEmbeddingEncoder, TfidfLexicalEncoder
-│   ├── black_hole_memory.py         # BlackHoleMemory — unified engine (Phase 25+)
-│   └── checkpoint.py                # Phase 2 checkpoint I/O (security-hardened)
+│   ├── encoders.py                  # AtomicEncoder, FieldAwareLexicalEncoder, SemanticEmbeddingEncoder
+│   └── checkpoint.py                # Checkpoint persistence, validation & auto-recovery
 │
-├── benchmarks/                      # Experiment scripts by phase
-│   ├── phase16_experiment.py        # NliSemanticGate (distilroberta-base)
-│   ├── phase17_*.py                 # Dense retrieval baseline
-│   ├── phase18_experiment.py        # DenseSemanticEncoder (all-MiniLM-L6-v2)
-│   ├── phase19_*.py                 # Contradiction-aware utility
-│   ├── phase20_*.py                 # Adaptive anchor management
-│   ├── phase21_*.py                 # Anchor-beam integration
-│   ├── phase22_experiment.py        # Hybrid BM25 + dense retrieval
-│   ├── phase23_*.py                 # Phase 23 failure attribution harness
-│   ├── phase24_*.py                 # Phase 24 retention/verification/drift
-│   ├── phase26_*.py                 # Phase 26 verification calibration
-│   ├── phase27_*.py                 # Phase 27 adaptive retrieval
-│   └── ...                          # Earlier phases
+├── benchmarks/                      # Benchmark implementations, datasets & machine-readable results
+│   ├── __init__.py
+│   ├── phase25_e2e.py               # Phase 25 end-to-end streaming validation harness
+│   ├── phase26_experiment.py        # Phase 26 verification calibration & evaluation
+│   ├── phase27_experiment.py        # Phase 27 long-horizon adaptive retrieval benchmark
+│   ├── phase28_closure.py           # Phase 28 quantitative failure mode closure harness
+│   ├── results/                     # Canonical machine-readable benchmark outputs (.json)
+│   │   ├── phase17_results.json
+│   │   ├── phase18_results.json
+│   │   ├── phase19_results.json
+│   │   ├── phase20_results.json
+│   │   ├── phase21_results.json
+│   │   ├── phase22_results.json
+│   │   ├── phase23_results.json
+│   │   ├── phase24_results.json
+│   │   ├── phase25_e2e_results.json
+│   │   ├── phase26_results.json
+│   │   ├── phase27_results.json
+│   │   ├── phase28_results.json
+│   │   ├── checkpoint_benchmark_results.json
+│   │   └── summary_report.txt
+│   └── ...                          # Benchmark datasets, diagnostic tools & sweeps
 │
-├── tests/                           # pytest test suite (299 tests)
-│   ├── test_basic.py
-│   ├── test_memory_state.py
-│   ├── test_checkpoint.py
-│   ├── test_phase13.py – test_phase28_adversarial.py
+├── runners/                         # Phase and experiment execution scripts
+│   ├── __init__.py
+│   ├── run_phase17.py               # Phase 17 runner (NLI gate calibration)
+│   ├── run_phase18.py               # Phase 18 runner (Dense retrieval baseline)
+│   ├── run_phase19.py               # Phase 19 runner (Contradiction-aware utility)
+│   ├── run_phase20.py               # Phase 20 runner (Adaptive anchor management)
+│   ├── run_phase21.py               # Phase 21 runner (Anchor-beam integration)
+│   ├── run_phase22.py               # Phase 22 runner (Hybrid BM25 + dense retrieval)
+│   ├── run_phase23.py               # Phase 23 runner (Failure attribution experiments)
+│   ├── run_phase24.py               # Phase 24 runner (Retention hardening & drift)
+│   ├── run_phase25.py               # Phase 25 runner (BlackHoleMemory E2E validation)
+│   ├── run_phase26.py               # Phase 26 runner (Semantic verification calibration)
+│   ├── run_phase27.py               # Phase 27 runner (Adaptive retrieval under interference)
+│   └── run_phase28.py               # Phase 28 runner (Failure closure & verification)
+│
+├── reports/                         # Canonical historical research reports
+│   ├── PHASE_28_REPORT.md           # Phase 28: Phase 23 failure closure & verification
+│   ├── PHASE_27_REPORT.md           # Phase 27: Adaptive retrieval under interference
+│   ├── PHASE_26_REPORT.md           # Phase 26: Semantic verification calibration
+│   ├── PHASE_25_REPORT.md           # Phase 25: BlackHoleMemory unified engine
+│   ├── PHASE_24_REPORT.md           # Phase 24: Retention hardening & drift resistance
+│   ├── PHASE_23_REPORT.md           # Phase 23: Failure attribution benchmark
+│   ├── PHASE_19_REPORT.md – PHASE_22_REPORT.md
+│   ├── memory_phase2_report.md – memory_phase6_report.md
+│   ├── phase7_* – phase18_report.md
+│   ├── TASK6_SECURITY_AUDIT_REPORT.md
+│   ├── TASK7_SECURITY_REMEDIATION_REPORT.md
+│   └── TASK7_1_VERIFICATION_REPORT.md
+│
+├── tests/                           # Complete automated regression test suite (299 tests)
 │   ├── test_adversarial_verification.py
+│   ├── test_basic.py
+│   ├── test_checkpoint.py
 │   ├── test_checkpoint_integrity.py
 │   ├── test_concurrency_safety.py
 │   ├── test_contradiction_safety.py
 │   ├── test_e2e_recovery.py
-│   └── test_security_remediation.py
+│   ├── test_memory_state.py
+│   ├── test_oracle_ablation.py
+│   ├── test_phase12_addressing.py
+│   ├── test_phase13.py – test_phase27.py
+│   ├── test_phase28_adversarial.py
+│   ├── test_security_remediation.py
+│   └── test_semantic_encoder.py
 │
-├── reports/                         # Research reports (permanent)
-│   ├── PHASE_23_REPORT.md
-│   ├── PHASE_24_REPORT.md
-│   ├── PHASE_25_REPORT.md
-│   ├── PHASE_26_REPORT.md
-│   ├── PHASE_27_REPORT.md
-│   └── PHASE_28_REPORT.md
-│
-├── run_phase17.py – run_phase28.py  # Phase runner entry points
-│
-├── memory.py                        # Phase 1 top-level module (legacy import path)
-│
-├── checkpoint.py                    # Root-level checkpoint I/O (security-hardened)
-├── memory_state.py                  # Root-level memory state (security-hardened)
-│
-├── scratch/                         # Experiment output (not committed)
-│   ├── phase23_results.json
-│   ├── phase24_results.json
-│   ├── phase28_results.json
-│   └── ...
-│
-├── TASK6_SECURITY_AUDIT_REPORT.md   # Task 6: security audit findings
-├── TASK7_SECURITY_REMEDIATION_REPORT.md  # Task 7: security remediation
-├── TASK7_1_VERIFICATION_REPORT.md   # Task 7.1: evidence-based verification
-│
-└── *.md                             # Historical phase reports (Phases 7–22)
+├── .github/
+│   └── workflows/
+│       └── tests.yml                # CI test suite & OSV dependency vulnerability audit
+├── .env.example                     # Environment template (no secrets)
+├── .gitignore                       # Clean ignore rules (ignores scratch/)
+├── CONTRIBUTING.md                  # Contribution guidelines & research integrity rules
+├── LICENSE                          # GNU Affero General Public License v3.0 (AGPL-3.0)
+├── README.md                        # Project documentation & navigation
+└── requirements.txt                 # Pinned dependencies (filelock==4.2.1)
 ```
 
 ---

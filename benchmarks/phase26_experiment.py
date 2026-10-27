@@ -3,10 +3,11 @@ benchmarks/phase26_experiment.py
 
 Phase 26 Controlled Experiment Runner.
 Executes Experiments A, B, C, D (End-to-End streaming), and E (Held-Out Evaluation).
-Saves comprehensive machine-readable results to scratch/phase26_results.json.
+Saves comprehensive machine-readable results to benchmarks/results/phase26_results.json.
 """
 
 from __future__ import annotations
+import os
 import json
 import time
 from typing import Dict, Any, List
@@ -403,9 +404,12 @@ def run_full_phase26():
         "experiment_e_held_out": res_e
     }
 
-    with open("scratch/phase26_results.json", "w") as f:
+    results_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+    os.makedirs(results_dir, exist_ok=True)
+    out_path = os.path.join(results_dir, "phase26_results.json")
+    with open(out_path, "w") as f:
         json.dump(full_results, f, indent=2, default=str)
-    print("\n[SUCCESS] Full Phase 26 experimental results saved -> scratch/phase26_results.json")
+    print(f"\n[SUCCESS] Full Phase 26 experimental results saved -> {out_path}")
 
     return full_results
 

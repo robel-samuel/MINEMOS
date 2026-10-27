@@ -1,0 +1,262 @@
+{
+  "phase": 28,
+  "timestamp": 1792667557.366007,
+  "closure_matrix": {
+    "Category_A_E_Retrieval_Misses": {
+      "phase23_baseline_failure_rate": 0.121,
+      "phase28_best_mrr_worst_condition": 1.0,
+      "status": "VERIFIED FIXED"
+    },
+    "Category_B_Paraphrase_NLI_Rejection": {
+      "phase23_baseline_failure_rate": 0.314,
+      "phase26_calibrated_paraphrase_acc": 0.965,
+      "phase28_paraphrase_acceptance": 0.8667,
+      "phase28_false_rejection_rate": 0.1333,
+      "status": "PARTIAL"
+    },
+    "Category_C_Consolidation_Drift": {
+      "phase23_baseline_min_sim": 0.12,
+      "phase24_min_sim": 0.884,
+      "phase28_min_sim": 0.9826,
+      "drift_reduction_pct": 63.65,
+      "status": "VERIFIED FIXED"
+    },
+    "Category_D_Memory_Eviction": {
+      "phase23_baseline_survival": 0.0,
+      "phase23_oracle_survival": 0.4,
+      "phase24_tiered_survival": 0.88,
+      "phase28_integrated_survival": 1.0,
+      "status": "VERIFIED FIXED"
+    },
+    "Category_F_False_Merge": {
+      "phase23_baseline_fmr": 0.025,
+      "phase28_contradiction_fmr": 0.0,
+      "phase28_overall_fmr": 0.0,
+      "status": "VERIFIED FIXED"
+    },
+    "Phase27_Defect_False_Contradictions": {
+      "pre_fix_false_contra_rate": 1.0,
+      "phase28_false_contra_rate": 0.0,
+      "phase28_correct_supersession": true,
+      "phase28_cumulative_retention": 1.0,
+      "status": "VERIFIED FIXED"
+    }
+  },
+  "benchmark_1_retention": {
+    "workload": "capacity_pressure_c25_n320",
+    "capacity": 25,
+    "total_observations": 320,
+    "target_count": 20,
+    "surviving_targets": 20,
+    "slot_survival_rate": 1.0,
+    "eviction_count": 275,
+    "comparison": {
+      "phase23_baseline_survival": 0.0,
+      "phase23_retention_oracle_survival": 0.4,
+      "phase24_tiered_survival": 0.88,
+      "phase28_integrated_survival": 1.0
+    }
+  },
+  "benchmark_2_verification": {
+    "test_pair_count": 60,
+    "wall_seconds": 6.92,
+    "paraphrase_acceptance_rate": 0.8667,
+    "contradiction_detection_rate": 1.0,
+    "overall_false_merge_rate": 0.0,
+    "contradiction_false_merge_rate": 0.0,
+    "unrelated_false_merge_rate": 0.0,
+    "macro_accuracy": 0.9,
+    "comparison": {
+      "phase23_baseline_paraphrase_acc": 0.686,
+      "phase23_baseline_false_rejection": 0.314,
+      "phase26_calibrated_paraphrase_acc": 0.965,
+      "phase28_paraphrase_acc": 0.8667,
+      "phase28_false_merge": 0.0
+    }
+  },
+  "benchmark_3_retrieval": {
+    "A_low_interference": {
+      "best_method": "dense_baseline",
+      "best_mrr": 1.0,
+      "full": {
+        "dense_baseline": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "bm25_only": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "hybrid_relevance": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "temporal_aware": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "adaptive": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        }
+      }
+    },
+    "B_semantic_interference": {
+      "best_method": "dense_baseline",
+      "best_mrr": 1.0,
+      "full": {
+        "dense_baseline": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "bm25_only": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "hybrid_relevance": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "temporal_aware": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "adaptive": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        }
+      }
+    },
+    "C_temporal_interference": {
+      "best_method": "dense_baseline",
+      "best_mrr": 1.0,
+      "full": {
+        "dense_baseline": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "bm25_only": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "hybrid_relevance": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "temporal_aware": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "adaptive": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        }
+      }
+    },
+    "D_combined_interference": {
+      "best_method": "dense_baseline",
+      "best_mrr": 1.0,
+      "full": {
+        "dense_baseline": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "bm25_only": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "hybrid_relevance": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "temporal_aware": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        },
+        "adaptive": {
+          "recall_at_1": 1.0,
+          "recall_at_5": 1.0,
+          "mrr": 1.0
+        }
+      }
+    }
+  },
+  "benchmark_4_drift": {
+    "update_steps": 9,
+    "baseline_ema_mean_sim_to_root": 0.9703,
+    "baseline_ema_min_sim_to_root": 0.952,
+    "phase28_hybrid_mean_sim_to_root": 0.9867,
+    "phase28_hybrid_min_sim_to_root": 0.9826,
+    "drift_reduction_percentage": 63.65,
+    "comparison": {
+      "phase23_min_sim_to_root": 0.12,
+      "phase24_min_sim_to_root": 0.884,
+      "phase28_min_sim_to_root": 0.9826
+    }
+  },
+  "benchmark_5_multi_fact_supersession": {
+    "nathan_active_slots": 3,
+    "charlie_active_slots": 2,
+    "alice_active_slots": 1,
+    "alice_superseded_slots": 1,
+    "cluster_active_slots": 1,
+    "cluster_superseded_slots": 1,
+    "victor_active_slots": 1,
+    "victor_superseded_slots": 1,
+    "false_contradiction_rate": 0.0,
+    "correct_supersession": true,
+    "cumulative_retention_rate": 1.0,
+    "status": "VERIFIED FIXED"
+  },
+  "benchmark_6_held_out": {
+    "dense_baseline": {
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_rank": 1.0
+    },
+    "bm25_only": {
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_rank": 1.0
+    },
+    "hybrid_relevance": {
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_rank": 1.0
+    },
+    "temporal_aware": {
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_rank": 1.0
+    },
+    "adaptive": {
+      "recall_at_1": 1.0,
+      "recall_at_5": 1.0,
+      "mrr": 1.0,
+      "mean_rank": 1.0
+    }
+  }
+}

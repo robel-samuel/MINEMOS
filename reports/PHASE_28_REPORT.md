@@ -2,7 +2,7 @@
 
 **Date:** October 22, 2026  
 **Status:** COMPLETE — ALL 5 CORE FAILURE MODES CLOSED OR RIGOROUSLY CHARACTERIZED  
-**Primary Artifact:** `scratch/phase28_results.json`  
+**Primary Artifact:** `benchmarks/results/phase28_results.json`\
 **Target Architecture:** `phase2/black_hole_memory.py` (Unified Black Hole Memory Engine)  
 
 ---
@@ -38,7 +38,7 @@ The following matrix documents the precise status of every failure mode cataloge
 
 ## 3. Detailed Benchmark Findings
 
-Quantitative results extracted directly from `scratch/phase28_results.json`:
+Quantitative results extracted directly from `benchmarks/results/phase28_results.json`:
 
 ### Benchmark 1: Retention Under Capacity Pressure ($C=25, N=320$)
 - **Configuration:** Capacity $C=25$, $N=320$ total observations. 20 target entities initialized with 2 corroborating observations (Tier 1 qualification), followed by 280 uncorroborated single-shot distractor observations ($t = 50.0 \dots 330.0$).

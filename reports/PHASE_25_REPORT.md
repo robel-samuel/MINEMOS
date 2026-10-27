@@ -31,9 +31,9 @@ All Phase 23 and Phase 24 artifacts are preserved and unmodified:
 | Artifact | Status |
 |---|---|
 | `PHASE_23_REPORT.md` | Preserved (read-only) |
-| `scratch/phase23_results.json` | Preserved (read-only) |
+| `benchmarks/results/phase23_results.json` | Preserved (read-only) |
 | `PHASE_24_REPORT.md` | Preserved (read-only) |
-| `scratch/phase24_results.json` | Preserved (read-only) |
+| `benchmarks/results/phase24_results.json` | Preserved (read-only) |
 | `benchmarks/phase24_*.py` | Preserved, used as library code |
 | Legacy test suite (197 tests across phases 1–24) | All pass, zero regressions |
 
@@ -166,7 +166,7 @@ Zero regressions introduced by Phase 25 changes.
 
 ### 5.3 End-to-End Workload Validation
 
-**Script:** `scratch/run_phase25_e2e.py`  
+**Script:** `benchmarks/phase25_e2e.py`\
 **Memory capacity:** 20 slots  
 **Stream:** 18 observations (5 initial facts + 1 paraphrase + 10 distractors + 1 temporal revision + 1 contradiction)
 
@@ -249,8 +249,8 @@ The `distilroberta-base` NLI model classifies many semantically equivalent but l
 |---|---|
 | `phase2/black_hole_memory.py` | Unified BlackHoleMemory implementation |
 | `tests/test_phase25.py` | 8 unit tests for Phase 25 |
-| `scratch/run_phase25_e2e.py` | End-to-end workload validation script |
-| `scratch/phase25_e2e_results.json` | Machine-readable E2E results |
+| `benchmarks/phase25_e2e.py` | End-to-end workload validation script |
+| `benchmarks/results/phase25_e2e_results.json` | Machine-readable E2E results |
 | `PHASE_25_REPORT.md` | This report |
 
 ### Modified files
@@ -264,7 +264,7 @@ The `distilroberta-base` NLI model classifies many semantically equivalent but l
 | `tests/test_phase25.py` | Fixed tiered retention test to be NLI-independent |
 
 ### Preserved (unmodified)
-All files in `tests/test_phase{1..24}.py`, all `benchmarks/phase{1..24}_*.py`, all `scratch/phase2{3,4}_*.json`, all historical reports.
+All files in `tests/test_phase{1..24}.py`, all `benchmarks/phase{1..24}_*.py`, all `benchmarks/results/phase2{3,4}_*.json`, all historical reports.
 
 ---
 

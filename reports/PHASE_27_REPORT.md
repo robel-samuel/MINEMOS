@@ -4,7 +4,7 @@
 **Date:** 2026-10-15  
 **Phase:** 27 — Adaptive Memory Retrieval Under Long-Horizon Interference  
 **Status:** COMPLETE (All experiments verified, 217/217 regression tests pass, zero regressions)  
-**Machine-Readable Artifact:** `scratch/phase27_results.json`
+**Machine-Readable Artifact:** `benchmarks/results/phase27_results.json`
 
 ---
 
@@ -240,4 +240,4 @@ All pre-existing baselines, tests, reports, and configurations remain untouched:
 3. **`benchmarks/phase27_metrics.py`:** Mathematical evaluation suite for Recall@k, MRR, nDCG@5, Exact Evidence Accuracy, Temporal Correctness, Contradiction Intrusion, and Query Latency.
 4. **`benchmarks/phase27_experiment.py`:** Comprehensive experiment orchestrator across Experiments A, B, C, D, and E over multiple random seeds.
 5. **`tests/test_phase27.py`:** 9 unit and integration tests verifying retrieval ranking, temporal demotion, contradiction repulsion, and ablation dispatching.
-6. **`scratch/phase27_results.json`:** Complete machine-readable experimental data.
+6. **`benchmarks/results/phase27_results.json`:** Complete machine-readable experimental data.

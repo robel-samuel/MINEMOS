@@ -2,7 +2,7 @@
 ## Consolidation and Retention Bottleneck Investigation
 
 **Status:** COMPLETE  
-**Primary Result File:** `scratch/phase23_results.json`  
+**Primary Result File:** `benchmarks/results/phase23_results.json`\
 **Test Suite:** 177/177 passed (169 legacy + 8 Phase 23 unit tests)  
 **Historical Results Preserved:** Phase 20, 21, and 22 data, reports, and configurations remain untouched.
 
