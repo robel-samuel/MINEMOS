@@ -405,6 +405,33 @@ def test_backward_compatibility_loads_v1_archive_cleanly(tmp_path):
     assert loaded.slots[0].debug_subject is None
 
 
+def test_legacy_v2_process_local_links_fail_clearly(tmp_path):
+    """v2 archives stored raw id() values for supersession links.
+
+    Those ids cannot be mapped onto the restored slot objects, so loading a
+    chained v2 archive must fail loudly rather than restore dangling links.
+    """
+    path = str(tmp_path / "legacy_v2_links.npz")
+    n, dim = 2, 64
+    np.savez(
+        path,
+        keys=np.zeros((n, dim), dtype=np.float32),
+        values=np.zeros((n, dim), dtype=np.float32),
+        confidences=np.ones(n, dtype=np.float32),
+        timestamps=np.array([10.0, 20.0], dtype=np.float64),
+        created_ats=np.array([10.0, 20.0], dtype=np.float64),
+        update_counts=np.ones(n, dtype=np.int32),
+        schema_version=2,
+        supersedes=np.array([-1, 123456789], dtype=np.int64),
+        superseded_by=np.array([123456789, -1], dtype=np.int64),
+        capacity=10,
+        dim=dim,
+    )
+    with pytest.raises(CheckpointValidationError) as exc:
+        load_checkpoint(path, allow_backup_recovery=False)
+    assert "cannot be remapped" in str(exc.value)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 10. In-Memory Isolation on Failed Load
 # ─────────────────────────────────────────────────────────────────────────────

@@ -50,8 +50,15 @@ class MemorySlot:
     text: str = ""
     dense_emb: Optional[np.ndarray] = None
     contra_count: int = 0
+    # Supersession links are process-local id() values.  Checkpoints
+    # serialize them as slot indices (see phase2/checkpoint.py).
     superseded_by: Optional[int] = None
     supersedes: Optional[int] = None
+    # Latest confirmed predicate/object.  debug_subject/debug_predicate keep
+    # the original identity used by recall(); these track consolidated
+    # paraphrases so object matching does not depend on stale wording.
+    latest_predicate: Optional[str] = None
+    latest_object: Optional[str] = None
 
     @property
     def is_active(self) -> bool:
@@ -89,7 +96,9 @@ class MemoryState:
             text: str = "", dense_emb: Optional[np.ndarray] = None,
             valid_from: Optional[float] = None,
             valid_until: Optional[float] = None,
-            supersedes: Optional[int] = None) -> MemorySlot:
+            supersedes: Optional[int] = None,
+            latest_predicate: Optional[str] = None,
+            latest_object: Optional[str] = None) -> MemorySlot:
         with self._lock:
             if self.is_full():
                 raise CapacityExceeded(
@@ -103,7 +112,9 @@ class MemoryState:
                               valid_from=timestamp if valid_from is None else valid_from,
                               valid_until=valid_until,
                               text=text, dense_emb=dense_emb,
-                              supersedes=supersedes)
+                              supersedes=supersedes,
+                              latest_predicate=latest_predicate or debug_predicate,
+                              latest_object=latest_object)
             self.slots.append(slot)
             return slot
 

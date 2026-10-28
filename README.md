@@ -419,7 +419,7 @@ Retrieval latency: 14–20 ms / query on CPU (< 2.6 ms overhead vs. baseline).
 ### Phase 28: Phase 23 Failure Closure and End-to-End Memory Integrity Validation
 
 **Status:** COMPLETE — all 5 Phase 23 failure modes closed or rigorously characterized  
-**Test suite:** 303/303 passed\
+**Test suite:** 337/337 passed\
 **Report:** [`reports/PHASE_28_REPORT.md`](reports/PHASE_28_REPORT.md)
 
 The definitive integration and validation phase. Confirmed all Phase 23 failure categories are resolved by the Phase 24–27 improvements, and fixed the Phase 27 independent-fact defect via an entity-grounding guard in `absorb()` plus removal of predicate-identity exclusivity in `_is_same_attribute_or_event()`.
@@ -437,7 +437,7 @@ The definitive integration and validation phase. Confirmed all Phase 23 failure 
 
 Category B (paraphrase rejection) is partially mitigated. The residual 13.3% false rejection rate is an inherent limitation of `cross-encoder/nli-distilroberta-base` on high-lexical-variation paraphrases; a fine-tuned or larger cross-encoder would be required for further improvement.
 
-The false-contradiction row reflects the benchmarked allowlisted cases. Independent facts sharing unlisted multi-valued predicates are covered by the post-publication `_is_same_attribute_or_event()` correction and `tests/test_phase28_false_contradiction_regression.py`.
+The false-contradiction row reflects the benchmarked allowlisted cases. Independent facts sharing unlisted multi-valued predicates are covered by the post-publication `_is_same_attribute_or_event()` correction and `tests/test_phase28_false_contradiction_regression.py`. The October 2026 adversarial validation adds `tests/test_phase28_contradiction_adversarial.py` (33 tests) covering token-boundary marker matching, entity normalization, recurring facts, out-of-order validity chains, negation with distinct objects, negation after paraphrase consolidation, checkpoint recovery, durable supersession links, equal-timestamp replacement, and eviction protection under capacity 1–2. Its benchmark check re-ran benchmarks 1 and 5 against the committed JSON with identical results; benchmarks 2–4 and 6 do not use the modified contradiction path.
 
 ---
 
@@ -663,6 +663,7 @@ The test suite covers:
 | `tests/test_phase27.py` | Adaptive retrieval |
 | `tests/test_phase28_adversarial.py` | Phase 28 adversarial integration tests |
 | `tests/test_phase28_false_contradiction_regression.py` | Multi-valued predicate false-contradiction regression tests |
+| `tests/test_phase28_contradiction_adversarial.py` | Adversarial false/missed supersession, ordering, history, and persistence tests |
 | `tests/test_adversarial_verification.py` | Adversarial NLI verification cases |
 | `tests/test_checkpoint_integrity.py` | Checkpoint security and integrity |
 | `tests/test_concurrency_safety.py` | Thread safety (single-threaded constraint) |
@@ -751,7 +752,7 @@ MINEMOS/
 │   ├── TASK7_SECURITY_REMEDIATION_REPORT.md
 │   └── TASK7_1_VERIFICATION_REPORT.md
 │
-├── tests/                           # Complete automated regression test suite (303 tests)
+├── tests/                           # Complete automated regression test suite (337 tests)
 │   ├── test_adversarial_verification.py
 │   ├── test_basic.py
 │   ├── test_checkpoint.py
@@ -765,6 +766,7 @@ MINEMOS/
 │   ├── test_phase13.py – test_phase27.py
 │   ├── test_phase28_adversarial.py
 │   ├── test_phase28_false_contradiction_regression.py
+│   ├── test_phase28_contradiction_adversarial.py
 │   ├── test_security_remediation.py
 │   └── test_semantic_encoder.py
 │

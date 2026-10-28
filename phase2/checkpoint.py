@@ -20,7 +20,10 @@ import numpy as np
 from phase2.memory_state import MemoryState, MemorySlot
 
 
-SCHEMA_VERSION = 2
+# v3: supersession links are persisted as slot indices (supersedes_idx /
+# superseded_by_idx) instead of process-local id() values, and consolidated
+# latest predicate/object metadata is stored alongside the slot text.
+SCHEMA_VERSION = 3
 _FILE_LOCK = threading.Lock()
 
 # Defense-in-depth resource bounds (SEC-01)
@@ -165,12 +168,17 @@ def save_checkpoint(
         valid_froms = np.zeros(n, dtype=np.float64)
         valid_untils = np.full(n, np.nan, dtype=np.float64)
         contra_counts = np.zeros(n, dtype=np.int32)
-        supersedes = np.full(n, -1, dtype=np.int64)
-        superseded_by = np.full(n, -1, dtype=np.int64)
+        # Relationships are persisted as checkpoint-local slot indices; raw
+        # Python id() values are process-local and meaningless after reload.
+        id_to_index = {id(slot): idx for idx, slot in enumerate(target_mem.slots)}
+        supersedes_idx = np.full(n, -1, dtype=np.int64)
+        superseded_by_idx = np.full(n, -1, dtype=np.int64)
 
         subjects_list = []
         predicates_list = []
         texts_list = []
+        latest_objects_list = []
+        latest_predicates_list = []
 
         # Check dense embeddings dimension
         dense_dim = None
@@ -200,13 +208,27 @@ def save_checkpoint(
 
             contra_counts[i] = slot.contra_count
             if slot.supersedes is not None:
-                supersedes[i] = slot.supersedes
+                target = id_to_index.get(slot.supersedes)
+                if target is None:
+                    raise CheckpointValidationError(
+                        f"Slot {i} has a 'supersedes' link to a slot that is not in memory; "
+                        f"refusing to persist a broken supersession chain."
+                    )
+                supersedes_idx[i] = target
             if slot.superseded_by is not None:
-                superseded_by[i] = slot.superseded_by
+                target = id_to_index.get(slot.superseded_by)
+                if target is None:
+                    raise CheckpointValidationError(
+                        f"Slot {i} has a 'superseded_by' link to a slot that is not in memory; "
+                        f"refusing to persist a broken supersession chain."
+                    )
+                superseded_by_idx[i] = target
 
             subjects_list.append(slot.debug_subject or "")
             predicates_list.append(slot.debug_predicate or "")
             texts_list.append(slot.text or "")
+            latest_objects_list.append(slot.latest_object or "")
+            latest_predicates_list.append(slot.latest_predicate or "")
 
             if dense_dim is not None and slot.dense_emb is not None:
                 dense_embs[i] = slot.dense_emb
@@ -215,6 +237,8 @@ def save_checkpoint(
         subjects_arr = np.array(subjects_list, dtype=str)
         predicates_arr = np.array(predicates_list, dtype=str)
         texts_arr = np.array(texts_list, dtype=str)
+        latest_objects_arr = np.array(latest_objects_list, dtype=str)
+        latest_predicates_arr = np.array(latest_predicates_list, dtype=str)
 
         # Operational telemetry counters if BlackHoleMemory
         telemetry = np.zeros(6, dtype=np.int64)
@@ -282,11 +306,13 @@ def save_checkpoint(
                 valid_froms=valid_froms,
                 valid_untils=valid_untils,
                 contra_counts=contra_counts,
-                supersedes=supersedes,
-                superseded_by=superseded_by,
+                supersedes_idx=supersedes_idx,
+                superseded_by_idx=superseded_by_idx,
                 subjects=subjects_arr,
                 predicates=predicates_arr,
                 texts=texts_arr,
+                latest_objects=latest_objects_arr,
+                latest_predicates=latest_predicates_arr,
                 dense_embs=dense_embs,
                 has_dense=has_dense,
                 telemetry=telemetry,
@@ -389,11 +415,14 @@ def _validate_and_reconstruct(data: Any, path: str) -> MemoryState:
                 )
             elif fname in ("confidences.npy", "timestamps.npy", "created_ats.npy", "update_counts.npy",
                            "valid_froms.npy", "valid_untils.npy", "contra_counts.npy",
-                           "supersedes.npy", "superseded_by.npy", "has_dense.npy") and fsize > max_vector_bytes:
+                           "supersedes.npy", "superseded_by.npy",
+                           "supersedes_idx.npy", "superseded_by_idx.npy",
+                           "has_dense.npy") and fsize > max_vector_bytes:
                 raise CheckpointValidationError(
                     f"Array '{fname}' uncompressed size {fsize} bytes exceeds expected vector bound {max_vector_bytes} in '{path}'."
                 )
-            elif fname in ("texts.npy", "subjects.npy", "predicates.npy") and fsize > max_text_bytes:
+            elif fname in ("texts.npy", "subjects.npy", "predicates.npy",
+                           "latest_objects.npy", "latest_predicates.npy") and fsize > max_text_bytes:
                 raise CheckpointValidationError(
                     f"Array '{fname}' uncompressed size {fsize} bytes exceeds expected text bound {max_text_bytes} in '{path}'."
                 )
@@ -437,18 +466,77 @@ def _validate_and_reconstruct(data: Any, path: str) -> MemoryState:
     if (confidences < 0.0).any() or (confidences > 1.0).any():
         raise CheckpointValidationError(f"Confidence values out of bounds [0.0, 1.0] in '{path}'.")
 
-    # 4. Optional / Schema v2 fields
-    has_v2 = "schema_version" in data and int(data["schema_version"]) >= 2
+    # 4. Optional / versioned fields
+    version = 1
+    if "schema_version" in data:
+        try:
+            version = int(data["schema_version"])
+        except (TypeError, ValueError) as e:
+            raise CheckpointValidationError(
+                f"Invalid schema_version in checkpoint '{path}': {e}"
+            )
+    if version > SCHEMA_VERSION:
+        raise CheckpointValidationError(
+            f"Checkpoint '{path}' uses schema version {version}, but this "
+            f"implementation supports at most version {SCHEMA_VERSION}."
+        )
 
     valid_froms = data["valid_froms"] if "valid_froms" in data else timestamps
     valid_untils = data["valid_untils"] if "valid_untils" in data else np.full(n, np.nan, dtype=np.float64)
     contra_counts = data["contra_counts"] if "contra_counts" in data else np.zeros(n, dtype=np.int32)
-    supersedes = data["supersedes"] if "supersedes" in data else np.full(n, -1, dtype=np.int64)
-    superseded_by = data["superseded_by"] if "superseded_by" in data else np.full(n, -1, dtype=np.int64)
+
+    supersedes_idx = None
+    superseded_by_idx = None
+    if version >= 3:
+        for name in ("supersedes_idx", "superseded_by_idx"):
+            if name not in data:
+                raise CheckpointValidationError(
+                    f"Checkpoint '{path}' declares schema version 3 but is missing '{name}'."
+                )
+        supersedes_idx = data["supersedes_idx"]
+        superseded_by_idx = data["superseded_by_idx"]
+        for name, arr in (("supersedes_idx", supersedes_idx),
+                          ("superseded_by_idx", superseded_by_idx)):
+            if arr.ndim != 1 or arr.shape[0] != n:
+                raise CheckpointValidationError(
+                    f"Array '{name}' has shape {arr.shape}, expected ({n},) in '{path}'."
+                )
+            if ((arr < -1) | (arr >= n)).any():
+                raise CheckpointValidationError(
+                    f"Array '{name}' references an out-of-bounds slot index for "
+                    f"slot count {n} in '{path}'."
+                )
+        if (supersedes_idx == np.arange(n)).any() or (superseded_by_idx == np.arange(n)).any():
+            raise CheckpointValidationError(
+                f"Checkpoint '{path}' contains a slot that links to itself in a "
+                f"supersession chain."
+            )
+    else:
+        # Legacy v1/v2 archives stored process-local id() values.  Those ids
+        # do not identify the newly constructed slot objects, so restoring
+        # them would silently create dangling links.  Absence of links loads
+        # fine; presence of any link fails clearly.
+        legacy_supersedes = data["supersedes"] if "supersedes" in data else np.full(n, -1, dtype=np.int64)
+        legacy_superseded_by = data["superseded_by"] if "superseded_by" in data else np.full(n, -1, dtype=np.int64)
+        if (legacy_supersedes >= 0).any() or (legacy_superseded_by >= 0).any():
+            raise CheckpointValidationError(
+                f"Checkpoint '{path}' uses legacy schema v{version}, which stores "
+                f"process-local supersession link ids that cannot be remapped to "
+                f"restored slots. Re-save the source memory with schema "
+                f"v{SCHEMA_VERSION} to preserve the chain."
+            )
 
     subjects = data["subjects"] if "subjects" in data else np.array([""] * n, dtype=str)
     predicates = data["predicates"] if "predicates" in data else np.array([""] * n, dtype=str)
     texts = data["texts"] if "texts" in data else np.array([""] * n, dtype=str)
+    latest_objects = data["latest_objects"] if "latest_objects" in data else None
+    latest_predicates = data["latest_predicates"] if "latest_predicates" in data else None
+    for name, arr in (("latest_objects", latest_objects),
+                      ("latest_predicates", latest_predicates)):
+        if arr is not None and (arr.ndim != 1 or arr.shape[0] != n):
+            raise CheckpointValidationError(
+                f"Array '{name}' has shape {arr.shape}, expected ({n},) in '{path}'."
+            )
 
     dense_embs = data["dense_embs"] if "dense_embs" in data else None
     has_dense = data["has_dense"] if "has_dense" in data else np.zeros(n, dtype=bool)
@@ -505,6 +593,16 @@ def _validate_and_reconstruct(data: Any, path: str) -> MemoryState:
         subj = str(subjects[i]) if (i < len(subjects) and subjects[i]) else None
         pred = str(predicates[i]) if (i < len(predicates) and predicates[i]) else None
         txt = str(texts[i]) if (i < len(texts) and texts[i]) else ""
+        latest_obj = (
+            str(latest_objects[i])
+            if latest_objects is not None and i < len(latest_objects) and latest_objects[i]
+            else None
+        )
+        latest_pred = (
+            str(latest_predicates[i])
+            if latest_predicates is not None and i < len(latest_predicates) and latest_predicates[i]
+            else None
+        )
 
         d_emb = None
         if dense_embs is not None and i < len(has_dense) and has_dense[i] and dense_embs.shape[0] > i:
@@ -524,10 +622,38 @@ def _validate_and_reconstruct(data: Any, path: str) -> MemoryState:
             text=txt,
             dense_emb=d_emb,
             contra_count=int(contra_counts[i]),
-            supersedes=int(supersedes[i]) if supersedes[i] >= 0 else None,
-            superseded_by=int(superseded_by[i]) if superseded_by[i] >= 0 else None
+            latest_predicate=latest_pred,
+            latest_object=latest_obj
         )
         memory.slots.append(slot)
+
+    # Remap persisted slot indices onto the freshly constructed slot objects.
+    if supersedes_idx is not None:
+        for i in range(n):
+            pred_idx = int(supersedes_idx[i])
+            if pred_idx >= 0:
+                memory.slots[i].supersedes = id(memory.slots[pred_idx])
+            succ_idx = int(superseded_by_idx[i])
+            if succ_idx >= 0:
+                memory.slots[i].superseded_by = id(memory.slots[succ_idx])
+
+        # Every restored relationship must point at the correct counterpart in
+        # both directions.  Fail loudly instead of restoring a broken chain.
+        for i, slot in enumerate(memory.slots):
+            if slot.supersedes is not None:
+                pred_idx = int(supersedes_idx[i])
+                if memory.slots[pred_idx].superseded_by != id(slot):
+                    raise CheckpointValidationError(
+                        f"Slot {i} supersedes slot {pred_idx}, but the counterpart "
+                        f"does not point back in '{path}'."
+                    )
+            if slot.superseded_by is not None:
+                succ_idx = int(superseded_by_idx[i])
+                if memory.slots[succ_idx].supersedes != id(slot):
+                    raise CheckpointValidationError(
+                        f"Slot {i} is superseded by slot {succ_idx}, but the "
+                        f"counterpart does not point back in '{path}'."
+                    )
 
     # Attach checkpoint metadata (telemetry, anchors) for callers like BlackHoleMemory
     memory._checkpoint_metadata = {}

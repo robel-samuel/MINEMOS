@@ -53,6 +53,41 @@ from benchmarks.phase24_consolidation import consolidate_vector_phase24
 from benchmarks.phase24_verification import CalibratedSemanticVerifier
 
 
+CUMULATIVE_PREDICATES = {
+    "published", "authored", "wrote", "won", "received", "visited",
+    "attended", "completed", "graduated", "studied", "speaks", "likes",
+    "enjoys", "owns", "built", "designed", "created", "invented",
+    "discovered", "invested", "invested in", "translated", "earned",
+    "volunteers", "volunteered", "practices", "collects", "repairs"
+}
+
+TEMPORAL_TRANSITION_MARKERS = {
+    "relocated", "promoted", "switched", "transitioned", "resigned",
+    "became", "is now", "now", "no longer", "moved to", "moved from",
+    "transferred", "replaced", "retired", "sold", "stepped down", "divested"
+}
+
+EXCLUSIVE_SYNONYM_GROUPS = [
+    {"residence", "lives in", "lives", "resides in", "resides", "location", "located in", "headquarters", "city"},
+    {"employed by", "works at", "employer", "company"},
+    {"role", "title", "position", "current_role", "current_title"},
+    {"status", "state", "operational_state"},
+    {"marital_status", "spouse"},
+    {"office suite", "office", "assigned to"}
+]
+
+ANTONYMS = {
+    ("active", "inactive"), ("online", "offline"), ("alive", "dead"),
+    ("passed", "failed"), ("acquitted", "convicted"), ("approved", "denied"),
+    ("elected", "rejected"), ("gold", "disqualified"), ("fluent", "cannot")
+}
+
+
+def _contains_marker(text: str, marker: str) -> bool:
+    """Whole-token match: 'city' must not match 'capacity', 'now' not 'known'."""
+    return re.search(rf"(?<![a-z0-9]){re.escape(marker)}(?![a-z0-9])", text) is not None
+
+
 class BlackHoleMemory:
     """
     Unified Black Hole Memory System for streaming factual knowledge.
@@ -144,6 +179,62 @@ class BlackHoleMemory:
         else:
             raise TypeError(f"Unsupported observation format: {type(obs)}")
 
+    @staticmethod
+    def _normalize_subject(subject: Optional[str]) -> str:
+        return (subject or "").strip().casefold()
+
+    @staticmethod
+    def _share_exclusive_group(pred_a: str, pred_b: str) -> bool:
+        if not pred_a or not pred_b:
+            return False
+        for grp in EXCLUSIVE_SYNONYM_GROUPS:
+            in_a = any(_contains_marker(pred_a, m) for m in grp)
+            in_b = any(_contains_marker(pred_b, m) for m in grp)
+            if in_a and in_b:
+                return True
+        return False
+
+    @staticmethod
+    def _slot_predicates(slot: MemorySlot) -> set:
+        return {
+            p.strip().lower()
+            for p in (slot.debug_predicate, slot.latest_predicate)
+            if p and p.strip()
+        }
+
+    def _attribute_chain(self, candidate: Candidate) -> List[MemorySlot]:
+        """Slots describing the same subject and attribute as the candidate."""
+        cand_subject = self._normalize_subject(candidate.subject)
+        cand_pred = (candidate.predicate or "").strip().lower()
+        chain = []
+        for slot in self.memory.slots:
+            if self._normalize_subject(slot.debug_subject) != cand_subject:
+                continue
+            if any(
+                slot_pred == cand_pred or self._share_exclusive_group(slot_pred, cand_pred)
+                for slot_pred in self._slot_predicates(slot)
+            ):
+                chain.append(slot)
+        return chain
+
+    @staticmethod
+    def _slot_object_text(slot: MemorySlot, slot_text: str) -> str:
+        """Extracts the object from free-form text using the live predicate."""
+        subject = slot.debug_subject or ""
+        text = (slot_text or "").strip().rstrip(".")
+        predicates = [slot.latest_predicate, slot.debug_predicate]
+        for predicate in dict.fromkeys(p for p in predicates if p):
+            prefix = f"{subject} {predicate} "
+            if subject and text.lower().startswith(prefix.lower()):
+                return text[len(prefix):]
+        return ""
+
+    @staticmethod
+    def _content_tokens(text: str) -> set:
+        from benchmarks.phase26_verification import extract_negation_markers
+        negations = extract_negation_markers(text)
+        return {t for t in re.findall(r"[a-z0-9]+", text.lower()) if t not in negations}
+
     def _is_same_attribute_or_event(
         self,
         slot: MemorySlot,
@@ -162,30 +253,6 @@ class BlackHoleMemory:
         slot_pred = (slot.debug_predicate or "").strip().lower()
         cand_pred = (candidate.predicate or "").strip().lower()
 
-        # Cumulative / non-exclusive predicates where multiple distinct facts co-exist
-        CUMULATIVE_PREDICATES = {
-            "published", "authored", "wrote", "won", "received", "visited",
-            "attended", "completed", "graduated", "studied", "speaks", "likes",
-            "enjoys", "owns", "built", "designed", "created", "invented",
-            "discovered", "invested", "invested in", "translated", "earned",
-            "volunteers", "volunteered", "practices", "collects", "repairs"
-        }
-
-        TEMPORAL_TRANSITION_MARKERS = {
-            "relocated", "promoted", "switched", "transitioned", "resigned",
-            "became", "is now", "now", "no longer", "moved to", "moved from",
-            "transferred", "replaced", "retired", "sold", "stepped down", "divested"
-        }
-
-        EXCLUSIVE_SYNONYM_GROUPS = [
-            {"residence", "lives in", "lives", "resides in", "resides", "location", "located in", "headquarters", "city"},
-            {"employed by", "works at", "employer", "company"},
-            {"role", "title", "position", "current_role", "current_title"},
-            {"status", "state", "operational_state"},
-            {"marital_status", "spouse"},
-            {"office suite", "office", "assigned to"}
-        ]
-
         from benchmarks.phase26_verification import extract_negation_markers, extract_numbers
         neg_slot = extract_negation_markers(slot_text)
         neg_cand = extract_negation_markers(cand_text)
@@ -197,36 +264,46 @@ class BlackHoleMemory:
             if slot_dense is not None and len(slot_dense) == len(cand_dense):
                 dense_sim = float(np.dot(slot_dense, cand_dense))
 
-        # 1. Direct negation on matching proposition
+        # 1. Direct negation on matching proposition.  The object must match
+        # too: "did not approve north" vs "approved south" are independent
+        # facts even though the sentences are lexically close.
         if bool(neg_slot) != bool(neg_cand):
-            import re
             s_clean = re.sub(r"\b(does not|did not|is not|was not|not|never|no longer)\b", "", slot_pred).strip()
             c_clean = re.sub(r"\b(does not|did not|is not|was not|not|never|no longer)\b", "", cand_pred).strip()
-            if s_clean == c_clean or not slot_pred or not cand_pred or dense_sim >= 0.55:
+            slot_object = slot.latest_object
+            if slot_object is None:
+                slot_object = self._slot_object_text(slot, slot_text)
+            if slot_object and candidate.object:
+                slot_obj_tokens = self._content_tokens(slot_object)
+                cand_obj_tokens = self._content_tokens(candidate.object)
+                objects_match = (
+                    bool(cand_obj_tokens) and cand_obj_tokens <= slot_obj_tokens
+                )
+            else:
+                # After paraphrase consolidation the slot text no longer
+                # matches its debug predicate, so the object cannot be cut
+                # out by prefix.  Fall back to containment in the live text.
+                cand_obj_tokens = self._content_tokens(candidate.object or "")
+                objects_match = (
+                    bool(cand_obj_tokens)
+                    and cand_obj_tokens <= self._content_tokens(slot_text)
+                )
+            if objects_match and (s_clean == c_clean or not slot_pred or not cand_pred or dense_sim >= 0.55):
                 return True
 
         # 2. Explicit state transition marker
         cand_text_l = cand_text.lower()
-        if any(marker in cand_text_l for marker in TEMPORAL_TRANSITION_MARKERS):
+        if any(_contains_marker(cand_text_l, marker) for marker in TEMPORAL_TRANSITION_MARKERS):
             if dense_sim >= 0.65:
                 return True
 
         # 3. Exclusive attribute groups.  Predicate identity alone is not
         # sufficient: NLI often marks independent facts sharing a verb
         # (e.g. "leads team A" vs "leads team B") as contradictions.
-        if slot_pred and cand_pred:
-            for grp in EXCLUSIVE_SYNONYM_GROUPS:
-                in_slot = any(m in slot_pred for m in grp)
-                in_cand = any(m in cand_pred for m in grp)
-                if in_slot and in_cand:
-                    return True
+        if any(self._share_exclusive_group(sp, cand_pred) for sp in self._slot_predicates(slot)):
+            return True
 
         # 4. Antonyms
-        ANTONYMS = {
-            ("active", "inactive"), ("online", "offline"), ("alive", "dead"),
-            ("passed", "failed"), ("acquitted", "convicted"), ("approved", "denied"),
-            ("elected", "rejected"), ("gold", "disqualified"), ("fluent", "cannot")
-        }
         for a1, a2 in ANTONYMS:
             if (a1 in slot_text.lower() and a2 in cand_text.lower()) or \
                (a2 in slot_text.lower() and a1 in cand_text.lower()):
@@ -334,10 +411,17 @@ class BlackHoleMemory:
 
                         if dec == "SAME":
                             # Entity grounding guard: do not merge facts across different distinct entities
-                            slot_subj = (slot.debug_subject or "").strip().lower()
-                            cand_subj = (candidate.subject or "").strip().lower()
+                            slot_subj = self._normalize_subject(slot.debug_subject)
+                            cand_subj = self._normalize_subject(candidate.subject)
                             generic_subjs = {"", "entity", "someone", "something", "unknown", "item"}
                             if slot_subj not in generic_subjs and cand_subj not in generic_subjs and slot_subj != cand_subj:
+                                continue
+                            if (not slot.is_active and slot.valid_until is not None
+                                    and t_now >= slot.valid_until):
+                                # The fact is reasserted after its validity window
+                                # closed.  Merging into the historical slot would
+                                # swallow the recurrence; let an active conflicting
+                                # state be evaluated (and superseded) instead.
                                 continue
                             target_idx = cand_idx
                             target_pred = pred
@@ -357,7 +441,10 @@ class BlackHoleMemory:
                             if conf < 0.40:
                                 is_asym_artifact = True
 
-                            same_subject = (slot.debug_subject == candidate.subject)
+                            same_subject = (
+                                self._normalize_subject(slot.debug_subject)
+                                == self._normalize_subject(candidate.subject)
+                            )
                             is_same_attr = self._is_same_attribute_or_event(slot, candidate, cand_idx, cand_dense)
 
                             if same_subject and is_same_attr and not is_asym_artifact:
@@ -408,7 +495,13 @@ class BlackHoleMemory:
                 slot.confidence = min(1.0, max(slot.confidence, candidate.confidence) + 0.05)
                 slot.timestamp = t_now
                 slot.update_count += 1
-                # Update BM25 and text representation with the latest phrasing
+                # Update every representation of the phrasing, including the
+                # slot fields that the checkpoint serializes.  Otherwise a
+                # reload would silently restore the pre-consolidation wording.
+                slot.text = cand_text
+                slot.dense_emb = cand_dense.copy()
+                slot.latest_predicate = candidate.predicate
+                slot.latest_object = candidate.object
                 self.slot_texts[id(slot)] = cand_text
                 self.slot_dense_embs[target_idx] = cand_dense
                 self.bm25_index.update_document(id(slot), cand_text)
@@ -429,21 +522,47 @@ class BlackHoleMemory:
             # ── Case 2: Temporal State Revision (Contradiction of Active Fact) ──
             if is_temporal_change and superseded_slot is not None:
                 superseded_id = id(superseded_slot)
-                # Allocate a new slot for the new active state
+
+                # Equal-timestamp policy: a contradiction arriving exactly at
+                # the active interval's valid_from cannot close an earlier
+                # interval and must not create an overlapping one.  The last
+                # writer at that instant replaces the state in place.
+                if t_now == superseded_slot.valid_from:
+                    return self._replace_state_in_place(
+                        superseded_slot, candidate, cand_text, cand_dense, x_t, t_now,
+                        action="temporal_update"
+                    )
+
+                chain_before = self._attribute_chain(candidate)
+                evicted = None
                 if self.memory.is_full():
-                    evict_idx, evicted = self._evict(t_now)
+                    evict_idx, evicted = self._evict(
+                        t_now, protected_slot_ids={superseded_id}
+                    )
+
+                # With capacity 1 the active slot may have been evicted to
+                # make room.  Install the new active state regardless, but
+                # never leave a link pointing at the removed object.
+                keep_predecessor = self._slot_index(superseded_slot) is not None
+                history_truncated = evicted is not None and any(
+                    evicted is slot for slot in chain_before
+                )
+
                 new_slot = self.memory.add(
                     key=x_t, value=x_t.copy(), confidence=candidate.confidence,
                     timestamp=t_now, debug_subject=candidate.subject,
                     debug_predicate=candidate.predicate, text=cand_text,
                     dense_emb=cand_dense, valid_from=t_now, valid_until=None,
-                    supersedes=superseded_id
+                    supersedes=superseded_id if keep_predecessor else None,
+                    latest_predicate=candidate.predicate,
+                    latest_object=candidate.object
                 )
                 # ATOMIC COMMIT: only deactivate the old slot AFTER the new
                 # slot has been successfully added.  If memory.add() raised
                 # an exception, the old slot remains fully active.
-                superseded_slot.valid_until = t_now
-                superseded_slot.superseded_by = id(new_slot)
+                if keep_predecessor:
+                    superseded_slot.valid_until = t_now
+                    superseded_slot.superseded_by = id(new_slot)
                 self.slot_texts[id(new_slot)] = cand_text
                 self.slot_dense_embs.append(cand_dense)
                 self.bm25_index.add_document(id(new_slot), cand_text)
@@ -453,7 +572,9 @@ class BlackHoleMemory:
                     "action": "temporal_update",
                     "slot_index": len(self.memory.slots) - 1,
                     "slot_id": id(new_slot),
-                    "superseded_slot_id": superseded_id,
+                    "superseded_slot_id": superseded_id if keep_predecessor else None,
+                    "evicted_slot_id": id(evicted) if evicted is not None else None,
+                    "history_truncated": history_truncated,
                     "valid_from": t_now,
                     "valid_until": None,
                     "text": cand_text
@@ -461,18 +582,104 @@ class BlackHoleMemory:
 
             # ── Case 2b: Backward Historical Insertion (Predecessor of Active Fact) ──
             if is_historical_predecessor and successor_slot is not None:
-                successor_id = id(successor_slot)
+                chain = self._attribute_chain(candidate)
+
+                # Equal-timestamp policy (historical): if an interval already
+                # starts exactly at t_now, replace that state in place.  The
+                # interval and its links stay intact and nothing overlaps.
+                equal = [s for s in chain if s.valid_from == t_now]
+                if equal:
+                    target = max(
+                        equal,
+                        key=lambda s: (s.created_at, self._slot_index(s) or 0)
+                    )
+                    for duplicate in equal:
+                        if duplicate is not target:
+                            self._remove_slot_identity(duplicate)
+                    return self._replace_state_in_place(
+                        target, candidate, cand_text, cand_dense, x_t, t_now,
+                        action="historical_update"
+                    )
+
+                later = [s for s in chain if s.valid_from > t_now]
+                if later:
+                    nearest_successor = min(later, key=lambda s: s.valid_from)
+                elif successor_slot.valid_from > t_now:
+                    nearest_successor = successor_slot
+                else:
+                    # Every known interval starts before t_now, so this
+                    # observation extends the newest state into the present.
+                    nearest_successor = None
+                earlier = [s for s in chain if s.valid_from < t_now]
+                predecessor = max(earlier, key=lambda s: s.valid_from) if earlier else None
+                if predecessor is not None and predecessor.is_active:
+                    predecessor = None
+
+                evicted = None
                 if self.memory.is_full():
-                    evict_idx, evicted = self._evict(t_now)
+                    # Hard-protect the live successor: losing it would leave
+                    # the attribute without its expected active state.  The
+                    # nearest interval successor and predecessor are soft
+                    # protections; if capacity cannot honor them the insertion
+                    # still preserves the active state and reports truncation.
+                    hard = {id(successor_slot)} if successor_slot.is_active else set()
+                    soft = {
+                        id(s) for s in (nearest_successor, predecessor) if s is not None
+                    } - hard
+                    protected = hard | soft
+                    if not self._has_eviction_candidate(protected):
+                        protected = hard
+                    if not self._has_eviction_candidate(protected):
+                        return {
+                            "action": "historical_rejected",
+                            "reason": "capacity_would_remove_active_state",
+                            "slot_id": None,
+                            "valid_from": t_now,
+                            "valid_until": successor_slot.valid_from,
+                            "text": cand_text,
+                            "history_truncated": True
+                        }
+                    evict_idx, evicted = self._evict(
+                        t_now, protected_slot_ids=protected
+                    )
+
+                # Recompute the chain after eviction: a soft-protected
+                # predecessor/successor may no longer exist.
+                chain_after = self._attribute_chain(candidate)
+                later = [s for s in chain_after if s.valid_from > t_now]
+                if later:
+                    successor = min(later, key=lambda s: s.valid_from)
+                elif (successor_slot.valid_from > t_now
+                      and self._slot_index(successor_slot) is not None):
+                    successor = successor_slot
+                else:
+                    successor = None
+                earlier = [s for s in chain_after if s.valid_from < t_now]
+                predecessor = max(earlier, key=lambda s: s.valid_from) if earlier else None
+                if predecessor is not None and predecessor.is_active:
+                    predecessor = None
+
+                history_truncated = evicted is not None and any(
+                    evicted is slot for slot in chain
+                )
+                successor_id = id(successor) if successor is not None else None
+                valid_until = successor.valid_from if successor is not None else None
                 new_slot = self.memory.add(
                     key=x_t, value=x_t.copy(), confidence=candidate.confidence,
                     timestamp=t_now, debug_subject=candidate.subject,
                     debug_predicate=candidate.predicate, text=cand_text,
-                    dense_emb=cand_dense, valid_from=t_now, valid_until=successor_slot.valid_from,
-                    supersedes=None
+                    dense_emb=cand_dense, valid_from=t_now, valid_until=valid_until,
+                    supersedes=id(predecessor) if predecessor is not None else None,
+                    latest_predicate=candidate.predicate,
+                    latest_object=candidate.object
                 )
-                new_slot.superseded_by = successor_id
-                successor_slot.supersedes = id(new_slot)
+                if predecessor is not None:
+                    if predecessor.valid_until is not None and predecessor.valid_until > t_now:
+                        predecessor.valid_until = t_now
+                    predecessor.superseded_by = id(new_slot)
+                if successor is not None:
+                    new_slot.superseded_by = successor_id
+                    successor.supersedes = id(new_slot)
                 self.slot_texts[id(new_slot)] = cand_text
                 self.slot_dense_embs.append(cand_dense)
                 self.bm25_index.add_document(id(new_slot), cand_text)
@@ -483,8 +690,10 @@ class BlackHoleMemory:
                     "slot_index": len(self.memory.slots) - 1,
                     "slot_id": id(new_slot),
                     "superseded_by_slot_id": successor_id,
+                    "evicted_slot_id": id(evicted) if evicted is not None else None,
+                    "history_truncated": history_truncated,
                     "valid_from": t_now,
-                    "valid_until": successor_slot.valid_from,
+                    "valid_until": valid_until,
                     "text": cand_text
                 }
 
@@ -499,7 +708,9 @@ class BlackHoleMemory:
                 key=x_t, value=x_t.copy(), confidence=candidate.confidence,
                 timestamp=t_now, debug_subject=candidate.subject,
                 debug_predicate=candidate.predicate, text=cand_text,
-                dense_emb=cand_dense, valid_from=t_now, valid_until=None
+                dense_emb=cand_dense, valid_from=t_now, valid_until=None,
+                latest_predicate=candidate.predicate,
+                latest_object=candidate.object
             )
             self.slot_texts[id(slot)] = cand_text
             self.slot_dense_embs.append(cand_dense)
@@ -517,8 +728,112 @@ class BlackHoleMemory:
                 "text": cand_text
             }
 
-    def _evict(self, current_time: float) -> Tuple[int, MemorySlot]:
-        """Evicts a slot according to the configured retention policy."""
+    def _slot_index(self, slot: Optional[MemorySlot]) -> Optional[int]:
+        if slot is None:
+            return None
+        for idx, candidate in enumerate(self.memory.slots):
+            if candidate is slot:
+                return idx
+        return None
+
+    def _has_eviction_candidate(self, protected_slot_ids) -> bool:
+        protected = set(protected_slot_ids or ())
+        return any(id(s) not in protected for s in self.memory.slots)
+
+    def _replace_state_in_place(
+        self,
+        slot: MemorySlot,
+        candidate: Candidate,
+        cand_text: str,
+        cand_dense: np.ndarray,
+        x_t: np.ndarray,
+        t_now: float,
+        action: str
+    ) -> dict:
+        """Deterministic equal-timestamp policy: last writer wins.
+
+        A contradiction arriving exactly at an existing interval's
+        ``valid_from`` cannot close an earlier interval and must not create an
+        overlapping one.  The interval (``[valid_from, valid_until)``) and the
+        supersession links are preserved; only the represented state changes.
+        Timestamps are never shifted.
+        """
+        idx = self._slot_index(slot)
+        if idx is None:
+            raise RuntimeError("Attempted in-place replacement of a slot that is not in memory")
+
+        slot.value = x_t.copy()
+        slot.confidence = min(1.0, max(slot.confidence, candidate.confidence) + 0.05)
+        slot.timestamp = t_now
+        slot.update_count += 1
+        slot.text = cand_text
+        slot.dense_emb = cand_dense.copy()
+        slot.latest_predicate = candidate.predicate
+        slot.latest_object = candidate.object
+
+        self.slot_texts[id(slot)] = cand_text
+        if idx < len(self.slot_dense_embs):
+            self.slot_dense_embs[idx] = cand_dense
+        self.bm25_index.update_document(id(slot), cand_text)
+        self.total_temporal_updates += 1
+
+        return {
+            "action": action,
+            "slot_index": idx,
+            "slot_id": id(slot),
+            "replaced_in_place": True,
+            "valid_from": slot.valid_from,
+            "valid_until": slot.valid_until,
+            "text": cand_text,
+            "update_count": slot.update_count,
+        }
+
+    def _remove_slot_identity(self, target_slot: MemorySlot) -> bool:
+        """Removes a specific slot object and repairs its chain neighbours."""
+        idx = self._slot_index(target_slot)
+        if idx is None:
+            return False
+
+        pred_id = target_slot.supersedes
+        succ_id = target_slot.superseded_by
+        for other in self.memory.slots:
+            if other is target_slot:
+                continue
+            if pred_id is not None and id(other) == pred_id:
+                other.superseded_by = succ_id
+            if succ_id is not None and id(other) == succ_id:
+                other.supersedes = pred_id
+
+        self.memory.slots.pop(idx)
+        self.slot_texts.pop(id(target_slot), None)
+        if idx < len(self.slot_dense_embs):
+            self.slot_dense_embs.pop(idx)
+        self.slot_contra_counts.pop(id(target_slot), None)
+        self.slot_contra_anchors.pop(id(target_slot), None)
+        self.bm25_index.remove_document(id(target_slot))
+        return True
+
+    def _repair_chain_after_removal(self, removed_slot: MemorySlot) -> None:
+        pred_id = removed_slot.supersedes
+        succ_id = removed_slot.superseded_by
+        for other in self.memory.slots:
+            if pred_id is not None and id(other) == pred_id:
+                other.superseded_by = succ_id
+            if succ_id is not None and id(other) == succ_id:
+                other.supersedes = pred_id
+
+    def _evict(
+        self,
+        current_time: float,
+        protected_slot_ids: Optional[set] = None
+    ) -> Tuple[int, MemorySlot]:
+        """Evicts a slot according to the configured retention policy.
+
+        ``protected_slot_ids`` are excluded from eviction by every policy.  If
+        all remaining slots are protected the policy falls back to all slots
+        (the caller decides whether that is acceptable).
+        """
+        protected = set(protected_slot_ids or ())
         evict_idx, evicted_slot = evict_slot_phase24(
             memory=self.memory,
             eviction_policy=self.retention_policy,
@@ -526,11 +841,92 @@ class BlackHoleMemory:
             slot_texts=self.slot_texts,
             slot_dense_embs=self.slot_dense_embs,
             slot_contra_counts=self.slot_contra_counts,
-            slot_contra_anchors=self.slot_contra_anchors
+            slot_contra_anchors=self.slot_contra_anchors,
+            protected_slot_ids=protected or None
         )
+        self._repair_chain_after_removal(evicted_slot)
         self.bm25_index.remove_document(id(evicted_slot))
         self.total_evictions += 1
         return evict_idx, evicted_slot
+
+    def temporal_history_violations(self) -> List[Dict[str, Any]]:
+        """Checks that temporally exclusive facts cannot overlap.
+
+        Slots are grouped by normalized subject and attribute (identical
+        predicate or an EXCLUSIVE_SYNONYM_GROUPS match).  Within each group,
+        intervals are half-open ``[valid_from, valid_until)`` and must be
+        disjoint; at most one slot may be active (``valid_until is None``).
+        Slots with different attributes (e.g. cumulative multi-valued facts)
+        are separate groups by design and may coincide.
+
+        Returns a list of violation dicts; an empty list means the invariant
+        holds.
+        """
+        slots = self.memory.slots
+        n = len(slots)
+        parent = list(range(n))
+
+        def find(x: int) -> int:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(a: int, b: int) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[rb] = ra
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                a, b = slots[i], slots[j]
+                if self._normalize_subject(a.debug_subject) != self._normalize_subject(b.debug_subject):
+                    continue
+                if any(
+                    sa == sb or self._share_exclusive_group(sa, sb)
+                    for sa in self._slot_predicates(a)
+                    for sb in self._slot_predicates(b)
+                ):
+                    union(i, j)
+
+        groups: Dict[int, List[int]] = {}
+        for i in range(n):
+            groups.setdefault(find(i), []).append(i)
+
+        violations: List[Dict[str, Any]] = []
+        for indices in groups.values():
+            ordered = sorted(
+                indices,
+                key=lambda i: (slots[i].valid_from, slots[i].created_at, i)
+            )
+            for idx in ordered:
+                s = slots[idx]
+                if s.valid_until is not None and s.valid_until < s.valid_from:
+                    violations.append({
+                        "reason": "invalid_interval",
+                        "slot_index": idx,
+                        "valid_from": s.valid_from,
+                        "valid_until": s.valid_until,
+                    })
+
+            active = [idx for idx in ordered if slots[idx].is_active]
+            if len(active) > 1:
+                violations.append({
+                    "reason": "multiple_active",
+                    "slot_indices": active,
+                })
+
+            for left, right in zip(ordered, ordered[1:]):
+                a, b = slots[left], slots[right]
+                a_end = math.inf if a.valid_until is None else a.valid_until
+                if a_end > b.valid_from:
+                    violations.append({
+                        "reason": "overlap",
+                        "slot_indices": [left, right],
+                        "valid_from": [a.valid_from, b.valid_from],
+                        "valid_until": [a.valid_until, b.valid_until],
+                    })
+        return violations
 
     def query(
         self,
@@ -596,7 +992,9 @@ class BlackHoleMemory:
             for idx, slot in enumerate(self.memory.slots):
                 if slot.debug_subject != subject:
                     continue
-                if predicate is not None and slot.debug_predicate != predicate:
+                if predicate is not None and predicate not in (
+                    slot.debug_predicate, slot.latest_predicate
+                ):
                     continue
 
                 # Temporal filtering
@@ -631,47 +1029,13 @@ class BlackHoleMemory:
         Returns True if a slot with the given ID was found and removed, False otherwise.
         """
         with self._lock:
-            target_idx = None
-            target_slot = None
-            for idx, slot in enumerate(self.memory.slots):
-                if id(slot) == slot_id:
-                    target_idx = idx
-                    target_slot = slot
-                    break
-
-            if target_idx is None or target_slot is None:
+            target_slot = next(
+                (s for s in self.memory.slots if id(s) == slot_id), None
+            )
+            if target_slot is None:
                 return False
-
-            # Mend supersession chain around the deleted slot
-            pred_id = target_slot.supersedes
-            succ_id = target_slot.superseded_by
-
-            for s in self.memory.slots:
-                if id(s) == pred_id:
-                    s.superseded_by = succ_id
-                if id(s) == succ_id:
-                    s.supersedes = pred_id
-
-            # Remove from MemoryState
-            self.memory.slots.pop(target_idx)
-
-            # Clean up auxiliary stores
-            if slot_id in self.slot_texts:
-                del self.slot_texts[slot_id]
-
-            if target_idx < len(self.slot_dense_embs):
-                self.slot_dense_embs.pop(target_idx)
-
-            if slot_id in self.slot_contra_counts:
-                del self.slot_contra_counts[slot_id]
-
-            if slot_id in self.slot_contra_anchors:
-                del self.slot_contra_anchors[slot_id]
-
-            # Remove from BM25 index
-            self.bm25_index.remove_document(slot_id)
-
-            return True
+            # Removes the slot and re-links its predecessor to its successor.
+            return self._remove_slot_identity(target_slot)
 
     def purge_subject(self, subject: str, exact_match: bool = True) -> int:
         """
