@@ -202,6 +202,65 @@ class BlackHoleMemory:
             if p and p.strip()
         }
 
+    @staticmethod
+    def _normalize_value(value: Optional[str]) -> str:
+        if value is None:
+            return ""
+        collapsed = re.sub(r"\s+", " ", value.strip().casefold())
+        return collapsed.strip(" \t\r\n.,;:!?\"'")
+
+    def _slot_value_text(self, slot: MemorySlot) -> Optional[str]:
+        """Best-known object text for a slot, surviving paraphrases."""
+        if slot.latest_object:
+            return slot.latest_object
+        text = self.slot_texts.get(id(slot), slot.text or "")
+        if not text:
+            return None
+        return self._slot_object_text(slot, text) or None
+
+    def _values_are_equivalent(self, value_a: str, value_b: str) -> bool:
+        """Whether two attribute values are paraphrases rather than a change.
+
+        A whole-statement SAME can hide a genuine value change, so the values
+        are compared on their own.  Identical or numerically changed values
+        need no model call; otherwise the configured verifier decides.
+        """
+        if self._normalize_value(value_a) == self._normalize_value(value_b):
+            return True
+        from benchmarks.phase26_verification import extract_numbers
+        numbers_a = extract_numbers(value_a)
+        numbers_b = extract_numbers(value_b)
+        if numbers_a and numbers_b and numbers_a != numbers_b:
+            return False
+        result = self.verifier.verify_batch(
+            [(value_a, value_b)],
+            mode=self.verification_mode,
+            entail_threshold=self.entail_threshold,
+            contra_threshold=self.contra_threshold,
+        )
+        decision = result[0].get("decision") if result else "NEUTRAL"
+        return decision == "SAME"
+
+    def _is_duplicate_active_fact(self, a: MemorySlot, b: MemorySlot) -> bool:
+        """Two active slots asserting the same value of one exclusive attribute."""
+        if not (a.is_active and b.is_active):
+            return False
+        if self._normalize_subject(a.debug_subject) != self._normalize_subject(b.debug_subject):
+            return False
+        same_attribute = any(
+            (pa == pb and pa not in CUMULATIVE_PREDICATES)
+            or self._share_exclusive_group(pa, pb)
+            for pa in self._slot_predicates(a)
+            for pb in self._slot_predicates(b)
+        )
+        if not same_attribute:
+            return False
+        value_a = self._slot_value_text(a)
+        value_b = self._slot_value_text(b)
+        if not value_a or not value_b:
+            return False
+        return self._normalize_value(value_a) == self._normalize_value(value_b)
+
     def _attribute_chain(self, candidate: Candidate) -> List[MemorySlot]:
         """Slots describing the same subject and attribute as the candidate."""
         cand_subject = self._normalize_subject(candidate.subject)
@@ -423,6 +482,38 @@ class BlackHoleMemory:
                                 # swallow the recurrence; let an active conflicting
                                 # state be evaluated (and superseded) instead.
                                 continue
+                            cand_pred = (candidate.predicate or "").strip().lower()
+                            same_attribute = any(
+                                pred == cand_pred
+                                or self._share_exclusive_group(pred, cand_pred)
+                                for pred in self._slot_predicates(slot)
+                            )
+                            if same_attribute:
+                                slot_value = self._slot_value_text(slot)
+                                values_differ = (
+                                    bool(slot_value) and bool(candidate.object)
+                                    and not self._values_are_equivalent(
+                                        slot_value, candidate.object
+                                    )
+                                )
+                                if values_differ:
+                                    # SAME over a different value of one attribute
+                                    # is not a paraphrase: consolidating would
+                                    # erase the prior state without recording an
+                                    # interval.  Attributes known to be exclusive
+                                    # become temporal updates; everything else is
+                                    # kept as an independent active observation.
+                                    if self._is_same_attribute_or_event(
+                                            slot, candidate, cand_idx, cand_dense
+                                        ):
+                                        if slot.is_active:
+                                            if t_now >= slot.valid_from:
+                                                superseded_slot = slot
+                                                is_temporal_change = True
+                                            else:
+                                                is_historical_predecessor = True
+                                                successor_slot = slot
+                                    continue
                             target_idx = cand_idx
                             target_pred = pred
                             break
@@ -852,12 +943,16 @@ class BlackHoleMemory:
     def temporal_history_violations(self) -> List[Dict[str, Any]]:
         """Checks that temporally exclusive facts cannot overlap.
 
-        Slots are grouped by normalized subject and attribute (identical
-        predicate or an EXCLUSIVE_SYNONYM_GROUPS match).  Within each group,
-        intervals are half-open ``[valid_from, valid_until)`` and must be
-        disjoint; at most one slot may be active (``valid_until is None``).
-        Slots with different attributes (e.g. cumulative multi-valued facts)
-        are separate groups by design and may coincide.
+        Only facts the engine itself treats as versions of one attribute are
+        grouped: slots connected by supersession links, plus active slots that
+        assert the identical value of the same non-cumulative attribute.
+        Multi-valued and cumulative predicates, and same-predicate statements
+        the engine conservatively retained as independent, are intentional
+        coexistence and are not violations.
+
+        Within each group, intervals are half-open ``[valid_from,
+        valid_until)`` and must be disjoint; at most one slot may be active
+        (``valid_until is None``).  Malformed intervals are reported globally.
 
         Returns a list of violation dicts; an empty list means the invariant
         holds.
@@ -877,16 +972,16 @@ class BlackHoleMemory:
             if ra != rb:
                 parent[rb] = ra
 
+        index_by_id = {id(slot): idx for idx, slot in enumerate(slots)}
+        for i, slot in enumerate(slots):
+            for link in (slot.supersedes, slot.superseded_by):
+                j = index_by_id.get(link)
+                if j is not None:
+                    union(i, j)
+
         for i in range(n):
             for j in range(i + 1, n):
-                a, b = slots[i], slots[j]
-                if self._normalize_subject(a.debug_subject) != self._normalize_subject(b.debug_subject):
-                    continue
-                if any(
-                    sa == sb or self._share_exclusive_group(sa, sb)
-                    for sa in self._slot_predicates(a)
-                    for sb in self._slot_predicates(b)
-                ):
+                if self._is_duplicate_active_fact(slots[i], slots[j]):
                     union(i, j)
 
         groups: Dict[int, List[int]] = {}
@@ -894,20 +989,20 @@ class BlackHoleMemory:
             groups.setdefault(find(i), []).append(i)
 
         violations: List[Dict[str, Any]] = []
+        for idx, s in enumerate(slots):
+            if s.valid_until is not None and s.valid_until < s.valid_from:
+                violations.append({
+                    "reason": "invalid_interval",
+                    "slot_index": idx,
+                    "valid_from": s.valid_from,
+                    "valid_until": s.valid_until,
+                })
+
         for indices in groups.values():
             ordered = sorted(
                 indices,
                 key=lambda i: (slots[i].valid_from, slots[i].created_at, i)
             )
-            for idx in ordered:
-                s = slots[idx]
-                if s.valid_until is not None and s.valid_until < s.valid_from:
-                    violations.append({
-                        "reason": "invalid_interval",
-                        "slot_index": idx,
-                        "valid_from": s.valid_from,
-                        "valid_until": s.valid_until,
-                    })
 
             active = [idx for idx in ordered if slots[idx].is_active]
             if len(active) > 1:
@@ -989,8 +1084,9 @@ class BlackHoleMemory:
         """
         with self._lock:
             results = []
+            lookup_subject = self._normalize_subject(subject)
             for idx, slot in enumerate(self.memory.slots):
-                if slot.debug_subject != subject:
+                if self._normalize_subject(slot.debug_subject) != lookup_subject:
                     continue
                 if predicate is not None and predicate not in (
                     slot.debug_predicate, slot.latest_predicate
