@@ -159,6 +159,7 @@ class BlackHoleMemory:
         self.total_temporal_updates = 0
         self.total_evictions = 0
         self.total_nli_calls = 0
+        self.total_value_verifications = 0
 
         # Thread safety: RLock because internal calls (absorb -> _evict,
         # get_history -> recall) re-enter on the same thread.
@@ -193,6 +194,16 @@ class BlackHoleMemory:
             if in_a and in_b:
                 return True
         return False
+
+    @staticmethod
+    def _exclusive_group_ids(predicate: str) -> set:
+        pred = (predicate or "").strip().lower()
+        if not pred:
+            return set()
+        return {
+            idx for idx, group in enumerate(EXCLUSIVE_SYNONYM_GROUPS)
+            if any(_contains_marker(pred, marker) for marker in group)
+        }
 
     @staticmethod
     def _slot_predicates(slot: MemorySlot) -> set:
@@ -232,6 +243,7 @@ class BlackHoleMemory:
         numbers_b = extract_numbers(value_b)
         if numbers_a and numbers_b and numbers_a != numbers_b:
             return False
+        self.total_value_verifications += 1
         result = self.verifier.verify_batch(
             [(value_a, value_b)],
             mode=self.verification_mode,
@@ -417,6 +429,9 @@ class BlackHoleMemory:
             superseded_slot: Optional[MemorySlot] = None
             is_historical_predecessor = False
             successor_slot: Optional[MemorySlot] = None
+            closed_history_same: Optional[MemorySlot] = None
+            closed_history_same_idx: Optional[int] = None
+            insert_predecessor: Optional[MemorySlot] = None
 
             if self.memory.slots:
                 id_to_slot_index = {id(slot): idx for idx, slot in enumerate(self.memory.slots)}
@@ -481,6 +496,8 @@ class BlackHoleMemory:
                                 # closed.  Merging into the historical slot would
                                 # swallow the recurrence; let an active conflicting
                                 # state be evaluated (and superseded) instead.
+                                closed_history_same = slot
+                                closed_history_same_idx = cand_idx
                                 continue
                             cand_pred = (candidate.predicate or "").strip().lower()
                             same_attribute = any(
@@ -563,6 +580,56 @@ class BlackHoleMemory:
 
                             # Do not merge into this slot
                             continue
+
+                    # A SAME verdict that landed on a closed historical slot is
+                    # a recurrence.  If retrieval did not surface a conflicting
+                    # active head, resolve it directly; otherwise the recurrence
+                    # would be inserted as a second active version of the same
+                    # attribute with no interval and no link.
+                    if (target_idx is None and not is_temporal_change
+                            and not is_historical_predecessor
+                            and closed_history_same is not None
+                            and closed_history_same_idx is not None):
+                        chain = self._attribute_chain(candidate)
+                        active_chain = [s for s in chain if s.is_active]
+                        if self._is_same_attribute_or_event(
+                                closed_history_same, candidate,
+                                closed_history_same_idx, cand_dense
+                            ):
+                            if active_chain:
+                                head = max(
+                                    active_chain,
+                                    key=lambda s: (s.valid_from, s.created_at)
+                                )
+                                head_idx = self._slot_index(head)
+                                head_value = self._slot_value_text(head)
+                                if (head_idx is not None and head_value
+                                        and candidate.object
+                                        and self._normalize_value(head_value)
+                                        == self._normalize_value(candidate.object)):
+                                    target_idx = head_idx
+                                elif t_now >= head.valid_from:
+                                    superseded_slot = head
+                                    is_temporal_change = True
+                                else:
+                                    is_historical_predecessor = True
+                                    successor_slot = head
+                            else:
+                                # Every version is closed: the recurrence is a
+                                # new version after a gap.  Link it to the
+                                # nearest prior version so the chain stays
+                                # traversable.
+                                closed = [
+                                    s for s in chain
+                                    if s.valid_until is not None
+                                    and s.valid_from < t_now
+                                    and s.valid_until <= t_now
+                                ]
+                                if closed:
+                                    insert_predecessor = max(
+                                        closed,
+                                        key=lambda s: (s.valid_from, s.created_at)
+                                    )
 
                 best_sim = dense_candidates[0][1] if dense_candidates else 0.0
                 n_t = novelty(best_sim, memory_empty=False)
@@ -795,14 +862,21 @@ class BlackHoleMemory:
             else:
                 action = "insert"
 
+            link_predecessor = (
+                insert_predecessor is not None
+                and self._slot_index(insert_predecessor) is not None
+            )
             slot = self.memory.add(
                 key=x_t, value=x_t.copy(), confidence=candidate.confidence,
                 timestamp=t_now, debug_subject=candidate.subject,
                 debug_predicate=candidate.predicate, text=cand_text,
                 dense_emb=cand_dense, valid_from=t_now, valid_until=None,
+                supersedes=id(insert_predecessor) if link_predecessor else None,
                 latest_predicate=candidate.predicate,
                 latest_object=candidate.object
             )
+            if link_predecessor:
+                insert_predecessor.superseded_by = id(slot)
             self.slot_texts[id(slot)] = cand_text
             self.slot_dense_embs.append(cand_dense)
             self.bm25_index.add_document(id(slot), cand_text)
@@ -953,6 +1027,12 @@ class BlackHoleMemory:
         Within each group, intervals are half-open ``[valid_from,
         valid_until)`` and must be disjoint; at most one slot may be active
         (``valid_until is None``).  Malformed intervals are reported globally.
+        Links that connect different subjects, or attributes that belong to
+        provably different exclusive groups, are reported as
+        ``inconsistent_link`` and are not grouped.  Structurally broken links
+        are reported as ``dangling_link`` (target object absent),
+        ``self_link`` (slot points at itself), or ``non_reciprocal_link``
+        (only one side confirms the relationship), and are never grouped.
 
         Returns a list of violation dicts; an empty list means the invariant
         holds.
@@ -973,11 +1053,70 @@ class BlackHoleMemory:
                 parent[rb] = ra
 
         index_by_id = {id(slot): idx for idx, slot in enumerate(slots)}
+        violations: List[Dict[str, Any]] = []
+        seen_links = set()
         for i, slot in enumerate(slots):
             for link in (slot.supersedes, slot.superseded_by):
+                if link is None:
+                    continue
                 j = index_by_id.get(link)
-                if j is not None:
-                    union(i, j)
+                if j is None:
+                    violations.append({
+                        "reason": "dangling_link",
+                        "slot_index": i,
+                        "link": link,
+                    })
+                    continue
+                if j == i:
+                    violations.append({
+                        "reason": "self_link",
+                        "slot_index": i,
+                    })
+                    continue
+                pair = (min(i, j), max(i, j))
+                if pair in seen_links:
+                    continue
+                seen_links.add(pair)
+                a, b = slots[pair[0]], slots[pair[1]]
+                reciprocal = (
+                    (a.supersedes == id(b) and b.superseded_by == id(a))
+                    or (b.supersedes == id(a) and a.superseded_by == id(b))
+                )
+                if not reciprocal:
+                    violations.append({
+                        "reason": "non_reciprocal_link",
+                        "slot_indices": [pair[0], pair[1]],
+                    })
+                    continue
+                subject_match = (
+                    self._normalize_subject(a.debug_subject)
+                    == self._normalize_subject(b.debug_subject)
+                )
+                groups_a: set = set()
+                for pred in self._slot_predicates(a):
+                    groups_a |= self._exclusive_group_ids(pred)
+                groups_b: set = set()
+                for pred in self._slot_predicates(b):
+                    groups_b |= self._exclusive_group_ids(pred)
+                # Only a provable clash between two known exclusive groups is
+                # treated as an attribute mismatch.  Paraphrases and negated
+                # restatements often have no group or a changed predicate, and
+                # the engine legitimately links them.
+                attribute_match = not (
+                    groups_a and groups_b and groups_a.isdisjoint(groups_b)
+                )
+                if subject_match and attribute_match:
+                    union(*pair)
+                else:
+                    # A supersession link asserts two versions of one fact.
+                    # Grouping across subjects or attributes would hide that
+                    # structural corruption inside an interval check.
+                    violations.append({
+                        "reason": "inconsistent_link",
+                        "slot_indices": [pair[0], pair[1]],
+                        "subject_match": subject_match,
+                        "attribute_match": attribute_match,
+                    })
 
         for i in range(n):
             for j in range(i + 1, n):
@@ -988,7 +1127,6 @@ class BlackHoleMemory:
         for i in range(n):
             groups.setdefault(find(i), []).append(i)
 
-        violations: List[Dict[str, Any]] = []
         for idx, s in enumerate(slots):
             if s.valid_until is not None and s.valid_until < s.valid_from:
                 violations.append({
@@ -1197,6 +1335,7 @@ class BlackHoleMemory:
                 "total_temporal_updates": self.total_temporal_updates,
                 "total_evictions": self.total_evictions,
                 "total_nli_calls": self.total_nli_calls,
+                "total_value_verifications": self.total_value_verifications,
                 "footprint_bytes": footprint["total_bytes"],
             }
 

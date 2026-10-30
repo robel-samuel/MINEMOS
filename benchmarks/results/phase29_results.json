@@ -1,0 +1,504 @@
+{
+  "phase": 29,
+  "timestamp": 1793275979.77886,
+  "baseline_commit": "3afc2e480ba09d23c696d123fcc5c59fb5eb39a8",
+  "case_count": 24,
+  "passed": 23,
+  "known_gaps_confirmed": 1,
+  "failed": 0,
+  "failed_ids": [],
+  "known_gap_ids": [
+    "U1"
+  ],
+  "metrics": {
+    "legitimate_cases": 8,
+    "legitimate_false_positive_count": 0,
+    "legitimate_false_positive_rate": 0.0,
+    "corruption_cases": 6,
+    "corruption_detected": 6,
+    "corruption_detection_rate": 1.0,
+    "historical_cases": 4,
+    "historical_overlap_free": 4,
+    "historical_pass_rate": 1.0
+  },
+  "wall_seconds": 2.39,
+  "results": [
+    {
+      "id": "L1",
+      "class": "legitimate",
+      "description": "two team memberships",
+      "expected": {
+        "active": 2,
+        "violations": []
+      },
+      "observed": {
+        "active": 2,
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "L2",
+      "class": "legitimate",
+      "description": "two managed projects",
+      "expected": {
+        "active": 2,
+        "violations": []
+      },
+      "observed": {
+        "active": 2,
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "L3",
+      "class": "legitimate",
+      "description": "two cumulative awards",
+      "expected": {
+        "active": 2,
+        "violations": []
+      },
+      "observed": {
+        "active": 2,
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "L4",
+      "class": "legitimate",
+      "description": "conservative same-attribute retention",
+      "expected": {
+        "active": 2,
+        "violations": []
+      },
+      "observed": {
+        "active": 2,
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "L5",
+      "class": "legitimate",
+      "description": "independent predicates",
+      "expected": {
+        "active": 2,
+        "violations": []
+      },
+      "observed": {
+        "active": 2,
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "L6",
+      "class": "legitimate",
+      "description": "exclusive role chain",
+      "expected": {
+        "active": 1,
+        "violations": []
+      },
+      "observed": {
+        "active": 1,
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "L7",
+      "class": "legitimate",
+      "description": "paraphrase consolidation",
+      "expected": {
+        "active": 1,
+        "violations": [],
+        "intervals": [
+          [
+            10.0,
+            null
+          ]
+        ]
+      },
+      "observed": {
+        "active": 1,
+        "violations": [],
+        "intervals": [
+          [
+            10.0,
+            null
+          ]
+        ]
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "L8",
+      "class": "legitimate",
+      "description": "identical value reassertion",
+      "expected": {
+        "active": 1,
+        "violations": []
+      },
+      "observed": {
+        "active": 1,
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "C1",
+      "class": "corruption",
+      "description": "linked overlap",
+      "expected": {
+        "violations": [
+          "overlap"
+        ]
+      },
+      "observed": {
+        "violations": [
+          "overlap"
+        ]
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "C2",
+      "class": "corruption",
+      "description": "linked two-active chain",
+      "expected": {
+        "violations": [
+          "multiple_active",
+          "overlap"
+        ]
+      },
+      "observed": {
+        "violations": [
+          "multiple_active",
+          "overlap"
+        ]
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "C3",
+      "class": "corruption",
+      "description": "duplicate active exclusive value",
+      "expected": {
+        "active": 2,
+        "violations": [
+          "multiple_active"
+        ]
+      },
+      "observed": {
+        "active": 2,
+        "violations": [
+          "multiple_active",
+          "overlap"
+        ]
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "C4",
+      "class": "corruption",
+      "description": "inverted validity interval",
+      "expected": {
+        "violations": [
+          "invalid_interval"
+        ]
+      },
+      "observed": {
+        "violations": [
+          "invalid_interval"
+        ]
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "C5",
+      "class": "corruption",
+      "description": "cross-subject link",
+      "expected": {
+        "violations": [
+          "inconsistent_link"
+        ]
+      },
+      "observed": {
+        "violations": [
+          "inconsistent_link"
+        ]
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "C6",
+      "class": "corruption",
+      "description": "cross-attribute link",
+      "expected": {
+        "violations": [
+          "inconsistent_link"
+        ]
+      },
+      "observed": {
+        "violations": [
+          "inconsistent_link"
+        ]
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "H1",
+      "class": "historical",
+      "description": "closed recurrence, active head contradicted",
+      "expected": {
+        "action": "temporal_update",
+        "active": 1,
+        "intervals": [
+          [
+            10.0,
+            20.0
+          ],
+          [
+            20.0,
+            30.0
+          ],
+          [
+            30.0,
+            null
+          ]
+        ],
+        "violations": []
+      },
+      "observed": {
+        "action": "temporal_update",
+        "active": 1,
+        "intervals": [
+          [
+            10.0,
+            20.0
+          ],
+          [
+            20.0,
+            30.0
+          ],
+          [
+            30.0,
+            null
+          ]
+        ],
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "H2",
+      "class": "historical",
+      "description": "closed recurrence, active head neutral",
+      "expected": {
+        "action": "temporal_update",
+        "active": 1,
+        "intervals": [
+          [
+            10.0,
+            20.0
+          ],
+          [
+            20.0,
+            30.0
+          ],
+          [
+            30.0,
+            null
+          ]
+        ],
+        "violations": []
+      },
+      "observed": {
+        "action": "temporal_update",
+        "active": 1,
+        "intervals": [
+          [
+            10.0,
+            20.0
+          ],
+          [
+            20.0,
+            30.0
+          ],
+          [
+            30.0,
+            null
+          ]
+        ],
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "H3",
+      "class": "historical",
+      "description": "multi-valued closed recurrence",
+      "expected": {
+        "action": "insert",
+        "active": 2,
+        "violations": []
+      },
+      "observed": {
+        "action": "insert",
+        "active": 2,
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "H4",
+      "class": "historical",
+      "description": "closed recurrence, active value unchanged",
+      "expected": {
+        "action": "consolidate",
+        "active": 1,
+        "intervals": [
+          [
+            10.0,
+            20.0
+          ],
+          [
+            20.0,
+            null
+          ]
+        ],
+        "violations": []
+      },
+      "observed": {
+        "action": "consolidate",
+        "active": 1,
+        "intervals": [
+          [
+            10.0,
+            20.0
+          ],
+          [
+            20.0,
+            null
+          ]
+        ],
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "V1",
+      "class": "verifier",
+      "description": "changed value, whole-statement SAME",
+      "expected": {
+        "action": "temporal_update",
+        "active": 1,
+        "value_checks": 1
+      },
+      "observed": {
+        "action": "temporal_update",
+        "active": 1,
+        "value_checks": 1
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "V2",
+      "class": "verifier",
+      "description": "paraphrased value, SAME",
+      "expected": {
+        "action": "consolidate",
+        "active": 1
+      },
+      "observed": {
+        "action": "consolidate",
+        "active": 1
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "V3",
+      "class": "verifier",
+      "description": "changed value, non-exclusive attribute",
+      "expected": {
+        "action": "insert",
+        "active": 2
+      },
+      "observed": {
+        "action": "insert",
+        "active": 2
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "NC04",
+      "class": "real_nli",
+      "description": "pinned NLI SAME over changed value",
+      "expected": {
+        "action": "insert",
+        "active": 2,
+        "value_checks": 1
+      },
+      "observed": {
+        "action": "insert",
+        "active": 2,
+        "value_checks": 1
+      },
+      "passed": true,
+      "known_gap": false
+    },
+    {
+      "id": "U1",
+      "class": "known_gap",
+      "description": "unlinked active exclusive conflict",
+      "expected": {
+        "active": 2,
+        "violations": []
+      },
+      "observed": {
+        "active": 2,
+        "violations": []
+      },
+      "passed": true,
+      "known_gap": true
+    },
+    {
+      "id": "T1",
+      "class": "telemetry",
+      "description": "value-only verifier calls counted",
+      "expected": {
+        "value_verifications": 1,
+        "nli_calls": 1
+      },
+      "observed": {
+        "value_verifications": 1,
+        "nli_calls": 1
+      },
+      "passed": true,
+      "known_gap": false
+    }
+  ]
+}
