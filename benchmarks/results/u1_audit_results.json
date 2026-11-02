@@ -1,0 +1,1417 @@
+{
+  "experiment": "u1_independent_audit",
+  "dataset_version": "u1-audit-2026-10-30",
+  "case_count": 7,
+  "passed_sections": [
+    "entry_points",
+    "historical_recall",
+    "language_equivalence",
+    "language_conflicts",
+    "detector_semantics",
+    "structural_duplicates",
+    "policy_reproducibility"
+  ],
+  "failed_sections": [],
+  "sections_with_known_limitations": [
+    "language_equivalence",
+    "language_conflicts"
+  ],
+  "status": "audit_complete_with_known_limitations",
+  "sections": {
+    "entry_points": {
+      "observations": {
+        "u1_state_active_slots": 2,
+        "default_reasons": [],
+        "opt_in_reasons": [
+          "unlinked_exclusive_temporal_conflict"
+        ],
+        "detector_findings": 1,
+        "phase29_harness_reasons": [],
+        "u1_closure_harness_reasons": [],
+        "status_has_temporal_invariant_key": false,
+        "status_keys": [
+          "active_slots",
+          "capacity",
+          "consolidated_slots",
+          "footprint_bytes",
+          "provisional_slots",
+          "superseded_slots",
+          "total_absorbed",
+          "total_evictions",
+          "total_inserts",
+          "total_nli_calls",
+          "total_slots",
+          "total_temporal_updates",
+          "total_updates",
+          "total_value_verifications"
+        ],
+        "checkpoint_roundtrip_default_reasons": [],
+        "checkpoint_roundtrip_opt_in_reasons": [
+          "unlinked_exclusive_temporal_conflict"
+        ]
+      },
+      "expected": {
+        "u1_state_active_slots": 2,
+        "default_reasons": [],
+        "opt_in_reasons": [
+          "unlinked_exclusive_temporal_conflict"
+        ],
+        "detector_findings": 1,
+        "phase29_harness_reasons": [],
+        "u1_closure_harness_reasons": [],
+        "status_has_temporal_invariant_key": false,
+        "checkpoint_roundtrip_default_reasons": [],
+        "checkpoint_roundtrip_opt_in_reasons": [
+          "unlinked_exclusive_temporal_conflict"
+        ]
+      },
+      "passed": true,
+      "silent_paths": [
+        "temporal_history_violations() default argument",
+        "status()",
+        "phase2.checkpoint.load_into_black_hole_memory validation",
+        "benchmarks/phase29_integrity.py::_reasons"
+      ]
+    },
+    "historical_recall": {
+      "observations": {
+        "actions": {
+          "H1": "historical_observation",
+          "H2": "historical_observation",
+          "H3": "historical_observation",
+          "H4": "insert",
+          "H5": "temporal_update",
+          "H6": "insert"
+        },
+        "active_texts": [
+          "Alice currently lives in Nairobi.",
+          "Alice works at Company B."
+        ],
+        "history_texts": [
+          "Alice used to live in Addis Ababa.",
+          "Alice previously lived in Addis Ababa.",
+          "Alice formerly worked at Company A.",
+          "Alice no longer lives in Addis Ababa.",
+          "Alice currently lives in Nairobi.",
+          "Alice works at Company B."
+        ],
+        "historical_retrievable_via_history": true,
+        "historical_absent_from_default_recall": true,
+        "historical_not_active": true,
+        "history_unfiltered_count": 6,
+        "predicate_filtered_count": 0,
+        "as_of_observation_time_count": 0,
+        "query_default_has_historical": false,
+        "query_include_history_count": 6,
+        "current_residence": [
+          "Alice currently lives in Nairobi."
+        ],
+        "current_employment": [
+          "Alice works at Company B."
+        ],
+        "previous_employment_retained": true,
+        "current_negation_retained": true,
+        "violations": [],
+        "conflicts": 0,
+        "negation_scenario": {
+          "negation_action": "temporal_update",
+          "active_after_negation": [
+            "Alice no longer lives in Addis Ababa."
+          ],
+          "move_action": "temporal_update",
+          "active_after_move": [
+            "Alice lives in Nairobi."
+          ],
+          "violations_after_negation": [],
+          "conflicts_after_negation": 0
+        }
+      },
+      "expected_actions": {
+        "H1": "historical_observation",
+        "H2": "historical_observation",
+        "H3": "historical_observation",
+        "H4": "insert",
+        "H5": "temporal_update",
+        "H6": "insert"
+      },
+      "checks": {
+        "actions_match": true,
+        "historical_retrievable_via_history": true,
+        "historical_absent_from_default_recall": true,
+        "historical_not_active": true,
+        "previous_employment_retained": true,
+        "current_negation_retained": true,
+        "current_residence_is_nairobi": true,
+        "current_employment_is_company_b": true,
+        "no_invariant_violation": true,
+        "no_false_conflict": true,
+        "negation_becomes_current_state": true,
+        "negation_state_closed_by_move": true,
+        "negation_leaves_no_violation": true
+      },
+      "passed": true,
+      "limitations": {
+        "predicate_filtered_history_misses_marker_predicates": true,
+        "point_in_time_recall_excludes_zero_width": true,
+        "default_query_is_current_only": true
+      }
+    },
+    "language_equivalence": {
+      "passed": true,
+      "outcome": "known_equivalence_boundaries",
+      "false_negatives": [
+        "SP-04"
+      ],
+      "false_positives": [],
+      "dataset_version": "u1-audit-2026-10-30",
+      "pairs": 50,
+      "per_category": {
+        "spelling": {
+          "pairs": 6,
+          "equivalent_labels": 6,
+          "predicted_equivalent": 5,
+          "tp": 5,
+          "fp": 0,
+          "tn": 0,
+          "fn": 1,
+          "uncertain": 0,
+          "runtime_seconds": 0.975,
+          "precision": 1.0,
+          "recall": 0.8333,
+          "f1": 0.9091,
+          "false_positive_rate": null
+        },
+        "grammar": {
+          "pairs": 5,
+          "equivalent_labels": 5,
+          "predicted_equivalent": 5,
+          "tp": 5,
+          "fp": 0,
+          "tn": 0,
+          "fn": 0,
+          "uncertain": 0,
+          "runtime_seconds": 0.799,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "false_positive_rate": null
+        },
+        "capitalization": {
+          "pairs": 5,
+          "equivalent_labels": 5,
+          "predicted_equivalent": 5,
+          "tp": 5,
+          "fp": 0,
+          "tn": 0,
+          "fn": 0,
+          "uncertain": 0,
+          "runtime_seconds": 0.856,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "false_positive_rate": null
+        },
+        "abbreviation": {
+          "pairs": 4,
+          "equivalent_labels": 4,
+          "predicted_equivalent": 4,
+          "tp": 4,
+          "fp": 0,
+          "tn": 0,
+          "fn": 0,
+          "uncertain": 0,
+          "runtime_seconds": 0.516,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "false_positive_rate": null
+        },
+        "paraphrase": {
+          "pairs": 6,
+          "equivalent_labels": 6,
+          "predicted_equivalent": 6,
+          "tp": 6,
+          "fp": 0,
+          "tn": 0,
+          "fn": 0,
+          "uncertain": 0,
+          "runtime_seconds": 0.8,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "false_positive_rate": null
+        },
+        "similar_names": {
+          "pairs": 5,
+          "equivalent_labels": 0,
+          "predicted_equivalent": 0,
+          "tp": 0,
+          "fp": 0,
+          "tn": 5,
+          "fn": 0,
+          "uncertain": 0,
+          "runtime_seconds": 0.618,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        },
+        "similar_locations": {
+          "pairs": 5,
+          "equivalent_labels": 0,
+          "predicted_equivalent": 0,
+          "tp": 0,
+          "fp": 0,
+          "tn": 5,
+          "fn": 0,
+          "uncertain": 0,
+          "runtime_seconds": 0.812,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        },
+        "negation": {
+          "pairs": 4,
+          "equivalent_labels": 0,
+          "predicted_equivalent": 0,
+          "tp": 0,
+          "fp": 0,
+          "tn": 4,
+          "fn": 0,
+          "uncertain": 0,
+          "runtime_seconds": 0.582,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        },
+        "historical": {
+          "pairs": 5,
+          "equivalent_labels": 0,
+          "predicted_equivalent": 0,
+          "tp": 0,
+          "fp": 0,
+          "tn": 5,
+          "fn": 0,
+          "uncertain": 0,
+          "runtime_seconds": 0.694,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        },
+        "ambiguous": {
+          "pairs": 5,
+          "equivalent_labels": 0,
+          "predicted_equivalent": 2,
+          "tp": 0,
+          "fp": 0,
+          "tn": 0,
+          "fn": 0,
+          "uncertain": 5,
+          "runtime_seconds": 0.672,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": null
+        }
+      },
+      "totals_scored": {
+        "pairs": 45,
+        "tp": 25,
+        "fp": 0,
+        "tn": 19,
+        "fn": 1,
+        "precision": 1.0,
+        "recall": 0.9615,
+        "f1": 0.9804,
+        "false_positive_rate": 0.0,
+        "uncertain_pairs": 5
+      },
+      "results": [
+        {
+          "id": "SP-01",
+          "category": "spelling",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.142,
+          "correct": true,
+          "note": "one-letter subject deletion"
+        },
+        {
+          "id": "SP-02",
+          "category": "spelling",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.292,
+          "correct": true,
+          "note": "adjacent transposition"
+        },
+        {
+          "id": "SP-03",
+          "category": "spelling",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.145,
+          "correct": true,
+          "note": "value deletion"
+        },
+        {
+          "id": "SP-04",
+          "category": "spelling",
+          "label": "equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 2,
+          "error": null,
+          "runtime_seconds": 0.131,
+          "correct": false,
+          "note": "substitution typo; excluded by the conservative rule (expected miss)"
+        },
+        {
+          "id": "SP-05",
+          "category": "spelling",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.124,
+          "correct": true,
+          "note": "value insertion"
+        },
+        {
+          "id": "SP-06",
+          "category": "spelling",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.141,
+          "correct": true,
+          "note": "value insertion"
+        },
+        {
+          "id": "GR-01",
+          "category": "grammar",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.137,
+          "correct": true,
+          "note": "subject-verb agreement"
+        },
+        {
+          "id": "GR-02",
+          "category": "grammar",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.141,
+          "correct": true,
+          "note": "progressive aspect"
+        },
+        {
+          "id": "GR-03",
+          "category": "grammar",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.21,
+          "correct": true,
+          "note": "subject-verb agreement"
+        },
+        {
+          "id": "GR-04",
+          "category": "grammar",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.162,
+          "correct": true,
+          "note": "progressive aspect"
+        },
+        {
+          "id": "GR-05",
+          "category": "grammar",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.149,
+          "correct": true,
+          "note": "subject-verb agreement"
+        },
+        {
+          "id": "CP-01",
+          "category": "capitalization",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.222,
+          "correct": true,
+          "note": "lowercase"
+        },
+        {
+          "id": "CP-02",
+          "category": "capitalization",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.183,
+          "correct": true,
+          "note": "uppercase"
+        },
+        {
+          "id": "CP-03",
+          "category": "capitalization",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.18,
+          "correct": true,
+          "note": "full-width subject"
+        },
+        {
+          "id": "CP-04",
+          "category": "capitalization",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.141,
+          "correct": true,
+          "note": "extra spaces"
+        },
+        {
+          "id": "CP-05",
+          "category": "capitalization",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.13,
+          "correct": true,
+          "note": "quoted value"
+        },
+        {
+          "id": "AB-01",
+          "category": "abbreviation",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.129,
+          "correct": true,
+          "note": "NYC alias"
+        },
+        {
+          "id": "AB-02",
+          "category": "abbreviation",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.126,
+          "correct": true,
+          "note": "UK alias"
+        },
+        {
+          "id": "AB-03",
+          "category": "abbreviation",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.133,
+          "correct": true,
+          "note": "USA alias"
+        },
+        {
+          "id": "AB-04",
+          "category": "abbreviation",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.128,
+          "correct": true,
+          "note": "UAE alias"
+        },
+        {
+          "id": "PA-01",
+          "category": "paraphrase",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.144,
+          "correct": true,
+          "note": "predicate synonym"
+        },
+        {
+          "id": "PA-02",
+          "category": "paraphrase",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.132,
+          "correct": true,
+          "note": "employment paraphrase"
+        },
+        {
+          "id": "PA-03",
+          "category": "paraphrase",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.121,
+          "correct": true,
+          "note": "role paraphrase"
+        },
+        {
+          "id": "PA-04",
+          "category": "paraphrase",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.127,
+          "correct": true,
+          "note": "management paraphrase"
+        },
+        {
+          "id": "PA-05",
+          "category": "paraphrase",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.127,
+          "correct": true,
+          "note": "award paraphrase"
+        },
+        {
+          "id": "PA-06",
+          "category": "paraphrase",
+          "label": "equivalent",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.149,
+          "correct": true,
+          "note": "residence paraphrase"
+        },
+        {
+          "id": "SN-01",
+          "category": "similar_names",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 2,
+          "error": null,
+          "runtime_seconds": 0.131,
+          "correct": true,
+          "note": "distinct people"
+        },
+        {
+          "id": "SN-02",
+          "category": "similar_names",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 2,
+          "error": null,
+          "runtime_seconds": 0.115,
+          "correct": true,
+          "note": "short names, distinct people"
+        },
+        {
+          "id": "SN-03",
+          "category": "similar_names",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 2,
+          "error": null,
+          "runtime_seconds": 0.128,
+          "correct": true,
+          "note": "short names, distinct people"
+        },
+        {
+          "id": "SN-04",
+          "category": "similar_names",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 2,
+          "error": null,
+          "runtime_seconds": 0.122,
+          "correct": true,
+          "note": "distinct people"
+        },
+        {
+          "id": "SN-05",
+          "category": "similar_names",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 2,
+          "error": null,
+          "runtime_seconds": 0.122,
+          "correct": true,
+          "note": "distinct people"
+        },
+        {
+          "id": "SL-01",
+          "category": "similar_locations",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "temporal_update",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.205,
+          "correct": true,
+          "note": "distinct city names"
+        },
+        {
+          "id": "SL-02",
+          "category": "similar_locations",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "temporal_update",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.139,
+          "correct": true,
+          "note": "distinct countries"
+        },
+        {
+          "id": "SL-03",
+          "category": "similar_locations",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "temporal_update",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.2,
+          "correct": true,
+          "note": "distinct countries"
+        },
+        {
+          "id": "SL-04",
+          "category": "similar_locations",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "temporal_update",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.127,
+          "correct": true,
+          "note": "distinct countries"
+        },
+        {
+          "id": "SL-05",
+          "category": "similar_locations",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "temporal_update",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.141,
+          "correct": true,
+          "note": "distinct cities"
+        },
+        {
+          "id": "NG-01",
+          "category": "negation",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "temporal_update",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.155,
+          "correct": true,
+          "note": "negation is not restatement"
+        },
+        {
+          "id": "NG-02",
+          "category": "negation",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "temporal_update",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.151,
+          "correct": true,
+          "note": "affirmation vs negation"
+        },
+        {
+          "id": "NG-03",
+          "category": "negation",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "temporal_update",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.122,
+          "correct": true,
+          "note": "affirmation vs negation"
+        },
+        {
+          "id": "NG-04",
+          "category": "negation",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "temporal_update",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.154,
+          "correct": true,
+          "note": "current vs negated"
+        },
+        {
+          "id": "HC-01",
+          "category": "historical",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.152,
+          "correct": true,
+          "note": "past state vs current state"
+        },
+        {
+          "id": "HC-02",
+          "category": "historical",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.142,
+          "correct": true,
+          "note": "past state vs current state"
+        },
+        {
+          "id": "HC-03",
+          "category": "historical",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.131,
+          "correct": true,
+          "note": "past job vs current job"
+        },
+        {
+          "id": "HC-04",
+          "category": "historical",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.134,
+          "correct": true,
+          "note": "past state vs current state"
+        },
+        {
+          "id": "HC-05",
+          "category": "historical",
+          "label": "not_equivalent",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.135,
+          "correct": true,
+          "note": "past job vs current job"
+        },
+        {
+          "id": "AM-01",
+          "category": "ambiguous",
+          "label": "uncertain",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 2,
+          "error": null,
+          "runtime_seconds": 0.122,
+          "correct": null,
+          "note": "unknown predicate cardinality"
+        },
+        {
+          "id": "AM-02",
+          "category": "ambiguous",
+          "label": "uncertain",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 2,
+          "error": null,
+          "runtime_seconds": 0.129,
+          "correct": null,
+          "note": "missing value"
+        },
+        {
+          "id": "AM-03",
+          "category": "ambiguous",
+          "label": "uncertain",
+          "predicted": "different",
+          "second_action": "insert",
+          "active_slots": 2,
+          "error": null,
+          "runtime_seconds": 0.115,
+          "correct": null,
+          "note": "pronoun reference"
+        },
+        {
+          "id": "AM-04",
+          "category": "ambiguous",
+          "label": "uncertain",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.19,
+          "correct": null,
+          "note": "disjunction"
+        },
+        {
+          "id": "AM-05",
+          "category": "ambiguous",
+          "label": "uncertain",
+          "predicted": "equivalent",
+          "second_action": "consolidate",
+          "active_slots": 1,
+          "error": null,
+          "runtime_seconds": 0.116,
+          "correct": null,
+          "note": "near vs in"
+        }
+      ],
+      "runtime_seconds": 7.33,
+      "model_calls": 103,
+      "method": "Each pair is absorbed into a fresh memory (A at t=10, B at t=20) with the pinned real NLI verifier.  Predicted 'equivalent' means absorb returned action=consolidate; any other action is 'different'.  Ambiguous pairs are reported but excluded from precision/recall."
+    },
+    "language_conflicts": {
+      "passed": true,
+      "outcome": "known_lexical_limitation",
+      "false_positives": [
+        "CF-PA-01",
+        "CF-PA-02"
+      ],
+      "false_negatives": [],
+      "dataset_version": "u1-audit-2026-10-30",
+      "pairs": 20,
+      "per_category": {
+        "spelling": {
+          "pairs": 2,
+          "tp": 1,
+          "fp": 0,
+          "tn": 1,
+          "fn": 0,
+          "detector_reported": 1,
+          "structural_reported": 0,
+          "runtime_seconds": 0.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "false_positive_rate": 0.0
+        },
+        "grammar": {
+          "pairs": 1,
+          "tp": 0,
+          "fp": 0,
+          "tn": 1,
+          "fn": 0,
+          "detector_reported": 0,
+          "structural_reported": 0,
+          "runtime_seconds": 0.0,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        },
+        "capitalization": {
+          "pairs": 1,
+          "tp": 0,
+          "fp": 0,
+          "tn": 1,
+          "fn": 0,
+          "detector_reported": 0,
+          "structural_reported": 1,
+          "runtime_seconds": 0.0,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        },
+        "abbreviation": {
+          "pairs": 2,
+          "tp": 0,
+          "fp": 0,
+          "tn": 2,
+          "fn": 0,
+          "detector_reported": 0,
+          "structural_reported": 0,
+          "runtime_seconds": 0.0,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        },
+        "paraphrase": {
+          "pairs": 2,
+          "tp": 0,
+          "fp": 2,
+          "tn": 0,
+          "fn": 0,
+          "detector_reported": 2,
+          "structural_reported": 0,
+          "runtime_seconds": 0.0,
+          "precision": 0.0,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 1.0
+        },
+        "similar_names": {
+          "pairs": 2,
+          "tp": 0,
+          "fp": 0,
+          "tn": 2,
+          "fn": 0,
+          "detector_reported": 0,
+          "structural_reported": 0,
+          "runtime_seconds": 0.0,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        },
+        "similar_locations": {
+          "pairs": 3,
+          "tp": 3,
+          "fp": 0,
+          "tn": 0,
+          "fn": 0,
+          "detector_reported": 3,
+          "structural_reported": 0,
+          "runtime_seconds": 0.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "false_positive_rate": null
+        },
+        "negation": {
+          "pairs": 3,
+          "tp": 0,
+          "fp": 0,
+          "tn": 3,
+          "fn": 0,
+          "detector_reported": 0,
+          "structural_reported": 1,
+          "runtime_seconds": 0.0,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        },
+        "historical": {
+          "pairs": 2,
+          "tp": 0,
+          "fp": 0,
+          "tn": 2,
+          "fn": 0,
+          "detector_reported": 0,
+          "structural_reported": 0,
+          "runtime_seconds": 0.0,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        },
+        "ambiguous": {
+          "pairs": 2,
+          "tp": 0,
+          "fp": 0,
+          "tn": 2,
+          "fn": 0,
+          "detector_reported": 0,
+          "structural_reported": 0,
+          "runtime_seconds": 0.0,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "false_positive_rate": 0.0
+        }
+      },
+      "totals": {
+        "pairs": 20,
+        "tp": 4,
+        "fp": 2,
+        "tn": 14,
+        "fn": 0,
+        "precision": 0.6667,
+        "recall": 1.0,
+        "f1": 0.8,
+        "false_positive_rate": 0.125
+      },
+      "results": [
+        {
+          "id": "CF-SP-01",
+          "category": "spelling",
+          "expected_conflict": true,
+          "detector_findings": 1,
+          "structural_conflict": false,
+          "predicted_conflict": true,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "subject typo, different values"
+        },
+        {
+          "id": "CF-SP-02",
+          "category": "spelling",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "value typo, same fact"
+        },
+        {
+          "id": "CF-GR-01",
+          "category": "grammar",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "grammar variant, same value"
+        },
+        {
+          "id": "CF-CP-01",
+          "category": "capitalization",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": true,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "case/level noise; detector silent, structural duplicate check owns it"
+        },
+        {
+          "id": "CF-AB-01",
+          "category": "abbreviation",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "unambiguous alias"
+        },
+        {
+          "id": "CF-AB-02",
+          "category": "abbreviation",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "unambiguous alias"
+        },
+        {
+          "id": "CF-PA-01",
+          "category": "paraphrase",
+          "expected_conflict": false,
+          "detector_findings": 1,
+          "structural_conflict": false,
+          "predicted_conflict": true,
+          "correct": false,
+          "runtime_seconds": 0.0,
+          "note": "semantically equal; lexical-only detector is expected to report it"
+        },
+        {
+          "id": "CF-PA-02",
+          "category": "paraphrase",
+          "expected_conflict": false,
+          "detector_findings": 1,
+          "structural_conflict": false,
+          "predicted_conflict": true,
+          "correct": false,
+          "runtime_seconds": 0.0,
+          "note": "semantically equal; lexical-only detector is expected to report it"
+        },
+        {
+          "id": "CF-SN-01",
+          "category": "similar_names",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "distinct people"
+        },
+        {
+          "id": "CF-SN-02",
+          "category": "similar_names",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "distinct people"
+        },
+        {
+          "id": "CF-SL-01",
+          "category": "similar_locations",
+          "expected_conflict": true,
+          "detector_findings": 1,
+          "structural_conflict": false,
+          "predicted_conflict": true,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "distinct city names"
+        },
+        {
+          "id": "CF-SL-02",
+          "category": "similar_locations",
+          "expected_conflict": true,
+          "detector_findings": 1,
+          "structural_conflict": false,
+          "predicted_conflict": true,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "distinct countries"
+        },
+        {
+          "id": "CF-SL-03",
+          "category": "similar_locations",
+          "expected_conflict": true,
+          "detector_findings": 1,
+          "structural_conflict": false,
+          "predicted_conflict": true,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "distinct countries"
+        },
+        {
+          "id": "CF-NG-01",
+          "category": "negation",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "negation plus different value"
+        },
+        {
+          "id": "CF-NG-02",
+          "category": "negation",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "negation plus different value"
+        },
+        {
+          "id": "CF-NG-03",
+          "category": "negation",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": true,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "same value; detector stays silent, structural duplicate check owns it"
+        },
+        {
+          "id": "CF-HC-01",
+          "category": "historical",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "closed historical record"
+        },
+        {
+          "id": "CF-HC-02",
+          "category": "historical",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "closed historical record"
+        },
+        {
+          "id": "CF-AM-01",
+          "category": "ambiguous",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "unknown predicate"
+        },
+        {
+          "id": "CF-AM-02",
+          "category": "ambiguous",
+          "expected_conflict": false,
+          "detector_findings": 0,
+          "structural_conflict": false,
+          "predicted_conflict": false,
+          "correct": true,
+          "runtime_seconds": 0.0,
+          "note": "missing value"
+        }
+      ],
+      "runtime_seconds": 0.0,
+      "model_calls": 0,
+      "method": "Slots are injected directly as unlinked active records (the U1 scenario) and the detector runs with an exploding verifier, so a model call would fail the audit.  A pair counts as a detected conflict when exclusive_temporal_conflicts() reports it or the structural invariant reports multiple_active."
+    },
+    "detector_semantics": {
+      "finding": {
+        "reason": "unlinked_exclusive_temporal_conflict",
+        "slot_indices": [
+          0,
+          1
+        ],
+        "slot_ids": [
+          1791650051808,
+          1791694701056
+        ],
+        "subject": "Maya",
+        "predicates": [
+          "city",
+          "city"
+        ],
+        "values": [
+          "Rome",
+          "Venice"
+        ],
+        "valid_from": [
+          10.0,
+          20.0
+        ],
+        "valid_until": [
+          null,
+          null
+        ],
+        "overlap": true,
+        "predicate_policy": "exclusive",
+        "detection_source": "active_unlinked_slots",
+        "confidence": 1.0,
+        "confidence_scope": "predicate_policy_only",
+        "semantic_equivalence": "lexical_only",
+        "conflict_status": "unresolved"
+      },
+      "checks": {
+        "confidence_is_policy_only": true,
+        "confidence_scope_declared": true,
+        "semantic_equivalence_declared": true,
+        "conflict_status_declared": true,
+        "repeatable": true,
+        "no_mutation": true,
+        "no_model_calls": true
+      },
+      "passed": true
+    },
+    "structural_duplicates": {
+      "cases": [
+        {
+          "id": "SD-01",
+          "category": "capitalization",
+          "detector_findings": 0,
+          "structural_multiple_active": true,
+          "correct": true,
+          "note": "case noise produces two active restatements"
+        },
+        {
+          "id": "SD-02",
+          "category": "negation",
+          "detector_findings": 0,
+          "structural_multiple_active": true,
+          "correct": true,
+          "note": "affirmation and negation of one value"
+        }
+      ],
+      "passed": true
+    },
+    "policy_reproducibility": {
+      "observations": {
+        "source_findings": 1,
+        "identical_policy_findings": 1,
+        "missing_policy_findings": 0,
+        "different_policy_findings": 0,
+        "restored_state_identical": true,
+        "policy_persisted_in_checkpoint": false
+      },
+      "expected": {
+        "source_findings": 1,
+        "identical_policy_findings": 1,
+        "missing_policy_findings": 0,
+        "different_policy_findings": 0,
+        "restored_state_identical": true,
+        "policy_persisted_in_checkpoint": false
+      },
+      "passed": true,
+      "conclusion": "The same checkpoint yields different invariant results depending on the loading process's predicate policy; policy is not stored in the archive."
+    }
+  },
+  "wall_seconds": 10.99
+}

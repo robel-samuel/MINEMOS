@@ -162,6 +162,20 @@ flowchart TD
     M --> N["Retrieved Context\n(point-in-time or active)"]
 ```
 
+### External Vector Databases (Optional Extension)
+
+MINEMOS remains the central memory system. An external vector database is an optional integration layer within the MINEMOS ecosystem — not a separate operating system and not an independent replacement for MINEMOS.
+
+The division of responsibility is deliberate:
+
+- MINEMOS retains control of memory consolidation, retention policy, and storage decisions. A vector database does not replace the existing consolidation, retention, or storage-decision engine.
+- A vector database may provide complementary indexing and retrieval capabilities alongside MINEMOS.
+- Integration is optional. Canonical MINEMOS retrieval remains the default, and the system is fully usable without any external vector store.
+
+**Status:** External vector-database integration is not implemented in this repository. No vector database is wired into `BlackHoleMemory`. The optional retrieval backends under `phase2/retrieval/` are in-process implementations (see [Retrieval](#retrieval)), not a vector-database integration.
+
+Our evaluation did not establish that a vector database improves the current engine sufficiently to justify replacing any existing component. Larger-scale memory workloads remain a possible future use case, not an established production capability.
+
 ---
 
 ## Memory Representation
@@ -229,6 +243,8 @@ Phase 26 introduced calibrated bidirectional NLI verification, distinguishing bi
 - False merge rate: **0.00%**
 - False contradiction rate on independent co-facts: **0.0%** (down from 100% in Phase 27 baseline)
 
+**U1 update (opt-in):** Two active facts can disagree about an exclusive attribute without a supersession link, which the structural invariant cannot see. `exclusive_temporal_conflicts()` now reports such pairs, and `temporal_history_violations(include_unlinked_conflicts=True)` can include them. Detection remains opt-in and default structural results are unchanged. This closes the specific detector gap; broader U1 acceptance criteria remain partially resolved, as documented in [`reports/U1_AUDIT_REPORT.md`](reports/U1_AUDIT_REPORT.md).
+
 ---
 
 ## Retrieval
@@ -246,6 +262,10 @@ Four retrieval strategies are implemented and compared:
 
 ### 4. Adaptive Hybrid Retrieval (Phase 27+)
 Extends hybrid fusion with temporal validity window gating, recency decay, and contradiction anchor repulsion. Achieves **R@1 = MRR = 1.000** and **0.000 contradiction intrusion** across all 4 interference conditions in Phase 28.
+
+### Optional In-Process Backends (Implemented)
+
+`phase2/retrieval/` provides opt-in optimized and incremental snapshot retrievers alongside the canonical retrieval loop. Canonical retrieval remains the default; an optimized backend is selected explicitly with `retrieval_backend=`, is reversible at runtime, and falls back to canonical when unavailable. These are in-process retrieval implementations, not external vector-database integrations.
 
 **Phase 23 finding:** Improving retrieval alone does not improve end-to-end accuracy when memory capacity is exhausted. The primary bottleneck at scale is slot eviction (Category D), not retrieval miss (Category A).
 
@@ -698,7 +718,8 @@ MINEMOS/
 │   ├── recall.py                    # recall(), decode_object()
 │   ├── structured_candidate.py      # Candidate dataclass, encode_full()
 │   ├── encoders.py                  # AtomicEncoder, FieldAwareLexicalEncoder, SemanticEmbeddingEncoder
-│   └── checkpoint.py                # Checkpoint persistence, validation & auto-recovery
+│   ├── checkpoint.py                # Checkpoint persistence, validation & auto-recovery
+│   └── retrieval/                   # Optional in-process retrieval backends (canonical default)
 │
 ├── benchmarks/                      # Benchmark implementations, datasets & machine-readable results
 │   ├── __init__.py

@@ -96,6 +96,7 @@ def test_cross_subject_link_is_reported_once(models):
     a, b = mem.memory.slots
     a.supersedes = id(b)
     b.superseded_by = id(a)
+    mem._invalidate_retrieval_cache()
 
     violations = mem.temporal_history_violations()
     assert [v["reason"] for v in violations] == ["inconsistent_link"]
@@ -112,6 +113,7 @@ def test_cross_attribute_link_is_reported(models):
     a, b = mem.memory.slots
     a.supersedes = id(b)
     b.superseded_by = id(a)
+    mem._invalidate_retrieval_cache()
 
     violations = mem.temporal_history_violations()
     assert [v["reason"] for v in violations] == ["inconsistent_link"]
@@ -164,6 +166,7 @@ def test_closed_history_recurrence_consolidates_when_value_unchanged(models):
     # Close the historical Rome slot and make the active Venice slot carry
     # the same value as the recurrence, so the recurrence is a re-wording.
     mem.memory.slots[1].latest_object = "Rome"
+    mem._invalidate_retrieval_cache()
     result = mem.absorb(Candidate("Maya", "city", "Rome", timestamp=30.0))
 
     assert result["action"] == "consolidate"
@@ -179,6 +182,7 @@ def test_multi_valued_closed_recurrence_does_not_supersede(models):
     mem.absorb(Candidate("Maya", "member of", "red team", timestamp=10.0))
     mem.absorb(Candidate("Maya", "member of", "blue team", timestamp=20.0))
     mem.memory.slots[0].valid_until = 15.0
+    mem._invalidate_retrieval_cache()
 
     result = mem.absorb(Candidate("Maya", "member of", "red team", timestamp=30.0))
 
@@ -265,6 +269,7 @@ def test_recurrence_into_interval_gap_splices_between_versions(models):
     # The engine produces contiguous chains; close the first interval early to
     # create the gap that a restored or repaired history can legitimately hold.
     mem.memory.slots[0].valid_until = 20.0
+    mem._invalidate_retrieval_cache()
 
     result = mem.absorb(Candidate("Maya", "city", "Rome", timestamp=25.0))
     slots = mem.memory.slots
@@ -295,6 +300,7 @@ def test_recurrence_without_active_head_links_prior_version(models):
     mem.absorb(Candidate("Maya", "city", "Rome", timestamp=10.0))
     mem.absorb(Candidate("Maya", "city", "Venice", timestamp=20.0))
     mem.memory.slots[1].valid_until = 25.0
+    mem._invalidate_retrieval_cache()
 
     result = mem.absorb(Candidate("Maya", "city", "Rome", timestamp=30.0))
     slots = mem.memory.slots
@@ -344,6 +350,7 @@ def test_dangling_supersession_link_is_reported(models):
     mem.absorb(Candidate("Maya", "city", "Lisbon", timestamp=10.0))
     mem.absorb(Candidate("Maya", "role", "analyst", timestamp=20.0))
     mem.memory.slots[0].superseded_by = 10 ** 12 + 7
+    mem._invalidate_retrieval_cache()
 
     violations = mem.temporal_history_violations()
     assert [v["reason"] for v in violations] == ["dangling_link"]
@@ -358,6 +365,7 @@ def test_self_referential_supersession_link_is_reported(models):
     mem.absorb(Candidate("Maya", "role", "analyst", timestamp=20.0))
     slot = mem.memory.slots[0]
     slot.supersedes = id(slot)
+    mem._invalidate_retrieval_cache()
 
     violations = mem.temporal_history_violations()
     assert [v["reason"] for v in violations] == ["self_link"]
@@ -372,6 +380,7 @@ def test_non_reciprocal_supersession_link_is_reported(models):
     mem.absorb(Candidate("Maya", "city", "Lisbon", timestamp=10.0))
     mem.absorb(Candidate("Maya", "city", "Porto", timestamp=20.0))
     mem.memory.slots[0].supersedes = id(mem.memory.slots[1])
+    mem._invalidate_retrieval_cache()
 
     violations = mem.temporal_history_violations()
     assert [v["reason"] for v in violations] == ["non_reciprocal_link"]

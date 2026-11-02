@@ -21,6 +21,7 @@ import math
 import re
 import threading
 import time
+import unicodedata
 from typing import Optional, Union, List, Dict, Any, Tuple
 
 import numpy as np
@@ -82,6 +83,33 @@ ANTONYMS = {
     ("elected", "rejected"), ("gold", "disqualified"), ("fluent", "cannot")
 }
 
+# Predicate cardinality policy.  Exclusivity is never inferred from predicate
+# identity alone: a predicate is EXCLUSIVE only when it matches a configured
+# exclusive group (or an explicit override), MULTI_VALUED only when listed as
+# cumulative (or overridden), and UNKNOWN otherwise.  UNKNOWN predicates are
+# never treated as exclusive.
+PREDICATE_POLICY_EXCLUSIVE = "exclusive"
+PREDICATE_POLICY_MULTI_VALUED = "multi_valued"
+PREDICATE_POLICY_UNKNOWN = "unknown"
+
+UNLINKED_EXCLUSIVE_CONFLICT = "unlinked_exclusive_temporal_conflict"
+
+# A statement carrying one of these markers describes a past state and must not
+# be consolidated into (or supersede) a current one.  "no longer" is excluded
+# on purpose: it asserts a current negation, not a historical state.
+HISTORICAL_STATEMENT_MARKERS = {
+    "used to", "previously", "formerly", "in the past", "at one time"
+}
+
+# Only unambiguous abbreviations are expanded.  "AA" is deliberately absent
+# (Addis Ababa vs American Airlines), so it is never merged by normalization.
+ABBREVIATION_ALIASES = {
+    "nyc": "new york city",
+    "uk": "united kingdom",
+    "usa": "united states",
+    "uae": "united arab emirates",
+}
+
 
 def _contains_marker(text: str, marker: str) -> bool:
     """Whole-token match: 'city' must not match 'capacity', 'now' not 'known'."""
@@ -120,7 +148,11 @@ class BlackHoleMemory:
         dense_encoder: Optional[DenseSemanticEncoder] = None,
         nli_gate: Optional[NliSemanticGate] = None,
         lex_encoder: Optional[FieldAwareLexicalEncoder] = None,
-        verifier: Optional[Any] = None
+        verifier: Optional[Any] = None,
+        exclusive_predicates: Optional[Any] = None,
+        multi_valued_predicates: Optional[Any] = None,
+        retrieval_backend: str = "canonical",
+        retrieval_config: Optional[Any] = None
     ):
         self.capacity = capacity
         self.dim = dim
@@ -137,6 +169,12 @@ class BlackHoleMemory:
         self.w_anchor = w_anchor
         self.decay_lambda = decay_lambda
         self.max_anchors = max_anchors
+
+        # Optional per-instance policy overrides.  They are intentionally not
+        # persisted in checkpoints: an archive stores facts, not configuration,
+        # and a restored instance uses the policy of the process that loads it.
+        self._exclusive_predicates = self._predicate_config_set(exclusive_predicates)
+        self._multi_valued_predicates = self._predicate_config_set(multi_valued_predicates)
 
         # Core State
         self.memory = MemoryState(capacity=capacity, dim=dim)
@@ -165,6 +203,89 @@ class BlackHoleMemory:
         # get_history -> recall) re-enter on the same thread.
         self._lock = threading.RLock()
 
+        # Monotonic, process-local version of everything retrieval derives
+        # state from (slot membership, dense rows, validity metadata, texts).
+        # It is bumped *before* any mutation so that a reader comparing versions
+        # can never mistake stale derived state for current state.  Never
+        # serialized: a restored engine starts a new epoch and derived state is
+        # rebuilt from the restored slots.
+        self._state_version = 0
+
+        # Retrieval backend selection.  Canonical is the reference path and the
+        # default; the optimized backends are opt-in and reversible.  Like the
+        # predicate policy above, this is process configuration and is not
+        # serialized into checkpoints.
+        from phase2.retrieval.config import RetrievalConfig, normalize_backend
+        self._retrieval_config = RetrievalConfig.from_value(retrieval_config)
+        self._retrieval_backend = normalize_backend(
+            retrieval_backend
+            if retrieval_backend is not None
+            else self._retrieval_config.backend)
+        self._retrieval_adapter_obj = None
+
+    def _invalidate_retrieval_cache(self) -> int:
+        """Mark retrieval-derived state stale and return the new state version.
+
+        Every engine mutation pathway calls this before it changes slots or the
+        auxiliary stores.  Bumping before the mutation is deliberate: if the
+        mutation then raises or returns early, derived state is still stale
+        (fail-safe over-invalidation), never incorrectly current.
+
+        This counter is the only supported notification mechanism.  It cannot
+        observe a direct field write on a ``MemorySlot`` or a direct
+        ``memory.slots`` edit from outside the engine; such mutation is
+        unsupported.  Test fixtures that must construct state out of band call
+        this method explicitly after the edit.
+        """
+        with self._lock:
+            self._state_version += 1
+            return self._state_version
+
+    # -- optional retrieval backend ------------------------------------- #
+    @property
+    def retrieval_backend(self) -> str:
+        return self._retrieval_backend
+
+    def set_retrieval_backend(self, backend: str) -> str:
+        """Switch retrieval backends at runtime.
+
+        Switching to ``"canonical"`` is the rollback path: the next query runs
+        the canonical loop below and never consults snapshot state.  Switching
+        between the optimized and incremental backends builds a fresh
+        retriever; a stale snapshot can never be served to the new backend.
+        """
+        from phase2.retrieval.config import normalize_backend
+        value = normalize_backend(backend)
+        with self._lock:
+            self._retrieval_backend = value
+            if self._retrieval_adapter_obj is not None:
+                self._retrieval_adapter_obj.set_backend(value)
+        return value
+
+    def _get_retrieval_adapter(self):
+        adapter = self._retrieval_adapter_obj
+        if adapter is None:
+            from phase2.retrieval.adapter import RetrievalAdapter
+            with self._lock:
+                if self._retrieval_adapter_obj is None:
+                    self._retrieval_adapter_obj = RetrievalAdapter(
+                        self, self._retrieval_config,
+                        backend=self._retrieval_backend)
+                adapter = self._retrieval_adapter_obj
+        return adapter
+
+    def retrieval_stats(self) -> Dict[str, Any]:
+        with self._lock:
+            adapter = self._retrieval_adapter_obj
+            backend = self._retrieval_backend
+        if adapter is None:
+            return {"backend": backend, "active": backend != "canonical",
+                    "strategy": None, "manager": None,
+                    "published_version": None}
+        stats = adapter.stats()
+        stats["active"] = backend != "canonical"
+        return stats
+
     def _parse_candidate(self, obs: Union[Candidate, Tuple[str, str, str], str], timestamp: float) -> Candidate:
         if isinstance(obs, Candidate):
             return obs
@@ -180,9 +301,25 @@ class BlackHoleMemory:
         else:
             raise TypeError(f"Unsupported observation format: {type(obs)}")
 
+    @classmethod
+    def _normalize_subject(cls, subject: Optional[str]) -> str:
+        return cls._normalize_text(subject)
+
     @staticmethod
-    def _normalize_subject(subject: Optional[str]) -> str:
-        return (subject or "").strip().casefold()
+    def _predicate_config_set(values: Optional[Any]) -> set:
+        """Normalizes a predicate policy configuration to a lowercase set.
+
+        A bare string is one predicate, not an iterable of characters: passing
+        ``exclusive_predicates="telemetry mode"`` must not silently configure
+        the letters t/e/l/m/o/r/y/d.
+        """
+        if values is None:
+            return set()
+        if isinstance(values, str):
+            values = (values,)
+        return {
+            str(p).strip().casefold() for p in values if p and str(p).strip()
+        }
 
     @staticmethod
     def _share_exclusive_group(pred_a: str, pred_b: str) -> bool:
@@ -214,11 +351,203 @@ class BlackHoleMemory:
         }
 
     @staticmethod
-    def _normalize_value(value: Optional[str]) -> str:
-        if value is None:
+    def _normalize_text(text: Optional[str]) -> str:
+        """Case-, width-, whitespace-, and edge-punctuation-insensitive form.
+
+        NFKC folds compatibility forms (full-width letters, ligatures) before
+        casefolding, so noisy input compares against clean text without any
+        model call.
+        """
+        if text is None:
             return ""
-        collapsed = re.sub(r"\s+", " ", value.strip().casefold())
-        return collapsed.strip(" \t\r\n.,;:!?\"'")
+        normalized = unicodedata.normalize("NFKC", str(text)).casefold()
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+        return normalized.strip(" \t\r\n.,;:!?\"'")
+
+    @classmethod
+    def _normalize_value(cls, value: Optional[str]) -> str:
+        return cls._normalize_text(value)
+
+    @classmethod
+    def _comparison_tokens(cls, text: Optional[str]) -> List[str]:
+        """Token sequence used for lexical equivalence, after alias expansion."""
+        normalized = cls._normalize_text(text)
+        tokens = re.findall(r"[^\W_]+", normalized, flags=re.UNICODE)
+        expanded: List[str] = []
+        for token in tokens:
+            alias = ABBREVIATION_ALIASES.get(token)
+            expanded.extend(alias.split() if alias else [token])
+        return expanded
+
+    @staticmethod
+    def _single_edit_kind(a: str, b: str) -> Optional[str]:
+        """Classify the edit between two tokens, or None when it exceeds one."""
+        if a == b:
+            return None
+        if abs(len(a) - len(b)) > 1:
+            return None
+        if len(a) == len(b):
+            diffs = [i for i in range(len(a)) if a[i] != b[i]]
+            if len(diffs) == 1:
+                return "substitution"
+            if (len(diffs) == 2
+                    and diffs[1] == diffs[0] + 1
+                    and a[diffs[0]] == b[diffs[1]]
+                    and a[diffs[1]] == b[diffs[0]]):
+                return "transposition"
+            return None
+        shorter, longer = (a, b) if len(a) < len(b) else (b, a)
+        i = 0
+        while i < len(shorter) and shorter[i] == longer[i]:
+            i += 1
+        if shorter[i:] == longer[i + 1:]:
+            return "indel"
+        return None
+
+    @classmethod
+    def _tokens_are_typo_equivalent(
+        cls, tokens_a: List[str], tokens_b: List[str]
+    ) -> bool:
+        """Exactly one token differs, by an insertion/deletion/transposition.
+
+        Single-letter substitutions are deliberately excluded: they are the
+        ambiguous case (Iran/Iraq, Rome/Roma), where merging two distinct
+        names is worse than leaving a misspelling unconflated.
+        """
+        if len(tokens_a) != len(tokens_b):
+            return False
+        diffs = [(x, y) for x, y in zip(tokens_a, tokens_b) if x != y]
+        if len(diffs) != 1:
+            return False
+        x, y = diffs[0]
+        if not (x.isalpha() and y.isalpha()):
+            return False
+        if min(len(x), len(y)) < 4 or x[0] != y[0]:
+            return False
+        return cls._single_edit_kind(x, y) in {"indel", "transposition"}
+
+    @classmethod
+    def _lexically_equivalent_value(cls, a: Optional[str], b: Optional[str]) -> bool:
+        tokens_a = cls._comparison_tokens(a)
+        tokens_b = cls._comparison_tokens(b)
+        if not tokens_a or not tokens_b:
+            return False
+        return tokens_a == tokens_b or cls._tokens_are_typo_equivalent(tokens_a, tokens_b)
+
+    @classmethod
+    def _subjects_are_equivalent(cls, a: Optional[str], b: Optional[str]) -> bool:
+        norm_a = (a or "").strip().casefold()
+        norm_b = (b or "").strip().casefold()
+        if norm_a == norm_b:
+            return True
+        if not norm_a or not norm_b:
+            return False
+        tokens_a = cls._comparison_tokens(norm_a)
+        tokens_b = cls._comparison_tokens(norm_b)
+        if not tokens_a or not tokens_b:
+            return False
+        return tokens_a == tokens_b or cls._tokens_are_typo_equivalent(tokens_a, tokens_b)
+
+    @staticmethod
+    def _has_historical_marker(text: Optional[str]) -> bool:
+        lowered = (text or "").casefold()
+        return any(_contains_marker(lowered, marker) for marker in HISTORICAL_STATEMENT_MARKERS)
+
+    @staticmethod
+    def _has_negation(text: Optional[str]) -> bool:
+        from benchmarks.phase26_verification import extract_negation_markers
+        return bool(extract_negation_markers(text or ""))
+
+    def _slot_has_negation(self, slot: MemorySlot) -> bool:
+        statement = self.slot_texts.get(id(slot), slot.text or "")
+        predicates = [p for p in (slot.debug_predicate, slot.latest_predicate) if p]
+        return any(self._has_negation(text) for text in [statement, *predicates])
+
+    def classify_predicate(self, predicate: Optional[str]) -> str:
+        """Cardinality policy for one predicate.
+
+        Explicit per-instance overrides win, so a caller can reclassify a
+        default group member.  Otherwise cumulative predicates are
+        multi-valued, configured exclusive-group members are exclusive, and
+        everything else is unknown.  Unknown predicates are never treated as
+        exclusive.
+        """
+        pred = (predicate or "").strip().casefold()
+        if not pred:
+            return PREDICATE_POLICY_UNKNOWN
+        if pred in self._exclusive_predicates:
+            return PREDICATE_POLICY_EXCLUSIVE
+        if pred in self._multi_valued_predicates:
+            return PREDICATE_POLICY_MULTI_VALUED
+        if pred in CUMULATIVE_PREDICATES:
+            return PREDICATE_POLICY_MULTI_VALUED
+        if any(
+            _contains_marker(pred, marker)
+            for group in EXCLUSIVE_SYNONYM_GROUPS
+            for marker in group
+        ):
+            return PREDICATE_POLICY_EXCLUSIVE
+        return PREDICATE_POLICY_UNKNOWN
+
+    def _predicates_share_exclusive_attribute(
+        self, pred_a: Optional[str], pred_b: Optional[str]
+    ) -> bool:
+        pred_a = (pred_a or "").strip().casefold()
+        pred_b = (pred_b or "").strip().casefold()
+        if not pred_a or not pred_b:
+            return False
+        if not (
+            self.classify_predicate(pred_a) == PREDICATE_POLICY_EXCLUSIVE
+            and self.classify_predicate(pred_b) == PREDICATE_POLICY_EXCLUSIVE
+        ):
+            return False
+        return pred_a == pred_b or self._share_exclusive_group(pred_a, pred_b)
+
+    def _lexically_same_fact(
+        self,
+        slot: MemorySlot,
+        candidate: Candidate,
+        slot_text: Optional[str] = None,
+        cand_text: Optional[str] = None
+    ) -> bool:
+        """Whether the candidate restates the slot up to surface noise.
+
+        Deterministic: equivalent entity, compatible predicate, lexically
+        equivalent values, identical negation presence, and no historical
+        marker.  It never calls a model.
+        """
+        slot_text = (
+            slot_text if slot_text is not None
+            else self.slot_texts.get(id(slot), slot.text or "")
+        )
+        cand_text = cand_text if cand_text is not None else (
+            f"{candidate.subject} {candidate.predicate} {candidate.object}."
+        )
+        if not slot.is_active:
+            return False
+        if self._has_historical_marker(cand_text):
+            return False
+        if not self._subjects_are_equivalent(slot.debug_subject, candidate.subject):
+            return False
+        cand_pred = (candidate.predicate or "").strip().casefold()
+        if not any(
+            slot_pred == cand_pred
+            or self._predicates_share_exclusive_attribute(slot_pred, cand_pred)
+            for slot_pred in self._slot_predicates(slot)
+        ):
+            return False
+        slot_value = self._slot_value_text(slot)
+        if not slot_value or not candidate.object:
+            return False
+        if not self._lexically_equivalent_value(slot_value, candidate.object):
+            return False
+        return self._has_negation(slot_text) == self._has_negation(cand_text)
+
+    def _find_lexically_equivalent_slot(self, candidate: Candidate) -> Optional[int]:
+        for idx, slot in enumerate(self.memory.slots):
+            if slot.is_active and self._lexically_same_fact(slot, candidate):
+                return idx
+        return None
 
     def _slot_value_text(self, slot: MemorySlot) -> Optional[str]:
         """Best-known object text for a slot, surviving paraphrases."""
@@ -243,6 +572,11 @@ class BlackHoleMemory:
         numbers_b = extract_numbers(value_b)
         if numbers_a and numbers_b and numbers_a != numbers_b:
             return False
+        # A typo or an unambiguous abbreviation is the same value; deciding
+        # that lexically avoids spending a verifier call and avoids the
+        # verifier's noisy behaviour on near-identical strings.
+        if self._lexically_equivalent_value(value_a, value_b):
+            return True
         self.total_value_verifications += 1
         result = self.verifier.verify_batch(
             [(value_a, value_b)],
@@ -416,10 +750,19 @@ class BlackHoleMemory:
             t_now = float(time.time())
         candidate = self._parse_candidate(observation, timestamp=t_now)
         cand_text = f"{candidate.subject} {candidate.predicate} {candidate.object}."
+        # A historical statement reports a past state.  It is recorded as a
+        # closed observation and is never consolidated into, or allowed to
+        # supersede, a current one.
+        is_historical_observation = self._has_historical_marker(cand_text)
         x_t = self.lex_encoder.encode_full(candidate, dim=self.dim)
         cand_dense = self.dense_encoder.encode(cand_text)
 
         with self._lock:
+            # Invalidate before the first possible mutation.  Every branch
+            # below either mutates slots/auxiliary stores or returns a
+            # rejection; over-invalidating a rejection is safe, failing to
+            # invalidate a partial mutation is not.
+            self._invalidate_retrieval_cache()
             self.total_absorbed += 1
             target_idx: Optional[int] = None
             target_pred: Optional[dict] = None
@@ -433,7 +776,7 @@ class BlackHoleMemory:
             closed_history_same_idx: Optional[int] = None
             insert_predecessor: Optional[MemorySlot] = None
 
-            if self.memory.slots:
+            if self.memory.slots and not is_historical_observation:
                 id_to_slot_index = {id(slot): idx for idx, slot in enumerate(self.memory.slots)}
 
                 # 1. Dense candidate retrieval with adaptive anchor repulsion
@@ -536,6 +879,14 @@ class BlackHoleMemory:
                             break
 
                         elif dec == "CONTRADICTION":
+                            # A near-identical restatement (typo, case/space
+                            # noise, unambiguous abbreviation) is the same fact
+                            # even though the verifier marked it contradictory.
+                            # Consolidating it prevents a false state change.
+                            if self._lexically_same_fact(slot, candidate):
+                                target_idx = cand_idx
+                                target_pred = pred
+                                break
                             # Conservative contradiction handling: check if this is a temporal update
                             # for the same subject/predicate
                             fwd = pred.get("fwd") if isinstance(pred.get("fwd"), dict) else {}
@@ -631,6 +982,16 @@ class BlackHoleMemory:
                                         key=lambda s: (s.valid_from, s.created_at)
                                     )
 
+                # Deterministic lexical fallback: retrieval/verification can
+                # miss a near-identical restatement (for example a one-letter
+                # subject typo).  If an active slot is the same fact up to
+                # surface noise, consolidate instead of allocating a duplicate.
+                if (target_idx is None and not is_temporal_change
+                        and not is_historical_predecessor):
+                    equivalent_idx = self._find_lexically_equivalent_slot(candidate)
+                    if equivalent_idx is not None:
+                        target_idx = equivalent_idx
+
                 best_sim = dense_candidates[0][1] if dense_candidates else 0.0
                 n_t = novelty(best_sim, memory_empty=False)
             else:
@@ -642,6 +1003,28 @@ class BlackHoleMemory:
             # ── Case 1: Consolidate Semantic Paraphrase into Existing Slot ──
             if target_idx is not None:
                 slot = self.memory.slots[target_idx]
+                slot_value = self._slot_value_text(slot)
+                # A misspelled entity/value or an abbreviation restates the
+                # stored fact, but it is not a better canonical form.  Keep the
+                # incumbent wording (and its index entries) rather than
+                # rewriting the fact with the noisy surface form.
+                surface_variant = (
+                    (
+                        self._normalize_subject(slot.debug_subject)
+                        != self._normalize_subject(candidate.subject)
+                        and self._subjects_are_equivalent(
+                            slot.debug_subject, candidate.subject
+                        )
+                    )
+                    or (
+                        bool(slot_value) and bool(candidate.object)
+                        and self._normalize_value(slot_value)
+                        != self._normalize_value(candidate.object)
+                        and self._lexically_equivalent_value(
+                            slot_value, candidate.object
+                        )
+                    )
+                )
                 slot.value = consolidate_vector_phase24(
                     slot=slot,
                     x_t=x_t,
@@ -656,13 +1039,14 @@ class BlackHoleMemory:
                 # Update every representation of the phrasing, including the
                 # slot fields that the checkpoint serializes.  Otherwise a
                 # reload would silently restore the pre-consolidation wording.
-                slot.text = cand_text
-                slot.dense_emb = cand_dense.copy()
-                slot.latest_predicate = candidate.predicate
-                slot.latest_object = candidate.object
-                self.slot_texts[id(slot)] = cand_text
-                self.slot_dense_embs[target_idx] = cand_dense
-                self.bm25_index.update_document(id(slot), cand_text)
+                if not surface_variant:
+                    slot.text = cand_text
+                    slot.dense_emb = cand_dense.copy()
+                    slot.latest_predicate = candidate.predicate
+                    slot.latest_object = candidate.object
+                    self.slot_texts[id(slot)] = cand_text
+                    self.slot_dense_embs[target_idx] = cand_dense
+                    self.bm25_index.update_document(id(slot), cand_text)
 
                 self.total_updates += 1
                 return {
@@ -674,7 +1058,9 @@ class BlackHoleMemory:
                     "update_count": slot.update_count,
                     "valid_from": slot.valid_from,
                     "valid_until": slot.valid_until,
-                    "text": cand_text
+                    "text": cand_text,
+                    "surface_variant": surface_variant,
+                    "stored_text": self.slot_texts.get(id(slot), slot.text),
                 }
 
             # ── Case 2: Temporal State Revision (Contradiction of Active Fact) ──
@@ -855,6 +1241,52 @@ class BlackHoleMemory:
                     "text": cand_text
                 }
 
+            # ── Case 2c: Historical Statement (Past State, Unknown Window) ──
+            if is_historical_observation:
+                # The statement's true start/end are unknown.  Record it as a
+                # closed observation at its report time: it neither merges
+                # into nor deactivates the current state, and it is not linked
+                # into the interval chain (which would imply known bounds).
+                protected = {
+                    id(s) for s in self.memory.slots
+                    if s.is_active
+                    and self._subjects_are_equivalent(s.debug_subject, candidate.subject)
+                }
+                evicted = None
+                if self.memory.is_full():
+                    if not self._has_eviction_candidate(protected):
+                        return {
+                            "action": "historical_rejected",
+                            "reason": "capacity_would_remove_active_state",
+                            "slot_id": None,
+                            "valid_from": t_now,
+                            "valid_until": t_now,
+                            "text": cand_text,
+                        }
+                    evict_idx, evicted = self._evict(t_now, protected_slot_ids=protected)
+
+                slot = self.memory.add(
+                    key=x_t, value=x_t.copy(), confidence=candidate.confidence,
+                    timestamp=t_now, debug_subject=candidate.subject,
+                    debug_predicate=candidate.predicate, text=cand_text,
+                    dense_emb=cand_dense, valid_from=t_now, valid_until=t_now,
+                    supersedes=None, latest_predicate=candidate.predicate,
+                    latest_object=candidate.object
+                )
+                self.slot_texts[id(slot)] = cand_text
+                self.slot_dense_embs.append(cand_dense)
+                self.bm25_index.add_document(id(slot), cand_text)
+                self.total_inserts += 1
+                return {
+                    "action": "historical_observation",
+                    "slot_index": len(self.memory.slots) - 1,
+                    "slot_id": id(slot),
+                    "evicted_slot_id": id(evicted) if evicted is not None else None,
+                    "valid_from": t_now,
+                    "valid_until": t_now,
+                    "text": cand_text,
+                }
+
             # ── Case 3: Allocate New Slot (Insert or Evict-Insert) ──
             if self.memory.is_full():
                 evict_idx, evicted = self._evict(t_now)
@@ -927,6 +1359,7 @@ class BlackHoleMemory:
         if idx is None:
             raise RuntimeError("Attempted in-place replacement of a slot that is not in memory")
 
+        self._invalidate_retrieval_cache()
         slot.value = x_t.copy()
         slot.confidence = min(1.0, max(slot.confidence, candidate.confidence) + 0.05)
         slot.timestamp = t_now
@@ -959,6 +1392,7 @@ class BlackHoleMemory:
         if idx is None:
             return False
 
+        self._invalidate_retrieval_cache()
         pred_id = target_slot.supersedes
         succ_id = target_slot.superseded_by
         for other in self.memory.slots:
@@ -999,6 +1433,7 @@ class BlackHoleMemory:
         (the caller decides whether that is acceptable).
         """
         protected = set(protected_slot_ids or ())
+        self._invalidate_retrieval_cache()
         evict_idx, evicted_slot = evict_slot_phase24(
             memory=self.memory,
             eviction_policy=self.retention_policy,
@@ -1014,7 +1449,119 @@ class BlackHoleMemory:
         self.total_evictions += 1
         return evict_idx, evicted_slot
 
-    def temporal_history_violations(self) -> List[Dict[str, Any]]:
+    @staticmethod
+    def _slots_are_linked(a: MemorySlot, b: MemorySlot) -> bool:
+        return (
+            a.supersedes == id(b) or a.superseded_by == id(b)
+            or b.supersedes == id(a) or b.superseded_by == id(a)
+        )
+
+    def exclusive_temporal_conflicts(self) -> List[Dict[str, Any]]:
+        """Reports active facts that cannot both hold for one exclusive attribute.
+
+        This closes the Phase 29 U1 gap: two active slots can assert different
+        values of the same exclusive attribute without ever being linked as
+        versions (for example after importing legacy state, or when the
+        verifier returned NEUTRAL).  The structural invariant cannot see that
+        pair, because it only groups linked or identical-value slots.
+
+        The check is read-only.  It never mutates slots, intervals, links,
+        indexes, or counters, and it never calls a model, so it is safe to run
+        repeatedly.  Value equivalence is therefore decided lexically
+        (normalization, unambiguous abbreviation expansion, one edit); two
+        different surface forms are reported rather than silently assumed
+        equivalent.
+
+        Exclusivity comes from the predicate policy: a pair is reported only
+        when both predicates are ``EXCLUSIVE`` and either identical or in the
+        same configured exclusive group.  Multi-valued and unknown predicates
+        are never reported, so legitimate multi-valued facts stay silent.  A
+        negated statement does not assert its object as a value, so a negated
+        slot and a different value are not reported; same-value negations stay
+        visible through the structural invariant (``multiple_active``).
+
+        ``confidence`` is the policy determination (always 1.0 for a
+        configured exclusive predicate) and is scoped by
+        ``confidence_scope="predicate_policy_only"``.
+        ``semantic_equivalence="lexical_only"`` records that values were
+        compared lexically, and ``conflict_status="unresolved"`` records that
+        the finding reports the conflict without choosing a winner.
+
+        Returns one finding per conflicting active pair, in slot order.  An
+        empty list means no unlinked exclusive conflict was found.
+        """
+        slots = self.memory.slots
+        findings: List[Dict[str, Any]] = []
+        for i in range(len(slots)):
+            a = slots[i]
+            if not a.is_active:
+                continue
+            for j in range(i + 1, len(slots)):
+                b = slots[j]
+                if not b.is_active:
+                    continue
+                if self._slots_are_linked(a, b):
+                    continue
+                if not self._subjects_are_equivalent(a.debug_subject, b.debug_subject):
+                    continue
+
+                attribute_pair = None
+                for pred_a in self._slot_predicates(a):
+                    for pred_b in self._slot_predicates(b):
+                        if self._predicates_share_exclusive_attribute(pred_a, pred_b):
+                            attribute_pair = (pred_a, pred_b)
+                            break
+                    if attribute_pair is not None:
+                        break
+                if attribute_pair is None:
+                    continue
+
+                value_a = self._slot_value_text(a)
+                value_b = self._slot_value_text(b)
+                if not value_a or not value_b:
+                    continue
+                if self._lexically_equivalent_value(value_a, value_b):
+                    continue
+                # A negated statement does not assert its object as the
+                # current value: "no longer lives in Addis Ababa" is
+                # compatible with "lives in Nairobi".  Same-value negation
+                # pairs stay visible through the structural invariant, which
+                # groups equal values and reports multiple_active.
+                if self._slot_has_negation(a) or self._slot_has_negation(b):
+                    continue
+
+                a_end = math.inf if a.valid_until is None else a.valid_until
+                b_end = math.inf if b.valid_until is None else b.valid_until
+                overlap = a.valid_from < b_end and b.valid_from < a_end
+                if not overlap:
+                    continue
+
+                findings.append({
+                    "reason": UNLINKED_EXCLUSIVE_CONFLICT,
+                    "slot_indices": [i, j],
+                    "slot_ids": [id(a), id(b)],
+                    "subject": a.debug_subject,
+                    "predicates": [attribute_pair[0], attribute_pair[1]],
+                    "values": [value_a, value_b],
+                    "valid_from": [a.valid_from, b.valid_from],
+                    "valid_until": [a.valid_until, b.valid_until],
+                    "overlap": True,
+                    "predicate_policy": PREDICATE_POLICY_EXCLUSIVE,
+                    "detection_source": "active_unlinked_slots",
+                    # Deterministic policy determination, not semantic truth:
+                    # the checker never calls a verifier.
+                    "confidence": 1.0,
+                    # Explicitly scoped so consumers cannot read `confidence`
+                    # as 100% semantic confidence in the conflict.
+                    "confidence_scope": "predicate_policy_only",
+                    "semantic_equivalence": "lexical_only",
+                    "conflict_status": "unresolved",
+                })
+        return findings
+
+    def temporal_history_violations(
+        self, include_unlinked_conflicts: bool = False
+    ) -> List[Dict[str, Any]]:
         """Checks that temporally exclusive facts cannot overlap.
 
         Only facts the engine itself treats as versions of one attribute are
@@ -1033,6 +1580,11 @@ class BlackHoleMemory:
         are reported as ``dangling_link`` (target object absent),
         ``self_link`` (slot points at itself), or ``non_reciprocal_link``
         (only one side confirms the relationship), and are never grouped.
+
+        ``include_unlinked_conflicts=True`` appends the findings of
+        :meth:`exclusive_temporal_conflicts`, which covers unlinked active
+        conflicts of exclusive attributes.  The default stays ``False`` so the
+        structural invariant remains comparable with its Phase 29 results.
 
         Returns a list of violation dicts; an empty list means the invariant
         holds.
@@ -1159,6 +1711,9 @@ class BlackHoleMemory:
                         "valid_from": [a.valid_from, b.valid_from],
                         "valid_until": [a.valid_until, b.valid_until],
                     })
+
+        if include_unlinked_conflicts:
+            violations.extend(self.exclusive_temporal_conflicts())
         return violations
 
     def query(
@@ -1171,7 +1726,21 @@ class BlackHoleMemory:
         """
         Retrieves relevant memory records for a natural-language query.
         Supports point-in-time temporal queries via as_of.
+
+        Canonical retrieval is the reference implementation and the default.
+        When an optimized backend is explicitly selected, a snapshot retriever
+        answers first; ``RetrievalUnavailable`` falls through to the canonical
+        loop below, so the canonical path is always the final safety net.
         """
+        if self._retrieval_backend != "canonical":
+            from phase2.retrieval.adapter import RetrievalUnavailable
+            try:
+                return self._get_retrieval_adapter().query(
+                    query_text, top_k=top_k, as_of=as_of,
+                    active_only=active_only)
+            except RetrievalUnavailable:
+                pass
+
         if not self.memory.slots:
             return []
 

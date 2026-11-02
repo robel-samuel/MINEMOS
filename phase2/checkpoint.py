@@ -785,6 +785,10 @@ def load_into_black_hole_memory(
     )
     
     with mem._lock:
+        # Replacement of the slot store and every auxiliary index is a mutation
+        # of the engine's derived state.  Invalidate before the first assignment
+        # so a partially rebuilt restore still reads as stale, never current.
+        mem._invalidate_retrieval_cache()
         mem.memory = loaded_memory
         mem.slot_texts.clear()
         mem.slot_dense_embs.clear()

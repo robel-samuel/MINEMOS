@@ -88,6 +88,8 @@ def test_temporal_awareness_demotes_inactive_facts():
     mem.memory.slots[0].valid_until = 200.0
     mem.memory.slots[0].debug_subject = "Rowan"
     mem.memory.slots[0].debug_predicate = "serves as chief scientist at"
+    # Out-of-band fixture edit: notify the engine's retrieval invalidation path.
+    mem._invalidate_retrieval_cache()
 
     c2_slot = Candidate("Rowan", "was appointed research director at", "Astraea Technologies", timestamp=200.0)
     mem.absorb(c2_slot)
@@ -122,6 +124,7 @@ def test_contradiction_anchor_penalizes_conflicting_slots():
     cand_contra = mem.dense_encoder.encode("Valerie dismantled the Falcon-7 cryogenic cooling array.")
     slot_id = id(mem.memory.slots[0])
     mem.slot_contra_anchors[slot_id] = [(cand_contra, 110.0)]
+    mem._invalidate_retrieval_cache()
 
     # Score after contradiction anchor should be lower
     res_after = retriever.retrieve(method="contra_temporal_aware", query_text="Valerie dismantled the Falcon-7 cooling array", top_k=1)
@@ -137,6 +140,7 @@ def test_corroboration_tier_boost():
     c2 = Candidate("Cassian", "studies deep ocean", "hydrothermal vents", timestamp=105.0)
     # Manually increment update_count to simulate consolidation
     mem.memory.slots[0].update_count = 3
+    mem._invalidate_retrieval_cache()
 
     retriever = Phase27Retriever(memory_engine=mem, tier_boost_factor=0.20)
     res = retriever.retrieve(method="adaptive", query_text="hydrothermal vents", top_k=1)

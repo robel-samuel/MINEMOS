@@ -219,6 +219,7 @@ def test_genuine_overlap_inside_a_version_chain_is_detected(models):
 
     older = next(s for s in mem.memory.slots if s.valid_from == 10.0)
     older.valid_until = 25.0  # corrupt: overlaps the successor at t=20
+    mem._invalidate_retrieval_cache()
 
     reasons = [v["reason"] for v in mem.temporal_history_violations()]
     assert "overlap" in reasons
@@ -231,15 +232,29 @@ def test_multiple_active_versions_in_one_chain_are_detected(models):
 
     older = next(s for s in mem.memory.slots if s.valid_from == 10.0)
     older.valid_until = None  # corrupt: two active versions of one chain
+    mem._invalidate_retrieval_cache()
 
     reasons = [v["reason"] for v in mem.temporal_history_violations()]
     assert "multiple_active" in reasons
 
 
 def test_duplicate_active_versions_of_one_exclusive_value_are_detected(models):
-    mem = _memory(models, verifier=_MapVerifier([]))  # NEUTRAL: forces duplicate insertion
+    mem = _memory(models, verifier=_MapVerifier([]))
     mem.absorb(Candidate("Maya", "role", "analyst", timestamp=10.0))
-    mem.absorb(Candidate("Maya", "role", "analyst", timestamp=20.0))
+    # Identical restatements now consolidate, so inject the duplicate state
+    # the invariant must still detect (e.g. imported or legacy state).
+    original = mem.memory.slots[0]
+    mem.memory.add(
+        key=original.key.copy(), value=original.value.copy(),
+        confidence=original.confidence, timestamp=20.0,
+        debug_subject="Maya", debug_predicate="role",
+        text="Maya role analyst.", dense_emb=original.dense_emb,
+        valid_from=20.0, valid_until=None,
+        latest_predicate="role", latest_object="analyst",
+    )
+    # Out-of-band fixture insertion: notify the engine's retrieval invalidation
+    # path explicitly; direct MemoryState edits are not observable otherwise.
+    mem._invalidate_retrieval_cache()
 
     assert len(_active_texts(mem)) == 2
     reasons = [v["reason"] for v in mem.temporal_history_violations()]

@@ -1,0 +1,470 @@
+{
+  "experiment": "u1_closure",
+  "baseline_commit": "05fc8e4d9494795e02dacaed602daeda8e882cae",
+  "status": "all_expected_reproduced",
+  "case_count": 22,
+  "passed": 22,
+  "failed": 0,
+  "failed_ids": [],
+  "verdicts": {
+    "U1-01": "expected_reproduced",
+    "U1-02": "expected_reproduced",
+    "U1-03": "expected_reproduced",
+    "U1-04": "expected_reproduced",
+    "U1-05": "expected_reproduced",
+    "U1-06": "expected_reproduced",
+    "U1-07": "expected_reproduced",
+    "U1-08": "expected_reproduced",
+    "U1-09": "expected_reproduced",
+    "U1-10": "expected_reproduced",
+    "U1-11": "expected_reproduced",
+    "U1-12": "expected_reproduced",
+    "NL-01": "expected_reproduced",
+    "NL-02": "expected_reproduced",
+    "NL-03": "expected_reproduced",
+    "NL-04": "expected_reproduced",
+    "NL-05": "expected_reproduced",
+    "NL-06": "expected_reproduced",
+    "NL-07": "expected_reproduced",
+    "NL-08": "expected_reproduced",
+    "NL-09": "expected_reproduced",
+    "NL-10": "expected_reproduced"
+  },
+  "results": [
+    {
+      "id": "U1-01",
+      "class": "detection",
+      "description": "unlinked active exclusive conflict",
+      "expected": {
+        "active": 2,
+        "conflicts": 1,
+        "reason": "unlinked_exclusive_temporal_conflict",
+        "policy": "exclusive",
+        "values": [
+          "Rome",
+          "Venice"
+        ],
+        "overlap": true,
+        "structural_violations": []
+      },
+      "observed": {
+        "active": 2,
+        "conflicts": 1,
+        "reason": "unlinked_exclusive_temporal_conflict",
+        "policy": "exclusive",
+        "values": [
+          "Rome",
+          "Venice"
+        ],
+        "overlap": true,
+        "structural_violations": []
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-02",
+      "class": "detection",
+      "description": "opt-in integration with structural invariant",
+      "expected": {
+        "default": [],
+        "integrated": [
+          "unlinked_exclusive_temporal_conflict"
+        ]
+      },
+      "observed": {
+        "default": [],
+        "integrated": [
+          "unlinked_exclusive_temporal_conflict"
+        ]
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-03",
+      "class": "silence",
+      "description": "multi-valued predicate",
+      "expected": {
+        "active": 2,
+        "conflicts": [],
+        "policy": "multi_valued"
+      },
+      "observed": {
+        "active": 2,
+        "conflicts": [],
+        "policy": "multi_valued"
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-04",
+      "class": "silence",
+      "description": "unknown predicate",
+      "expected": {
+        "active": 2,
+        "conflicts": [],
+        "policy": "unknown"
+      },
+      "observed": {
+        "active": 2,
+        "conflicts": [],
+        "policy": "unknown"
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-05",
+      "class": "silence",
+      "description": "linked version chain",
+      "expected": {
+        "active": 1,
+        "conflicts": [],
+        "violations": []
+      },
+      "observed": {
+        "active": 1,
+        "conflicts": [],
+        "violations": []
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-06",
+      "class": "silence",
+      "description": "closed historical version",
+      "expected": {
+        "active": 1,
+        "conflicts": [],
+        "closed": 1
+      },
+      "observed": {
+        "active": 1,
+        "conflicts": [],
+        "closed": 1
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-07",
+      "class": "silence",
+      "description": "distinct short names",
+      "expected": {
+        "active": 2,
+        "conflicts": []
+      },
+      "observed": {
+        "active": 2,
+        "conflicts": []
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-08",
+      "class": "detection",
+      "description": "three values produce pairwise findings",
+      "expected": {
+        "pairs": [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "observed": {
+        "pairs": [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-09",
+      "class": "safety",
+      "description": "read-only and repeatable",
+      "expected": {
+        "deterministic": true,
+        "unchanged": true,
+        "status_unchanged": true
+      },
+      "observed": {
+        "deterministic": true,
+        "unchanged": true,
+        "status_unchanged": true
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-10",
+      "class": "policy",
+      "description": "explicit exclusive override",
+      "expected": {
+        "policy": "exclusive",
+        "conflicts": [
+          "unlinked_exclusive_temporal_conflict"
+        ]
+      },
+      "observed": {
+        "policy": "exclusive",
+        "conflicts": [
+          "unlinked_exclusive_temporal_conflict"
+        ]
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-11",
+      "class": "policy",
+      "description": "explicit multi-valued override",
+      "expected": {
+        "policy": "multi_valued",
+        "conflicts": []
+      },
+      "observed": {
+        "policy": "multi_valued",
+        "conflicts": []
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "U1-12",
+      "class": "corruption",
+      "description": "injected duplicate active value",
+      "expected": {
+        "active": 2,
+        "violations": [
+          "multiple_active",
+          "overlap"
+        ],
+        "conflicts": []
+      },
+      "observed": {
+        "active": 2,
+        "violations": [
+          "multiple_active",
+          "overlap"
+        ],
+        "conflicts": []
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "NL-01",
+      "class": "noise",
+      "description": "one-letter subject typo",
+      "expected": {
+        "action": "consolidate",
+        "active": 1,
+        "stored": "Alice lives in Addis Ababa.",
+        "surface_variant": true
+      },
+      "observed": {
+        "action": "consolidate",
+        "active": 1,
+        "stored": "Alice lives in Addis Ababa.",
+        "surface_variant": true
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "NL-02",
+      "class": "noise",
+      "description": "one-letter value typo under CONTRADICTION",
+      "expected": {
+        "action": "consolidate",
+        "active": 1,
+        "stored": "Alice lives in Nairobi.",
+        "temporal_updates": 0
+      },
+      "observed": {
+        "action": "consolidate",
+        "active": 1,
+        "stored": "Alice lives in Nairobi.",
+        "temporal_updates": 0
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "NL-03",
+      "class": "abbreviation",
+      "description": "unambiguous abbreviation",
+      "expected": {
+        "action": "consolidate",
+        "active": 1,
+        "stored": "Alice lives in New York City."
+      },
+      "observed": {
+        "action": "consolidate",
+        "active": 1,
+        "stored": "Alice lives in New York City."
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "NL-04",
+      "class": "abbreviation",
+      "description": "ambiguous abbreviation is surfaced, not merged",
+      "expected": {
+        "action": "insert",
+        "active": 2,
+        "conflicts": [
+          "unlinked_exclusive_temporal_conflict"
+        ]
+      },
+      "observed": {
+        "action": "insert",
+        "active": 2,
+        "conflicts": [
+          "unlinked_exclusive_temporal_conflict"
+        ]
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "NL-05",
+      "class": "noise",
+      "description": "case, width, whitespace, punctuation",
+      "expected": {
+        "action": "consolidate",
+        "active": 1
+      },
+      "observed": {
+        "action": "consolidate",
+        "active": 1
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "NL-06",
+      "class": "temporal",
+      "description": "historical statement recorded closed",
+      "expected": {
+        "action": "historical_observation",
+        "active": 1,
+        "current_text": "Alice lives in Addis Ababa.",
+        "historical_interval": [
+          20.0,
+          20.0
+        ],
+        "violations": []
+      },
+      "observed": {
+        "action": "historical_observation",
+        "active": 1,
+        "current_text": "Alice lives in Addis Ababa.",
+        "historical_interval": [
+          20.0,
+          20.0
+        ],
+        "violations": []
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "NL-07",
+      "class": "temporal",
+      "description": "negated restatement is not consolidated",
+      "expected": {
+        "action": "temporal_update",
+        "active": 1,
+        "active_text": "Alice no longer lives in Addis Ababa."
+      },
+      "observed": {
+        "action": "temporal_update",
+        "active": 1,
+        "active_text": "Alice no longer lives in Addis Ababa."
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "NL-08",
+      "class": "equivalence",
+      "description": "typo boundary",
+      "expected": {
+        "numeric_equivalent": false,
+        "typo_equivalent": true,
+        "substitution_equivalent": false,
+        "short_name_equivalent": false
+      },
+      "observed": {
+        "numeric_equivalent": false,
+        "typo_equivalent": true,
+        "substitution_equivalent": false,
+        "short_name_equivalent": false
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "NL-09",
+      "class": "grammar",
+      "description": "real NLI grammar and paraphrase",
+      "expected": {
+        "grammar": "consolidate",
+        "paraphrase": "consolidate",
+        "active": 1
+      },
+      "observed": {
+        "grammar": "consolidate",
+        "paraphrase": "consolidate",
+        "active": 1
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    },
+    {
+      "id": "NL-10",
+      "class": "temporal",
+      "description": "real NLI does not swallow a historical marker",
+      "expected": {
+        "action": "historical_observation",
+        "active": 1,
+        "current_text": "Alice lives in Addis Ababa."
+      },
+      "observed": {
+        "action": "historical_observation",
+        "active": 1,
+        "current_text": "Alice lives in Addis Ababa."
+      },
+      "passed": true,
+      "provenance": "u1_closure_plan"
+    }
+  ],
+  "wall_seconds": 1.28
+}
