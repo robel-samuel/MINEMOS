@@ -1,1057 +1,521 @@
 # MINEMOS
 
-**Experimental persistent-memory architecture for language-model systems, focused on memory consolidation, contradiction handling, adaptive retention, and retrieval under constrained memory.**
+**A persistent memory system for AI applications that retains, consolidates, supersedes, and retrieves knowledge under a fixed capacity.**
 
-> This is a research system. Results reported here reflect controlled experiments on synthetic datasets. They are not production guarantees. See [Known Limitations](#known-limitations) for an honest accounting of what remains unsolved.
+[![Tests](https://github.com/robel-samuel/MINEMOS/actions/workflows/tests.yml/badge.svg)](https://github.com/robel-samuel/MINEMOS/actions/workflows/tests.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Motivation](#motivation)
-3. [Core Idea](#core-idea)
-4. [Architecture](#architecture)
-5. [Memory Representation](#memory-representation)
-6. [Memory Consolidation](#memory-consolidation)
-7. [Contradiction Handling](#contradiction-handling)
-8. [Retrieval](#retrieval)
-9. [Temporal Behavior and Decay](#temporal-behavior-and-decay)
-10. [Adaptive Anchor Management](#adaptive-anchor-management)
-11. [Experiments](#experiments)
-12. [Current Results](#current-results)
-13. [Known Limitations](#known-limitations)
-14. [Installation](#installation)
-15. [Usage](#usage)
-16. [Running the Tests](#running-the-tests)
-17. [Project Structure](#project-structure)
-18. [Research Roadmap](#research-roadmap)
-19. [Contributing](#contributing)
-20. [License](#license)
+> **Research system.** MINEMOS is an experimental platform for studying memory
+> lifecycle behavior. Its results come from controlled experiments on synthetic
+> data. It is not a validated production memory service, and it is not a
+> vector database or a retrieval-augmented generation wrapper. See
+> [Status and maturity](#status-and-maturity) and [Limitations](#limitations).
 
 ---
 
-## Overview
+## Contents
 
-MINEMOS investigates a concrete question: **how should a constrained-memory system absorb, update, and retrieve factual knowledge from a streaming sequence of natural-language observations?**
-
-The architecture is built around hard, finite memory capacity: memory resources are constrained, unreinforced facts may be evicted under pressure, and retained knowledge must remain consolidated and retrievable.
-
-The system is built around a slot-based memory architecture where each slot holds a dense vector representation of a fact, a confidence score, and a timestamp. Incoming observations are encoded and routed to the most similar existing slot (update / consolidation) or allocated a new slot (insertion), subject to a hard capacity limit.
-
-MINEMOS is not a production memory system. It is a structured experimental platform for measuring how different design choices — retrieval strategy, eviction policy, NLI verification threshold, embedding model — affect end-to-end accuracy under realistic capacity pressure.
-
----
-
-## Motivation
-
-Large language models have no persistent memory across conversations by default. Several approaches exist — retrieval-augmented generation, fine-tuning, external databases — but each carries tradeoffs in latency, storage cost, update fidelity, and contradiction safety.
-
-MINEMOS explores a different framing: a fixed-capacity differentiable memory where facts are stored as dense vectors, consolidated incrementally, and retrieved by similarity. The central questions driving the research are:
-
-- Under what conditions does a correctly retrieved memory candidate actually get consolidated correctly?
-- What fraction of end-to-end failures originate at retrieval vs. NLI verification vs. eviction?
-- Does switching from lexical to dense retrieval actually improve end-to-end accuracy, or is the bottleneck elsewhere?
-- How much does the slot vector drift from its original representation after repeated updates?
-
-The experiments across Phases 1–28 measure these phenomena directly rather than assuming an answer.
+- [What MINEMOS is](#what-minemos-is)
+- [Why memory needs more than retrieval](#why-memory-needs-more-than-retrieval)
+- [Core idea](#core-idea)
+- [Architecture](#architecture)
+- [MINEMOS and Qdrant](#minemos-and-qdrant)
+- [Retrieval modes](#retrieval-modes)
+- [Status and maturity](#status-and-maturity)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Tests](#tests)
+- [Documentation](#documentation)
+- [Research evidence](#research-evidence)
+- [Limitations](#limitations)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## Core Idea
+## What MINEMOS is
 
-The fundamental update rule is:
+MINEMOS is a memory engine for AI applications. It accepts observations,
+decides whether each observation reinforces, replaces, or adds to what it already
+knows, stores the result in a fixed-capacity canonical memory, and returns
+relevant state for later queries.
 
-$$v_t = (1 - \alpha_t)\, v_{t-1} + \alpha_t\, x_t$$
+It is not a generic vector database and not an ordinary RAG layer. A vector index
+can accelerate candidate retrieval, but it does not decide what is remembered,
+what is outdated, what is superseded, or what survives capacity pressure. Those
+decisions belong to MINEMOS.
 
-where:
-- $x_t$ = encoded representation of the current observation  
-- $v_{t-1}$ = stored slot value  
-- $\alpha_t = N_t = 1 - \max_i \cos(x_t, k_i)$ = novelty score (high when the input is dissimilar to all stored keys)  
-- $k_i$ = the key for slot $i$, **frozen at slot creation** (does not drift)
+The engine maintains:
 
-A high-novelty input (no similar slot exists) gets a large $\alpha_t$, effectively replacing the slot content. A low-novelty input (very similar slot exists) blends gently. This is the "surprise-driven reinforcement" mechanism.
+- **Memory slots** with a frozen key, a consolidated value, confidence,
+  timestamps, validity bounds, a stable `memory_id`, and supersession links.
+- **Consolidation** of repeated or paraphrased facts using bounded,
+  anchor-regularized value updates.
+- **Contradiction handling** that distinguishes genuine state revision from
+  independent facts about the same subject.
+- **Temporal validity** with half-open intervals, point-in-time queries, and
+  queryable history after supersession.
+- **Tiered retention and eviction** under a hard capacity limit.
+- **Canonical persistence** through atomic `.npz` checkpoints.
+- **Retrieval** through exact canonical dense search, with an optional derived
+  Qdrant index and optional in-process snapshot backends.
 
-This update equation has been **frozen since Phase 20** as a baseline. Phases 24–28 investigate whether the downstream bottlenecks (NLI verification, eviction policy) prevent this equation from functioning as intended, and introduce bounded anchor regularization to resist representation drift.
+---
+
+## Why memory needs more than retrieval
+
+A context window is finite, and a stateless model forgets everything between
+interactions. Simply retrieving more text does not solve the underlying problem:
+
+- **Relevance is not the same as truth.** Retrieval can return an old fact and a
+  newer, conflicting one with similar scores.
+- **Similarity is not the same as sameness.** A paraphrase should reinforce a
+  memory; a changed value should replace it. Dense similarity alone cannot
+  reliably tell these apart.
+- **Storage is not memory management.** A store that only appends eventually
+  fills with duplicates, stale values, and contradictory records.
+- **Capacity is a real constraint.** When memory is full, something must be
+  chosen for eviction, and that choice determines what can still be recalled.
+- **History matters.** After a fact is superseded, the previous state may still
+  be needed for point-in-time queries and audit.
+
+MINEMOS treats these as first-class lifecycle problems rather than retrieval
+edge cases.
+
+---
+
+## Core idea
+
+Each memory slot stores a **frozen key** `k_i` and an updated **value** `v_i`.
+The key anchors retrieval and does not drift. On a SAME decision, the default
+`hybrid` consolidation mode bounds one update step and then regularizes the
+result toward the key:
+
+```text
+delta   = alpha * (x_t - v_prev)
+delta   = clip(delta, delta_max)
+v_next  = normalize((1 - lambda_anchor) * (v_prev + delta)
+                    + lambda_anchor * key)
+```
+
+where `alpha` is novelty (`1 - max dense similarity` to the candidate set),
+`delta_max = 0.25`, and `lambda_anchor = 0.20`. The key stays fixed, so repeated
+paraphrases cannot indefinitely rotate the stored representation away from its
+original meaning. Exact implementation details and alternative modes are in
+[Memory Lifecycle](docs/architecture/memory-lifecycle.md#consolidation).
 
 ---
 
 ## Architecture
 
-### Data Flow
-
-```
-Natural-Language Observation
-          │
-          ▼
-  ┌───────────────────┐
-  │  Candidate        │
-  │  Extraction       │  → (subject, predicate, object)
-  └───────────────────┘
-          │
-          ▼
-  ┌───────────────────┐
-  │  Encoding         │  → dense vector x_t
-  │  (lexical or      │     (FieldAwareLexicalEncoder or
-  │   dense bi-enc.)  │      sentence-transformers/all-MiniLM-L6-v2)
-  └───────────────────┘
-          │
-          ▼
-  ┌───────────────────┐
-  │  Retrieval /      │  cosine similarity against slot keys k_i
-  │  Addressing       │  Hybrid: Dense bi-encoder + BM25 fusion (Phase 22+)
-  └───────────────────┘
-          │
-          ▼
-  ┌───────────────────┐
-  │  NLI Verification │  cross-encoder/nli-distilroberta-base
-  │  Gate             │  Calibrated bidirectional (Phase 26+):
-  │                   │  SAME / CONTRADICTION / NEUTRAL
-  └───────────────────┘
-          │
-          ▼
-  ┌───────────────────────────────────────────┐
-  │  Memory Update / Consolidation            │
-  │  • SAME:            blend v_t = (1-α)v + αx  │
-  │                     anchor-bounded (Phase 24+)│
-  │  • CONTRADICTION:   supersede slot (close     │
-  │                     validity window, new slot) │
-  │  • NEUTRAL:         new slot (or evict+insert) │
-  └───────────────────────────────────────────┘
-          │
-          ▼
-  ┌───────────────────┐
-  │  Tiered Retention │  Tier 0: provisional (evictable)
-  │  (Phase 24+)      │  Tier 1: consolidated (protected)
-  └───────────────────┘
-          │
-          ▼
-  ┌───────────────────┐
-  │  Memory State     │  N slots of (k_i, v_i, c_i, t_i,
-  │  M_t              │             valid_from_i, valid_until_i)
-  └───────────────────┘
-          │
-          ▼
-  ┌───────────────────┐
-  │  Probe / Recall   │  Adaptive retrieval: hybrid score + temporal
-  └───────────────────┘   gating + contradiction anchor repulsion
-          │
-          ▼
-     Retrieved Context
-```
-
-### Mermaid Diagram
+The canonical memory is the source of truth. Qdrant, when enabled, is a derived
+index that returns candidate IDs; MINEMOS resolves those IDs against canonical
+slots, applies its own temporal and metadata rules, and performs the final exact
+re-ranking.
 
 ```mermaid
 flowchart TD
-    A["Natural-Language Observation"] --> B["Candidate Extraction\n(subject, predicate, object)"]
-    B --> C["Encoding\n(Lexical: FieldAwareLexicalEncoder 4096-dim\nor Dense: all-MiniLM-L6-v2 384-dim)"]
-    C --> D["Hybrid Retrieval\nDense bi-encoder k=8 + BM25 k=8\nReciprocal Rank Fusion k=10"]
-    D --> E["Calibrated NLI Verification Gate\n(cross-encoder/nli-distilroberta-base)\nBidirectional + entity-grounding guard\nSAME / CONTRADICTION / NEUTRAL"]
-    E --> F{"Decision"}
-    F -- "SAME (entailment)" --> G["Anchor-Bounded Blend\nv_t = (1-α)v + αx_t + λ(k_i − v_{t-1})\nUpdate slot in-place"]
-    F -- "CONTRADICTION" --> H["Supersede: close validity window\nOpen new slot"]
-    F -- "NEUTRAL" --> I{"Capacity?"}
-    I -- "Slot available" --> J["Insert new slot"]
-    I -- "Memory full" --> K["Tiered Eviction\nEvict Tier 0 provisional only\nthen insert"]
-    G --> L["Memory State M_t\nslots: k_i, v_i, c_i, t_i, valid_from, valid_until\nTier 0 / Tier 1 classification"]
-    H --> L
-    J --> L
-    K --> L
-    L --> M["Adaptive Retrieval\nHybrid score + temporal window gating\n+ recency decay + anchor repulsion"]
-    M --> N["Retrieved Context\n(point-in-time or active)"]
+    subgraph Input["Memory input"]
+        A["Observation text or<br/>structured Candidate"]
+        B["Parse and encode"]
+    end
+
+    subgraph Intelligence["MINEMOS memory intelligence"]
+        C["Candidate addressing<br/>dense beam + BM25"]
+        D["Verification gate<br/>SAME / CONTRADICTION / NEUTRAL"]
+        E{"Lifecycle decision"}
+        E1["Consolidate value<br/>(bounded, anchor-regularized)"]
+        E2["Supersede<br/>close validity window,<br/>open successor"]
+        E3["Insert or evict<br/>under capacity"]
+    end
+
+    subgraph Canonical["Canonical state (source of truth)"]
+        F["MemoryState slots<br/>key, value, confidence, timestamps,<br/>validity bounds, memory_id"]
+        G["Checkpoint .npz<br/>atomic, schema v4"]
+    end
+
+    subgraph Retrieval["Retrieval orchestration"]
+        H["Query"]
+        R{"Backend"}
+        I["Candidate resolution<br/>temporal + metadata filters"]
+        K["Canonical fallback<br/>exact dense scan"]
+        L["Ranked memory rows"]
+    end
+
+    subgraph Index["Qdrant (derived index, optional)"]
+        Q["Tenant-scoped dense vectors<br/>and payload metadata"]
+    end
+
+    A --> B --> C --> D --> E
+    E -- "SAME" --> E1
+    E -- "CONTRADICTION" --> E2
+    E -- "NEUTRAL / independent" --> E3
+
+    E1 --> F
+    E2 --> F
+    E3 --> F
+    F --> G
+
+    H --> R
+    R -- "qdrant" --> Q
+    Q -. "candidate IDs only" .-> I
+    R -- "canonical / fallback" --> K
+    F --> K
+    F -. "index sync after mutation" .-> Q
+    K --> I
+    I --> L
 ```
 
-### Qdrant-Backed Retrieval (Implemented)
+Every mutation is committed to canonical state before the optional index is
+reconciled. If the index is unavailable, the memory decision still stands and
+queries fall back to canonical retrieval. The index is rebuildable and never
+authoritative.
 
-MINEMOS remains the product, intelligence engine, and architectural authority. Qdrant is a derived persistent vector index inside MINEMOS — not a separate operating system, not an independent replacement for MINEMOS, and not a second memory authority.
-
-The division of responsibility is deliberate:
-
-- MINEMOS retains control of memory consolidation, retention policy, contradiction/supersession handling, temporal validity, stable memory identity, and canonical persistence. Qdrant does not participate in any of those decisions and does not decide what survives.
-- Qdrant stores a derived dense vector and filter payload per live slot, and returns candidate memory IDs. MINEMOS resolves every candidate against canonical state, applies its own temporal and metadata rules, and performs the final exact re-ranking.
-- Three deployment modes preserve backward compatibility. `legacy` (default) keeps canonical retrieval for existing installations unless a backend is explicitly selected. `production` uses Qdrant as the standard backend and fails startup on missing or unsafe configuration rather than silently serving from canonical. `canonical` never constructs or contacts Qdrant and is intended for development, tests, recovery, and installations without an index. `production` is a retrieval deployment profile; it does not change MINEMOS's status as an experimental memory platform.
-- The index is rebuildable from canonical records. If Qdrant becomes unavailable at runtime, accepted memory mutations still commit, the index is marked dirty, queries fall back to canonical retrieval, and `retrieval_stats()` reports `degraded` instead of claiming Qdrant is healthy. In production this state change also logs a one-time warning.
-
-Implementation lives in `phase2/retrieval/qdrant.py` and `phase2/retrieval/qdrant_config.py`, with stable IDs in `phase2/memory_state.py`, checkpoint schema v4 in `phase2/checkpoint.py`, and lifecycle hooks in `phase2/black_hole_memory.py`. See [docs/QDRANT_INTEGRATION.md](docs/QDRANT_INTEGRATION.md) for deployment modes, production configuration rules, tenant scoping, recovery, and test instructions.
-
-**Historical finding preserved:** the Phase 31B/31C evaluation rejected Qdrant as an authoritative memory store; it did not replace canonical/PostgreSQL persistence. This integration uses Qdrant only as a derived retrieval index, which is a different role and does not revise that verdict. Larger-scale vector workloads remain an engineering option, not a claim of superiority over canonical retrieval.
+More detail: [Architecture Overview](docs/architecture/overview.md) ·
+[Memory Lifecycle](docs/architecture/memory-lifecycle.md) ·
+[Retrieval](docs/architecture/retrieval.md).
 
 ---
 
-## Memory Representation
+## MINEMOS and Qdrant
 
-Each memory slot stores six components:
+Qdrant is retrieval infrastructure, not the memory authority.
 
-| Component | Symbol | Description |
+| Concern | MINEMOS | Qdrant |
 |---|---|---|
-| **Key** | $k_i$ | Encoding of the fact at insertion time. **Frozen** — never updated. |
-| **Value** | $v_i$ | Running bounded-anchor consolidation. Updated on SAME decisions. |
-| **Confidence** | $c_i$ | Scalar in `[0, 1]`. Increases on reinforcement. |
-| **Timestamp** | $t_i$ | Last update time. Used by eviction and recency scoring. |
-| **Valid from** | $t^{\text{from}}_i$ | Observation time when this fact became active. |
-| **Valid until** | $t^{\text{until}}_i$ | Observation time when superseded. $\infty$ if currently active. |
+| Decide whether a fact is remembered | Owns | Not involved |
+| Consolidation and value updates | Owns | Not involved |
+| Contradiction, supersession, validity windows | Owns | Not involved |
+| Retention and eviction | Owns | Not involved |
+| Canonical state and checkpoints | Owns | Not stored authoritatively |
+| Dense candidate search | Configures and re-ranks | Executes |
+| Temporal and metadata filters | Re-applies exactly | Pre-filters |
+| Index recovery | Rebuilds from canonical state | Rebuildable derived index |
 
-The key is frozen so that retrieval by similarity to $k_i$ remains stable even as the value $v_i$ is updated. Phase 24 introduced anchor-bounded consolidation to resist drift:
+A Qdrant hit can appear in a result only after it resolves to a live canonical
+slot. Unknown or stale IDs are dropped. Configuration, tenancy, recovery, and
+failure isolation are documented in
+[Qdrant Integration](docs/architecture/qdrant-integration.md).
 
-$$v_t = (1 - \alpha_t)\, v_{t-1} + \alpha_t\, x_t + \lambda\,(k_i - v_{t-1})$$
-
-The $\lambda$ term pulls the value back toward the frozen key after each update, bounding semantic drift to $\delta_{\max} = 0.25$.
-
-### Phase 1 / Core Module: Structured Fact Storage
-
-The `core/memory.py` and top-level `memory.py` implement an earlier design based on explicit (subject, predicate, object) triples grouped per subject, with predicate interning for storage efficiency. This is the Phase 1 implementation, preserved for reference.
-
-The Phase 2 onward implementation uses dense vector slots (`phase2/memory_state.py`) and a pluggable encoder / retrieval / NLI pipeline.
-
-### Phase 25+: BlackHoleMemory (Unified Engine)
-
-`phase2/black_hole_memory.py` is the unified production-grade memory engine combining all Phase 24–27 improvements:
-
-```python
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
-
-mem = BlackHoleMemory(capacity=50, retention_policy="tiered")
-mem.absorb(Candidate("alice", "works_at", "university", timestamp=1.0))
-results = mem.query("alice works at university")
-```
+The historical Phase 31B/31C evaluation rejected Qdrant as an **authoritative**
+memory store. The current integration uses a different role — a derived
+retrieval index — and does not revise that verdict or claim Qdrant superiority.
 
 ---
 
-## Memory Consolidation
+## Retrieval modes
 
-**Consolidation** occurs when an incoming observation is routed to an existing slot and accepted by the NLI gate (decision: SAME).
+`retrieval_mode` selects the deployment profile:
 
-The slot value is blended using the anchor-bounded update (Phase 24+):
-
-$$v_j(t+1) = (1 - \alpha_t)\, v_j(t) + \alpha_t\, x_t + \lambda\,(k_j - v_j(t))$$
-
-where $\alpha_t = 1 - s_j$ (novelty) and $\lambda = 0.20$ (anchor weight, frozen Phase 24).
-
-**Phase 28 finding:** After a 10-statement adversarial paraphrase chain (9 update steps), the Phase 23 baseline EMA reached $\cos(v_0, v_9) = 0.9520$. The Phase 24 anchor-bounded hybrid maintained $\cos(v_0, v_9) = 0.9826$ — a **63.65% reduction in drift**.
-
----
-
-## Contradiction Handling
-
-When an incoming observation contradicts the current slot content (NLI predicts CONTRADICTION), the system **closes the active slot's validity window** (`valid_until = t_now`) and allocates a new slot for the updated fact. This preserves the historical fact as a point-in-time queryable record.
-
-Phase 26 introduced calibrated bidirectional NLI verification, distinguishing bilateral contradictions (both directions agree) from asymmetric directional artifacts (only one direction signals conflict). Phase 28 introduced an entity-grounding guard to prevent independent facts about the same subject from being misclassified as contradictions.
-
-**Safety metrics (Phase 28 held-out evaluation):**
-- Contradiction detection rate: **100.0%**
-- False merge rate: **0.00%**
-- False contradiction rate on independent co-facts: **0.0%** (down from 100% in Phase 27 baseline)
-
-**U1 update (opt-in):** Two active facts can disagree about an exclusive attribute without a supersession link, which the structural invariant cannot see. `exclusive_temporal_conflicts()` now reports such pairs, and `temporal_history_violations(include_unlinked_conflicts=True)` can include them. Detection remains opt-in and default structural results are unchanged. This closes the specific detector gap; broader U1 acceptance criteria remain partially resolved, as documented in [`reports/U1_AUDIT_REPORT.md`](reports/U1_AUDIT_REPORT.md).
-
----
-
-## Retrieval
-
-The retrieval stack combines four historical strategies with a persistent Qdrant retrieval index:
-
-### 1. Lexical Retrieval (Phases 2–17)
-`FieldAwareLexicalEncoder`: word-split bag-of-tokens with field-prefixed hashing into a 4096-dim vector. Cosine similarity against slot keys.
-
-### 2. Dense Semantic Retrieval (Phase 18+)
-`DenseSemanticEncoder`: wraps `sentence-transformers/all-MiniLM-L6-v2` (384-dim). Mean-pooled, L2-normalized sentence embeddings.
-
-### 3. Hybrid Dense + BM25 (Phase 22+)
-`LocalBM25Index`: online BM25 index over slot text content, fused with dense retrieval scores via Reciprocal Rank Fusion. Demonstrated 3.9–5.8× recall improvement over dense-only in Phase 22.
-
-### 4. Adaptive Hybrid Retrieval (Phase 27+)
-Extends hybrid fusion with temporal validity window gating, recency decay, and contradiction anchor repulsion. Achieves **R@1 = MRR = 1.000** and **0.000 contradiction intrusion** across all 4 interference conditions in Phase 28.
-
-### 5. Qdrant-Backed Dense and Hybrid Retrieval (Implemented)
-With `retrieval_mode="production"`, Qdrant is the standard retrieval backend for new deployments; `legacy` (the default) and `canonical` preserve canonical-only operation. Each live slot is indexed in Qdrant under its stable `memory_id` using the same dense encoder as canonical MINEMOS. Dense queries return Qdrant candidates that MINEMOS resolves and re-ranks exactly. `query(..., hybrid=True)` merges Qdrant dense candidates with the existing BM25 index, then applies MINEMOS temporal/metadata filters and exact re-ranking. Metadata filters (`subject`, `predicate`, `min_confidence`, `min_update_count`, `memory_ids`) are pushed into Qdrant and re-applied exactly against canonical state. Canonical retrieval remains the fallback in every mode; the Qdrant index is derived, tenant-filtered, and rebuildable.
-
-The hybrid merge uses dense order by default. An opt-in `fusion="rrf"` experiment orders the merged candidate union by reciprocal rank while leaving candidate membership and exact dense similarity unchanged; it exists for measurement against the dense and BM25 baselines and makes no default quality claim.
-
-### Optional In-Process Backends (Implemented)
-
-`phase2/retrieval/` also provides opt-in optimized and incremental snapshot retrievers alongside the canonical retrieval loop. Canonical retrieval remains the default; the Qdrant, optimized, and incremental backends are selected explicitly with `retrieval_backend=`, are reversible at runtime, and fall back to canonical when unavailable.
-
-**Phase 23 finding:** Improving retrieval alone does not improve end-to-end accuracy when memory capacity is exhausted. The primary bottleneck at scale is slot eviction (Category D), not retrieval miss (Category A).
-
-**Phase 28 finding:** With tiered retention and adaptive retrieval combined, all Phase 23 bottlenecks are closed or substantially mitigated.
-
----
-
-## Temporal Behavior and Decay
-
-- **Timestamp** `t_i`: updated on each slot modification. Used by eviction scoring.
-- **Validity windows**: `valid_from` and `valid_until` bracket the active period of each slot, enabling point-in-time queries (`as_of` parameter). Historical facts remain queryable after supersession.
-- **Anchor decay**: anchor repulsion weights decay over time with rate `λ* = 0.005` to reduce stale anchor influence.
-- **Tiered retention** (Phase 24+): slots with `update_count ≥ 2` are promoted to Tier 1 (consolidated) and protected from eviction under capacity pressure. Only Tier 0 provisional slots are evicted.
-
----
-
-## Adaptive Anchor Management
-
-Anchors are high-confidence slot representations that act as repulsion points to prevent slot collapse under repeated similar updates.
-
-Frozen configuration (established Phase 20/21, not changed since):
-
-| Parameter | Value | Description |
-|---|---|---|
-| `w_anchor` | 0.15 | Anchor repulsion weight |
-| `decay_lambda` | 0.005 | Temporal anchor decay rate |
-| `max_anchors` | 3 | Maximum anchors per slot |
-| `tau_anchor` | 0.70 | Cosine threshold for anchor formation |
-| `tau_min` | 0.40 | Adaptive beam lower bound |
-| `tau_high` | 0.75 | Adaptive beam upper bound |
-| `delta_margin` | 0.10 | Adaptive margin |
-| `k_max` | 3 | Maximum dense candidates |
-
-Phase 24 additionally froze: `delta_max = 0.25` (drift bound), `lambda_anchor = 0.20` (anchor pull weight).
-
----
-
-## Experiments
-
-The research is organized into numbered phases. Each phase builds on frozen baselines from previous phases.
-
-### Phase Timeline
-
-| Phases | Focus |
+| Mode | Behavior |
 |---|---|
-| 1–6 | Structured fact storage, confidence, contradiction, temporal validity, threshold sensitivity |
-| 7–8 | Encoder ablation: atomic → field-aware lexical → semantic (spaCy GloVe, 300-dim) |
-| 9–10 | NLI integration, Phase 10 audit |
-| 11–12 | Scaling benchmarks, structured addressing |
-| 13–16 | NLI semantic gate (distilroberta-base), system ablations (A/B/C/D) |
-| 17–18 | Utility-aware eviction, dense semantic retrieval (all-MiniLM-L6-v2) |
-| 19 | Contradiction-aware utility scoring |
-| 20 | Adaptive anchor management (w*, λ*, k* frozen) |
-| 21 | Anchor-beam integration, large-scale stress tests |
-| 22 | Hybrid BM25 + dense retrieval, 3.9–5.8× recall lift |
-| **23** | **Causal failure attribution: 5-category schema, retention oracle** |
-| **24** | **Tiered retention, calibrated verification, drift-resistant consolidation** |
-| **25** | **BlackHoleMemory: unified production-grade engine implementation** |
-| **26** | **Calibrated bidirectional NLI verification, dense fallback with safety guards** |
-| **27** | **Adaptive retrieval under long-horizon interference** |
-| **28** | **Phase 23 failure closure: end-to-end memory integrity validation** |
+| `legacy` (default) | Canonical retrieval unless a backend is selected explicitly. Existing installations are unchanged. |
+| `production` | Qdrant is the required retrieval backend. Configuration is validated at construction; missing or unsafe settings raise `RetrievalConfigurationError`. Runtime outages fall back to canonical and report `degraded`. |
+| `canonical` | Canonical only. Qdrant is never constructed or contacted, even if `QDRANT_*` variables are set. |
+
+`production` is a **strict retrieval deployment profile**, not a claim that the
+research system is production-ready. Resolution order is constructor argument,
+`MINEMOS_RETRIEVAL_MODE`, `RetrievalConfig.mode`, then `legacy`. See
+[Configuration](docs/guides/configuration.md#retrieval-modes).
 
 ---
 
-### Phase 23: Consolidation and Retention Bottleneck Investigation
+## Status and maturity
 
-**Status:** COMPLETE  
-**Test suite:** 177/177 passed  
-**Report:** [`reports/PHASE_23_REPORT.md`](reports/PHASE_23_REPORT.md)
-
-Seven experiments designed to identify exactly where the memory lifecycle fails, using a five-category failure attribution schema.
-
-**Failure Attribution Schema:**
-
-| Code | Stage | Description |
+| Area | Status | Notes |
 |---|---|---|
-| A | Candidate Generation | Correct target not retrieved |
-| B | NLI Verification | Target retrieved, NLI rejected |
-| C | Consolidation Update | NLI accepted, update failed |
-| D | Retention / Eviction | Slot evicted before probe arrived |
-| E | Final Probe Retrieval | Slot survived but probe missed it |
-| F | Semantic Adjudication | Incorrect decision (false merge / miss) |
-| SUCCESS | — | Correct end-to-end outcome |
+| Slot lifecycle: absorb, consolidate, contradict, supersede, temporal validity | **Implemented** | Covered by the test suite; synthetic evaluation |
+| Tiered retention and eviction | **Implemented** | Default policy `tiered` |
+| Canonical dense retrieval and `recall` | **Implemented** | Reference retrieval path |
+| Checkpoint persistence | **Implemented** | Atomic `.npz`, schema v4, v1–v3 archives readable |
+| Stable memory IDs and supersession links | **Implemented** | Schema v4 |
+| Qdrant derived retrieval index | **Implemented** | Optional; canonical state remains authoritative |
+| `legacy` / `production` / `canonical` modes | **Implemented** | Strict production validation and runtime fallback |
+| Metadata filters | **Implemented** | Pushed to Qdrant and re-applied in MINEMOS |
+| Hybrid dense + BM25 candidate expansion | **Implemented (opt-in query)** | `hybrid=True` requires the Qdrant backend |
+| Optimized and incremental snapshot backends | **Experimental, opt-in** | Exact-ranking parity tested; not defaults |
+| Reciprocal-rank fusion (`fusion="rrf"`) | **Experimental, opt-in** | Ordering experiment; no quality claim |
+| Qdrant integration benchmark | **Experimental evidence** | Synthetic corpora up to 1,000 target facts |
+| Full-scale end-to-end accuracy on the integrated engine | **Planned** | Phase 23 measured individual failure modes, not a full integrated E2E result |
+| Real conversational memory benchmark | **Planned** | All current evaluation uses synthetic data |
+| Residual paraphrase rejection research | **Planned** | 13.3% false rejection on the Phase 28 held-out synthetic set |
+| 100K-scale production validation, latency SLOs, HA, multi-process ingestion | **Not yet production-validated** | Not measured or supported |
 
-**Key findings:**
-- Retention (Category D) is the dominant bottleneck: **48.2%** of failures at scale.
-- Oracle retention immediately lifts E2E accuracy from **0.0% → 40.0%**.
-- Hybrid BM25 improves retrieval recall 3.9–5.8× but does not lift E2E when eviction fails.
-
----
-
-### Phase 24: Retention Hardening, Verification Recalibration, Drift-Resistant Consolidation
-
-**Status:** COMPLETE  
-**Test suite:** 268/268 passed  
-**Report:** [`reports/PHASE_24_REPORT.md`](reports/PHASE_24_REPORT.md)
-
-Six experiments covering: (A) retention policies, (B) verification recalibration, (C) drift-resistant consolidation, (D) 8-cell ablation, (E) long-horizon stress scaling, (F) sealed held-out benchmark.
-
-**Key findings:**
-
-| Hypothesis | Verdict | Evidence |
-|---|---|---|
-| Tiered retention eliminates Category D eviction | **CONFIRMED** | Tiered policy: 88% target survival (vs 0% FIFO) on adversarial stream |
-| Calibrated verification improves paraphrase acceptance | **CONFIRMED** | Bidirectional mode: FMR = 0.0%, ContraAcc = 1.0%, ParaAcc ↑ |
-| Drift-resistant consolidation bounds representation drift | **CONFIRMED** | Anchor-bounded hybrid: drift bounded to δ_max = 0.25 |
-| Retention + verification interact positively | **CONFIRMED** | Combined system: E2E 0% → meaningful improvement vs FIFO baseline |
+The suite currently collects **542 tests**. CI runs the suite on Python 3.12 and
+performs a dependency vulnerability audit. See
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml).
 
 ---
 
-### Phase 25: BlackHoleMemory — Implementation and Validation
-
-**Status:** COMPLETE  
-**Test suite:** 197/197 passed (legacy) + 8 Phase 25 tests  
-**Report:** [`reports/PHASE_25_REPORT.md`](reports/PHASE_25_REPORT.md)
-
-Integrated all Phase 24 improvements into `phase2/black_hole_memory.py` — a unified, bounded, tested memory engine. Validated with 19/19 end-to-end checks covering streaming absorption, temporal supersession, tiered eviction, drift resistance, and query accuracy.
-
-**Known limitations documented:**
-- NLI paraphrase misclassification still causes some valid paraphrases to open new slots (addressed in Phase 26).
-- No serialization / persistence layer yet (addressed in Tasks 5–7 security hardening).
-- Single-threaded (concurrent absorb() not supported).
-
----
-
-### Phase 26: Semantic Verification Calibration and Contradiction Safety
-
-**Status:** COMPLETE  
-**Test suite:** 216/216 passed (+ 19 Phase 26 tests)  
-**Report:** [`reports/PHASE_26_REPORT.md`](reports/PHASE_26_REPORT.md)
-
-Investigated and resolved the directional asymmetry failure mode in bidirectional NLI classification, where valid paraphrases were misclassified as CONTRADICTION by one-directional scoring.
-
-**Key results (frozen held-out test split, N=60):**
-
-| Metric | Phase 25 Baseline | Phase 26 Calibrated | Change |
-|---|:---:|:---:|:---:|
-| Paraphrase acceptance | 80.0% | **86.7%** | +6.7 pp |
-| Contradiction detection | 100.0% | **100.0%** | — |
-| False merge rate | 0.00% | **0.00%** | — |
-| Macro accuracy | — | **90.0%** | — |
-
-Streaming multi-turn E2E: 4/4 factual consolidations (up from 3/4), 0 false merges, correct temporal supersession.
-
----
-
-### Phase 27: Adaptive Memory Retrieval Under Long-Horizon Interference
-
-**Status:** COMPLETE  
-**Test suite:** 217/217 passed  
-**Report:** [`reports/PHASE_27_REPORT.md`](reports/PHASE_27_REPORT.md)
-
-Validated that adaptive retrieval (hybrid score + temporal gating + recency decay + anchor repulsion) maintains accuracy as persistent memory accumulates long-horizon interference across 4 conditions: Low, Semantic, Temporal, and Combined.
-
-**All 5 hypotheses confirmed:**
-
-| Condition | R@1 | MRR | Contradiction Intrusion | Temporal Correctness |
-|---|:---:|:---:|:---:|:---:|
-| Low interference | 1.000 | 1.000 | 0.000 | 1.000 |
-| Semantic interference | 1.000 | 1.000 | 0.000 | 1.000 |
-| Temporal interference | 1.000 | 1.000 | 0.000 | 1.000 |
-| Combined interference | 1.000 | 1.000 | 0.000 | 1.000 |
-| **Held-out stream** | **1.000** | **1.000** | **0.000** | **1.000** |
-
-Retrieval latency: 14–20 ms / query on CPU (< 2.6 ms overhead vs. baseline).
-
-**Unresolved defect identified:** Independent facts about the same subject (e.g. two separate research papers by the same author) were falsely classified as contradictions, causing valid memory windows to be closed. Investigated and fixed in Phase 28.
-
----
-
-### Phase 28: Phase 23 Failure Closure and End-to-End Memory Integrity Validation
-
-**Status:** COMPLETE — all 5 Phase 23 failure modes closed or rigorously characterized  
-**Test suite:** 337/337 passed\
-**Report:** [`reports/PHASE_28_REPORT.md`](reports/PHASE_28_REPORT.md)
-
-The definitive integration and validation phase. Confirmed all Phase 23 failure categories are resolved by the Phase 24–27 improvements, and fixed the Phase 27 independent-fact defect via an entity-grounding guard in `absorb()` plus removal of predicate-identity exclusivity in `_is_same_attribute_or_event()`.
-
-**Phase 23 Failure Closure Matrix:**
-
-| Failure Mode | Phase 23 Baseline | Phase 28 Result | Status |
-|---|:---:|:---:|:---:|
-| **Eviction (Cat. D)** — Target survival | 0.0% | **100.0% (20/20)** | ✅ VERIFIED FIXED |
-| **Paraphrase (Cat. B)** — Acceptance rate | 68.6% | **86.7%** | ⚠ PARTIALLY MITIGATED |
-| **Retrieval (Cat. A/E)** — MRR | ~0.879 | **1.000** | ✅ VERIFIED FIXED |
-| **Drift (Cat. C)** — Min sim to v₀ | 0.120 | **0.9826** | ✅ VERIFIED FIXED |
-| **False merges (Cat. F)** — FMR | 2.50% | **0.00%** | ✅ VERIFIED FIXED |
-| **Phase 27 defect** — False contradictions | 100.0% | **0.0%** | ✅ VERIFIED FIXED |
-
-Category B (paraphrase rejection) is partially mitigated. The residual 13.3% false rejection rate is an inherent limitation of `cross-encoder/nli-distilroberta-base` on high-lexical-variation paraphrases; a fine-tuned or larger cross-encoder would be required for further improvement.
-
-The false-contradiction row reflects the benchmarked allowlisted cases. Independent facts sharing unlisted multi-valued predicates are covered by the post-publication `_is_same_attribute_or_event()` correction and `tests/test_phase28_false_contradiction_regression.py`. The October 2026 adversarial validation adds `tests/test_phase28_contradiction_adversarial.py` (33 tests) covering token-boundary marker matching, entity normalization, recurring facts, out-of-order validity chains, negation with distinct objects, negation after paraphrase consolidation, checkpoint recovery, durable supersession links, equal-timestamp replacement, and eviction protection under capacity 1–2. Its benchmark check re-ran benchmarks 1 and 5 against the committed JSON with identical results; benchmarks 2–4 and 6 do not use the modified contradiction path.
-
----
-
-## Current Results
-
-> These results are from controlled experiments on synthetic datasets. Numbers may not generalize to other domains, model sizes, or capacity regimes.
-
-### Phase 28 Summary (Integration Benchmarks)
-
-**Benchmark 1 — Retention Under Capacity Pressure (C=25, N=320):**
-- Target survival: **100.0% (20/20)** — all Tier 1 consolidated slots protected
-- Tier 0 evictions: 275 (all from provisional working memory)
-- Phase 23 baseline: 0.0%; Phase 23 oracle: 40.0%
-
-**Benchmark 2 — Paraphrase Verification & False Merge (N=60 held-out pairs):**
-- Paraphrase acceptance: **86.7%**
-- Contradiction detection: **100.0%**
-- Overall false merge rate: **0.00%**
-- Macro accuracy: **90.0%**
-
-**Benchmark 3 — Retrieval Under 4 Interference Conditions:**
-- R@1 = MRR = **1.000** across all conditions (all five methods tie at this ceiling)
-- Contradiction intrusion = **0.000** (from the cached Phase 27 results)
-
-**Benchmark 4 — Representation Consolidation Drift (10-statement chain, 9 updates):**
-- Baseline EMA min similarity to v₀: 0.9520
-- Phase 28 anchor-bounded min similarity to v₀: **0.9826**
-- Drift reduction: **63.65%**
-
-**Benchmark 5 — False Contradiction / Temporal Supersession (10 adversarial tests):**
-- False contradiction rate: **0.0%** (from 100% in Phase 27 baseline)
-- Genuine supersession rate: **100.0%**
-
-### Qdrant Integration Benchmark (2026-11-03, new)
-
-> New benchmark for the integrated Qdrant index. It does not modify or
-> reinterpret the historical Phase 27 or Phase 31 results.
-
-Environment: Windows 11, Python 3.12.10, `all-MiniLM-L6-v2` (384-d), Qdrant
-1.20.0 embedded persistent mode (brute-force search), 40 queries per size,
-`top_k=5`, `candidate_limit=128`. Each target fact is paired with one
-lexically overlapping distractor, so indexed points equal twice the target
-facts. All four methods answer the same queries against the same canonical
-memory; Qdrant and hybrid results are exactly re-ranked by MINEMOS.
-
-| Target facts | Method | R@1 | R@5 | MRR | nDCG@5 | p50 ms | p95 ms |
-|---|---|---|---|---|---|---|---|
-| 100 | MINEMOS dense | 0.550 | 1.000 | 0.771 | 0.971 | 20.7 | 26.4 |
-| 100 | Qdrant dense | 0.550 | 1.000 | 0.771 | 0.971 | 34.2 | 41.0 |
-| 100 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 0.8 | 1.3 |
-| 100 | Hybrid | 0.550 | 1.000 | 0.771 | 0.971 | 35.0 | 38.7 |
-| 300 | MINEMOS dense | 0.475 | 1.000 | 0.714 | 0.944 | 22.9 | 26.9 |
-| 300 | Qdrant dense | 0.475 | 1.000 | 0.714 | 0.944 | 59.6 | 66.4 |
-| 300 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 0.9 | 1.7 |
-| 300 | Hybrid | 0.475 | 1.000 | 0.714 | 0.944 | 73.3 | 91.0 |
-| 1,000 | MINEMOS dense | 0.275 | 0.875 | 0.538 | 0.799 | 31.1 | 62.5 |
-| 1,000 | Qdrant dense | 0.275 | 0.875 | 0.538 | 0.799 | 134.5 | 202.3 |
-| 1,000 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 1.8 | 4.5 |
-| 1,000 | Hybrid | 0.275 | 0.875 | 0.538 | 0.799 | 128.9 | 144.1 |
-
-| Target facts | Indexed points | Ingest total | Ingest per fact | Ingest CPU | Rebuild | RSS after ingest |
-|---|---|---|---|---|---|---|
-| 100 | 200 | 10.1 s | 50.5 ms | 13.2 s | 1.72 s | 475.3 MB |
-| 300 | 600 | 38.0 s | 63.3 ms | 59.5 s | 5.21 s | 507.1 MB |
-| 1,000 | 2,000 | 302.1 s | 151.1 ms | 468.6 s | 17.66 s | 598.9 MB |
-
-All sizes: `errors=0`, `last_error=null`, and upserts exactly equal the initial
-index plus one rebuild (400 / 1,200 / 4,000), confirming that unchanged slots
-are not re-written.
-
-**What these measurements show**
-
-- Qdrant dense and canonical MINEMOS dense return identical rows here; Qdrant
-  changes retrieval transport, not retrieval quality.
-- BM25 is strongest on this synthetic, lexically separable corpus.
-- Hybrid metrics equal dense because MINEMOS's final exact re-ranking uses
-  dense similarity; BM25 only expands the candidate set.
-- Embedded Qdrant adds latency over in-process dense retrieval (34 vs 21 ms
-  p50 at 200 points; 134 vs 31 ms at 2,000 points). Embedded mode scans without
-  HNSW, so this does not predict server-mode latency.
-- With per-mutation synchronization, ingestion cost grows with slot count
-  (50.5 → 151.1 ms/fact), while the number of index writes stays minimal. This
-  is a consistency-first default, not a throughput claim.
-- RSS is process-level and cumulative across sizes. This benchmark does not
-  establish that Qdrant is faster or more accurate than canonical retrieval, and
-  it does not revise the Phase 31B/31C verdict.
-
-The same benchmark was then run against a real Qdrant 1.20.0 **server** at
-`127.0.0.1:6333` (HNSW index, HTTP transport) with the same corpus, seed, and 40
-queries per size. These are separate measurements, stored in
-`benchmarks/results/qdrant_integration_benchmark_server.json`.
-
-| Target facts | Method | R@1 | R@5 | MRR | nDCG@5 | p50 ms | p95 ms |
-|---|---|---|---|---|---|---|---|
-| 100 | MINEMOS dense | 0.550 | 1.000 | 0.771 | 0.971 | 14.3 | 18.0 |
-| 100 | Qdrant dense | 0.550 | 1.000 | 0.771 | 0.971 | 19.9 | 35.9 |
-| 100 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 0.4 | 0.6 |
-| 100 | Hybrid | 0.550 | 1.000 | 0.771 | 0.971 | 20.0 | 36.3 |
-| 300 | MINEMOS dense | 0.475 | 0.950 | 0.714 | 0.944 | 16.9 | 24.7 |
-| 300 | Qdrant dense | 0.475 | 0.950 | 0.714 | 0.944 | 20.4 | 43.3 |
-| 300 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 1.3 | 2.0 |
-| 300 | Hybrid | 0.475 | 0.950 | 0.714 | 0.944 | 29.9 | 35.9 |
-| 1,000 | MINEMOS dense | 0.275 | 0.875 | 0.538 | 0.799 | 41.8 | 269.4 |
-| 1,000 | Qdrant dense | 0.275 | 0.875 | 0.538 | 0.799 | 59.9 | 181.3 |
-| 1,000 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 4.7 | 14.0 |
-| 1,000 | Hybrid | 0.275 | 0.875 | 0.538 | 0.799 | 52.8 | 78.5 |
-
-| Target facts | Indexed points | Ingest total | Ingest per fact | Rebuild | RSS after ingest |
-|---|---|---|---|---|---|
-| 100 | 200 | 13.7 s | 68.7 ms | 0.17 s | 475.0 MB |
-| 300 | 600 | 39.9 s | 66.6 ms | 0.35 s | 503.6 MB |
-| 1,000 | 2,000 | 277.8 s | 138.9 ms | 3.13 s | 580.4 MB |
-
-Server-mode runs reported `mode=server`, `errors=0`, and `last_error=null` at
-every size.
-
-- Retrieval quality is identical to the embedded run at every size, as expected:
-  the same canonical state is indexed and every Qdrant result is re-ranked by
-  MINEMOS.
-- Server-mode Qdrant latency is below embedded mode (19.9 vs 34.2 ms p50 at 200
-  points; 59.9 vs 134.5 ms at 2,000 points) but still above in-process canonical
-  dense retrieval (14.3 and 41.8 ms). At 2,000 points the canonical dense p95
-  (269.4 ms) exceeded Qdrant's (181.3 ms) in this run; this is tail variance, not
-  a retrieval-quality difference.
-- Ingestion remains dominated by per-mutation synchronization and engine-side
-  work: 68.7 / 66.6 / 138.9 ms per fact, close to embedded mode. Server
-  transport did not reduce ingestion cost.
-- Hybrid still equals dense because MINEMOS's final exact re-ranking is dense.
-  The server measurements do not establish that Qdrant is more accurate than
-  canonical retrieval, and they do not revise Phase 31B/31C.
-
-#### Opt-in RRF experiment (2026-11-03)
-
-The same benchmark was run with `--include-rrf` at 100/300 target facts to
-measure reciprocal-rank ordering against the dense and BM25 baselines. The
-results are stored separately in
-`benchmarks/results/qdrant_hybrid_fusion_benchmark.json`; historical results
-are unchanged. `hybrid_rrf` changes ordering only — candidate membership and
-the reported exact dense similarity are identical to `hybrid`.
-
-| Target facts | Method | R@1 | R@5 | MRR | nDCG@5 |
-|---|---|---|---|---|---|
-| 100 | Qdrant dense | 0.550 | 1.000 | 0.771 | 0.971 |
-| 100 | Hybrid (dense order) | 0.550 | 1.000 | 0.771 | 0.971 |
-| 100 | Hybrid RRF | 0.550 | 1.000 | 0.775 | 0.976 |
-| 100 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 |
-| 300 | Qdrant dense | 0.475 | 1.000 | 0.714 | 0.944 |
-| 300 | Hybrid (dense order) | 0.475 | 1.000 | 0.714 | 0.944 |
-| 300 | Hybrid RRF | 0.500 | 1.000 | 0.750 | 0.973 |
-| 300 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 |
-
-- RRF ordering improved MRR/nDCG@5 slightly at 200 points (+0.004/+0.005) and
-  by +0.036/+0.029 at 600 points, with R@1 rising from 0.475 to 0.500 at the
-  larger size. Recall@5 was already 1.000 for every method.
-- BM25 remains perfect on this synthetic, lexically separable corpus; RRF
-  narrows the gap but does not close it.
-- This is one corpus, one seed, and 40 queries per size. It does not support a
-  general claim that RRF improves ranking quality, and the default remains
-  exact dense ordering. Latency differences between hybrid and RRF were not
-  stable across sizes in this run and are not interpreted.
-
-| Failure Mechanism | Share | Category |
-|---|---|---|
-| Slot Eviction (Retention) | 48.2% | D |
-| NLI Rejection of Paraphrases | 31.4% | B |
-| Candidate Retrieval Miss | 12.1% | A / E |
-| Consolidation Drift / Update | 5.8% | C |
-| False Consolidation / Safety | 2.5% | F |
-
----
-
-## Known Limitations
-
-1. **Paraphrase acceptance is 86.7%, not 100%.** The residual 13.3% false rejection rate is an inherent property of `cross-encoder/nli-distilroberta-base` on high-lexical-variation paraphrases. A domain-adapted or larger cross-encoder (e.g., `nli-deberta-v3-base`) would be needed for further improvement, at significant latency cost.
-
-2. **Synthetic datasets only.** All experiments use programmatically generated observation streams with known ground truth. Performance on real conversational data, diverse languages, or domain-specific text is not measured.
-
-3. **No decoder.** The memory returns vectors and slot text. Converting dense vectors back to readable text requires a nearest-neighbor lookup — this is evaluation machinery, not a deployed component.
-
-4. **Single-threaded.** Concurrent `absorb()` calls are not supported. Thread safety is not implemented.
-
-5. **Backup files retain deleted records.** The `checkpoint.py` `.bak` mechanism preserves the previous checkpoint. If a slot is deleted and the new checkpoint is saved, the `.bak` file still contains the pre-deletion state. Loading a `.bak` will recover deleted information. This is a documented limitation, not a secure-erasure guarantee — see `TASK7_1_VERIFICATION_REPORT.md` for the full security characterization.
-
-6. **Path confinement requires explicit `allowed_base_dir`.** The `_validate_checkpoint_path()` method enforces directory confinement only when callers supply `allowed_base_dir`. Paths are unrestricted by default for backward compatibility. See `TASK7_1_VERIFICATION_REPORT.md`.
-
-7. **Capacity constraints are checked pre-construction.** Checkpoint loading validates capacity and dimension limits before allocating large arrays, but extremely large compressed archives can still allocate proportional temporary memory during decompression. See `TASK7_SECURITY_REMEDIATION_REPORT.md`.
-
-8. **Phase 23 E2E scale remains limited.** Phase 23 showed 0.0% E2E accuracy under extreme eviction pressure (C=25, 300 observations). Phase 28 closes the causal failure modes under controlled adversarial conditions; full-scale E2E measurement has not been re-run with the integrated Phase 25–28 engine.
-
-9. **Qdrant is a derived, opt-in index.** It is not authoritative and does not survive as a source of truth without canonical checkpoints. Embedded mode is a real persistent database but uses brute-force search, not the server's HNSW index; production deployments should use server mode. Index synchronization currently runs after each mutation, which favors consistency over write throughput at very large ingestion volumes. Cluster operation, replication, authentication policy design, and cross-region failover were not evaluated. The Qdrant benchmark uses synthetic data and does not revise the historical Phase 31B/31C verdict.
-
----
-
-## Installation
+## Quick start
 
 ### Requirements
 
-- Python 3.12
-- CPU sufficient — no GPU required
-- ~2 GB disk for Hugging Face model weights (downloaded once and cached)
+- Python 3.12 (the version used by CI and the pinned dependencies)
+- CPU-only PyTorch; no GPU is required
+- Disk space for the virtual environment and the two model downloads
+- Optional: a Qdrant server for the `production` profile; the canonical engine
+  does not need it
 
-### Steps
+### Install
 
 ```bash
 git clone https://github.com/robel-samuel/MINEMOS.git
 cd MINEMOS
-```
 
-**Windows:**
-```powershell
 python -m venv .venv
+
+# Windows
 .venv\Scripts\activate
-```
 
-**Linux / macOS:**
-```bash
-python -m venv .venv
+# Linux / macOS
 source .venv/bin/activate
-```
 
-**Install CPU-only PyTorch first** (avoids pulling the CUDA build):
-```bash
 pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
-```
-
-**Install remaining dependencies:**
-```bash
 pip install -r requirements.txt
 ```
 
-**Optional Qdrant backend:** `qdrant-client==1.20.0` is included in `requirements.txt`. Canonical MINEMOS runs without a Qdrant server. For persistent vector indexing, either use embedded mode with `QDRANT_PATH`, or run a Qdrant 1.20.0 server and set `QDRANT_URL` (plus `QDRANT_API_KEY` and `QDRANT_TENANT_ID` when applicable). See [docs/QDRANT_INTEGRATION.md](docs/QDRANT_INTEGRATION.md) for the full configuration and recovery contract.
+Download the two models once while online:
 
-### Download Hugging Face Models
-
-The NLI gate and dense encoder require two pre-trained models. Download them once:
-
-```python
+```bash
+python - <<'PY'
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel
 
 AutoTokenizer.from_pretrained("cross-encoder/nli-distilroberta-base")
 AutoModelForSequenceClassification.from_pretrained("cross-encoder/nli-distilroberta-base")
-
 AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
+print("Models ready.")
+PY
 ```
 
-After this, all code uses `local_files_only=True` and does not require network access.
+### Minimal working example
 
----
-
-## Usage
-
-### Use the Unified BlackHoleMemory Engine (Phase 25+)
+Run this from the repository root. It inserts a fact, supersedes it with a newer
+value, queries the active state, and retrieves the historical state as of an
+earlier timestamp.
 
 ```python
 from phase2.black_hole_memory import BlackHoleMemory
 from phase2.structured_candidate import Candidate
 
-# Create a bounded memory with tiered retention
-mem = BlackHoleMemory(capacity=50, retention_policy="tiered")
+mem = BlackHoleMemory(capacity=50)
 
-# Absorb streaming observations
-mem.absorb(Candidate("alice", "works_at", "university", timestamp=1.0))
-mem.absorb(Candidate("alice", "works_at", "university", timestamp=2.0))   # corroboration → Tier 1
-mem.absorb(Candidate("alice", "works_at", "hospital", timestamp=100.0))   # supersedes → closes window
+mem.absorb(Candidate("Alice", "city", "New York"), timestamp=10.0)
+result = mem.absorb(Candidate("Alice", "city", "Boston"), timestamp=20.0)
+print(result["action"])  # temporal_update
 
-# Query active memory
-results = mem.query("alice current employer")
-for slot, score in results:
-    print(slot.debug_subject, score, slot.is_active)
+for row in mem.query("what city is Alice in", top_k=3):
+    print(row["text"], row["valid_from"], row["valid_until"])
+# Alice city Boston. 20.0 None
 
-# Point-in-time query (historical)
-historical = mem.query("alice employer", as_of=50.0)
-
-# Save checkpoint
-mem.save("memory_checkpoint.json")
-
-# Restore
-restored = BlackHoleMemory.load("memory_checkpoint.json")
+for row in mem.recall("Alice", "city", as_of=15.0):
+    print(row["text"], row["valid_from"], row["valid_until"])
+# Alice city New York. 10.0 20.0
 ```
 
-### Use the Qdrant Retrieval Backend
+`absorb()` also accepts a `(subject, predicate, object)` tuple or a simple
+`"Subject Predicate Object."` string. Query rows are dictionaries; see
+[Retrieval](docs/architecture/retrieval.md#query-api) for every field.
+
+### Save and restore
+
+```python
+mem.save_checkpoint("state/memory.npz", create_backup=True)
+
+restored = BlackHoleMemory.from_checkpoint("state/memory.npz")
+print(restored.status()["active_slots"])
+```
+
+`from_checkpoint` constructs a new engine. To load into an existing engine, use
+`mem.load_checkpoint(path)`. See [Recovery](docs/operations/recovery.md).
+
+### Canonical-only retrieval
+
+```python
+mem = BlackHoleMemory(capacity=100, retrieval_mode="canonical")
+```
+
+No Qdrant client is constructed and no Qdrant environment variable is read.
+
+### Production retrieval with Qdrant
+
+Start a Qdrant server, then provide a server URL. Values below are placeholders.
+
+```bash
+export QDRANT_URL="https://qdrant.example.com:6333"
+export QDRANT_API_KEY="YOUR_QDRANT_API_KEY"
+export MINEMOS_RETRIEVAL_MODE="production"
+```
 
 ```python
 from phase2.black_hole_memory import BlackHoleMemory
-from phase2.retrieval import QdrantConfig
 
-# Legacy/explicit selection: canonical remains the default benchmark path.
-mem = BlackHoleMemory(
-    capacity=1000,
-    retrieval_backend="qdrant",
-    qdrant_config=QdrantConfig(
-        url="http://127.0.0.1:6333",     # or path="/var/lib/minemos-qdrant"
-        collection="minemos",
-        tenant_id="customer-a",
-    ),
-)
-
-# Production profile: Qdrant is the standard backend. Configuration is
-# validated eagerly; missing or unsafe settings fail startup, and runtime
-# outages fall back to canonical with retrieval_stats()["state"] == "degraded".
-prod = BlackHoleMemory(
-    capacity=1000,
-    retrieval_mode="production",
-    qdrant_config=QdrantConfig(
-        url="https://qdrant.internal:6333",
-        api_key="...",
-        collection="minemos",
-        tenant_id="customer-a",
-    ),
-)
-mem.absorb(Candidate("alice", "works_at", "university", timestamp=1.0))
-
-dense = mem.query("alice current employer", top_k=5)
-hybrid = mem.query("alice current employer", top_k=5, hybrid=True)
-filtered = mem.query("project status", filters={"subject": "alice"})
-
-print(mem.retrieval_stats())   # points, dirty state, errors, latency
-mem.close()
+mem = BlackHoleMemory()  # fails fast if production configuration is invalid
 ```
 
-Qdrant indexes are derived from canonical state: they can be rebuilt with
-`mem._get_retrieval_adapter().retriever.rebuild()` (or by restoring a checkpoint),
-and queries fall back to canonical retrieval when the index is unavailable.
-
-### Run the Phase 28 Benchmark (Most Recent Experiment)
-
-```bash
-python runners/run_phase28.py
-```
-
-Results saved incrementally to `benchmarks/results/phase28_results.json`. **Expected runtime:** 30–60 minutes on 4 CPU cores.
-
-### Run Individual Phase Benchmarks
-
-Each phase has its own runner in `runners/`:
-
-```bash
-python runners/run_phase28.py   # Phase 28: Failure closure & memory integrity validation
-python runners/run_phase27.py   # Phase 27: Adaptive retrieval under long-horizon interference
-python runners/run_phase26.py   # Phase 26: Semantic verification calibration
-python runners/run_phase25.py   # Phase 25: BlackHoleMemory E2E validation
-python runners/run_phase24.py   # Phase 24: Retention hardening, calibrated verification, drift
-python runners/run_phase23.py   # Phase 23: Failure attribution experiments
-python runners/run_phase22.py   # Phase 22: Hybrid BM25 + dense retrieval
-python runners/run_phase21.py   # Phase 21: Anchor-beam integration
-python runners/run_phase20.py   # Phase 20: Adaptive anchor management
-python runners/run_phase19.py   # Phase 19: Contradiction-aware utility
-python runners/run_phase18.py   # Phase 18: Dense retrieval baseline
-python runners/run_phase17.py   # Phase 17: NLI gate calibration
-```
-
-### Use the Core Memory Store Directly (Phase 1)
-
-```python
-from core.memory import MemoryStore
-
-store = MemoryStore()
-
-# Absorb facts
-store.absorb("alice", "works_at", "university")
-store.absorb("alice", "works_at", "university")  # reinforcement
-store.absorb("alice", "works_at", "hospital")    # contradiction — closes old validity window
-
-# Recall active facts about alice
-facts = store.recall("alice")
-for f in facts:
-    print(f.subject, f.predicate, f.object, f.confidence)
-
-# Save and restore
-store.checkpoint("memory.json")
-restored = MemoryStore.restore("memory.json")
-```
+Production validation requires a server-mode `QDRANT_URL`, rejects embedded
+`QDRANT_PATH`, requires HTTPS and an API key for non-loopback hosts, and rejects
+`QDRANT_RECREATE=true`. Loopback hosts are exempt from the TLS and API-key rules.
+A runtime outage does not lose accepted memories: the index is marked dirty,
+queries fall back to canonical retrieval, and `retrieval_stats()` reports
+`degraded`.
 
 ---
 
-## Running the Tests
+## Configuration
+
+The canonical engine needs no environment variables and no external service.
+Common constructor parameters:
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| `capacity` | `100` | Maximum stored slots, including superseded history |
+| `retention_policy` | `"tiered"` | Eviction policy |
+| `verification_mode` | `"bidirectional"` | NLI comparison mode |
+| `consolidation_mode` | `"hybrid"` | Value update mode |
+| `retrieval_mode` | `None` | `legacy`, `production`, or `canonical` |
+| `retrieval_backend` | `None` | `canonical`, `optimized`, `incremental`, or `qdrant` |
+
+Frozen research parameters (`delta_max=0.25`, `lambda_anchor=0.20`, anchor
+weights) are experimental controls, not tuning knobs. The full parameter and
+environment-variable reference is in
+[Configuration](docs/guides/configuration.md).
+
+---
+
+## Tests
 
 ```bash
-python -m pytest tests/ -v
+python -m pytest tests/ -q
 ```
 
-The test suite covers:
+The suite collects **542 tests**. Cache both model weights first (see
+[Quick start](#quick-start)). Qdrant integration tests use an embedded Qdrant
+database by default; run them against a server with:
 
-| Module | Description |
+```bash
+MINEMOS_QDRANT_URL=http://127.0.0.1:6333 \
+  python -m pytest tests/test_qdrant_integration.py -q
+```
+
+CI runs the suite on Python 3.12 and performs a dependency vulnerability audit.
+A green suite is evidence that the tested behaviors hold; it is not a
+correctness guarantee for untested workloads.
+
+---
+
+## Documentation
+
+| Topic | Document |
 |---|---|
-| `tests/test_basic.py` | Core memory store (Phase 1) |
-| `tests/test_memory_state.py` | Slot management, capacity, eviction |
-| `tests/test_checkpoint.py` | Checkpoint save / restore |
-| `tests/test_semantic_encoder.py` | Encoder encoding stability |
-| `tests/test_phase12_addressing.py` | Addressing logic |
-| `tests/test_phase13.py` – `test_phase23.py` | Phase-specific experiment tests |
-| `tests/test_oracle_ablation.py` | Oracle ablation utilities |
-| `tests/test_phase24.py` | Tiered retention, calibrated verifier, drift |
-| `tests/test_phase25.py` | BlackHoleMemory unit tests |
-| `tests/test_phase26.py` | Bidirectional NLI verification |
-| `tests/test_phase27.py` | Adaptive retrieval |
-| `tests/test_phase28_adversarial.py` | Phase 28 adversarial integration tests |
-| `tests/test_phase28_false_contradiction_regression.py` | Multi-valued predicate false-contradiction regression tests |
-| `tests/test_phase28_contradiction_adversarial.py` | Adversarial false/missed supersession, ordering, history, and persistence tests |
-| `tests/test_adversarial_verification.py` | Adversarial NLI verification cases |
-| `tests/test_checkpoint_integrity.py` | Checkpoint security and integrity |
-| `tests/test_concurrency_safety.py` | Thread safety (single-threaded constraint) |
-| `tests/test_contradiction_safety.py` | Contradiction and false-merge safety |
-| `tests/test_e2e_recovery.py` | End-to-end save/load/recovery |
-| `tests/test_security_remediation.py` | Security: path confinement, backup retention, resource bounds |
-| `tests/test_retrieval_concurrency.py` | Snapshot isolation and concurrency behavior |
-| `tests/test_retrieval_numerics.py` | Numerical parity and bounds for optimized retrieval |
-| `tests/test_retrieval_adapter.py` | Backend selection, fallback, and stats |
-| `tests/test_qdrant_integration.py` | Real-Qdrant lifecycle, failure, tenant, hybrid, and checkpoint tests |
+| Documentation index | [docs/README.md](docs/README.md) |
+| Architecture overview | [docs/architecture/overview.md](docs/architecture/overview.md) |
+| Memory lifecycle | [docs/architecture/memory-lifecycle.md](docs/architecture/memory-lifecycle.md) |
+| Retrieval | [docs/architecture/retrieval.md](docs/architecture/retrieval.md) |
+| Qdrant integration | [docs/architecture/qdrant-integration.md](docs/architecture/qdrant-integration.md) |
+| Installation | [docs/guides/installation.md](docs/guides/installation.md) |
+| Configuration | [docs/guides/configuration.md](docs/guides/configuration.md) |
+| Deployment | [docs/guides/deployment.md](docs/guides/deployment.md) |
+| Research overview | [docs/research/README.md](docs/research/README.md) |
+| Phase history | [docs/research/history.md](docs/research/history.md) |
+| Benchmark methodology and results | [docs/research/benchmark-methodology.md](docs/research/benchmark-methodology.md) |
+| Monitoring | [docs/operations/monitoring.md](docs/operations/monitoring.md) |
+| Recovery | [docs/operations/recovery.md](docs/operations/recovery.md) |
+| Troubleshooting | [docs/operations/troubleshooting.md](docs/operations/troubleshooting.md) |
+| Historical reports | [reports/](reports/) |
+| Raw benchmark results | [benchmarks/results/](benchmarks/results/) |
 
-The Qdrant integration suite uses a real persistent embedded Qdrant database by
-default. Set `MINEMOS_QDRANT_URL` (and optionally `MINEMOS_QDRANT_API_KEY`) to
-run the same suite against a Qdrant server, including the server-only roundtrip:
-
-```bash
-python -m pytest tests/test_qdrant_integration.py -q
-MINEMOS_QDRANT_URL=http://127.0.0.1:6333 python -m pytest tests/test_qdrant_integration.py -q
-```
-
-**Confirmed results (Phase 28 report, 2026-10-22):**
-
-```
-Total: 303/303 passed in ~616s
-```
-
----
-
-## Project Structure
+Repository layout:
 
 ```text
-MINEMOS/
-│
-├── core/                            # Core memory implementation and legacy components
-│   ├── __init__.py
-│   ├── memory.py                    # MemoryStore — Phase 1 structured facts (subject, predicate, object)
-│   ├── encoder.py                   # RuleBasedExtractor, LLMExtractor stub
-│   └── candidate.py                 # Structured triple candidate
-│
-├── phase2/                          # Active Phase 2 memory engine
-│   ├── __init__.py
-│   ├── black_hole_memory.py         # BlackHoleMemory — unified engine (Phase 25+)
-│   ├── memory_state.py              # MemorySlot, MemoryState, tiered retention
-│   ├── memory_update.py             # absorb(), address(), novelty(), update eq.
-│   ├── recall.py                    # recall(), decode_object()
-│   ├── structured_candidate.py      # Candidate dataclass, encode_full()
-│   ├── encoders.py                  # AtomicEncoder, FieldAwareLexicalEncoder, SemanticEmbeddingEncoder
-│   ├── checkpoint.py                # Checkpoint persistence, validation & auto-recovery
-│   └── retrieval/                   # Optional in-process retrieval backends (canonical default)
-│
-├── benchmarks/                      # Benchmark implementations, datasets & machine-readable results
-│   ├── __init__.py
-│   ├── phase25_e2e.py               # Phase 25 end-to-end streaming validation harness
-│   ├── phase26_experiment.py        # Phase 26 verification calibration & evaluation
-│   ├── phase27_experiment.py        # Phase 27 long-horizon adaptive retrieval benchmark
-│   ├── phase28_closure.py           # Phase 28 quantitative failure mode closure harness
-│   ├── results/                     # Canonical machine-readable benchmark outputs (.json)
-│   │   ├── phase17_results.json
-│   │   ├── phase18_results.json
-│   │   ├── phase19_results.json
-│   │   ├── phase20_results.json
-│   │   ├── phase21_results.json
-│   │   ├── phase22_results.json
-│   │   ├── phase23_results.json
-│   │   ├── phase24_results.json
-│   │   ├── phase25_e2e_results.json
-│   │   ├── phase26_results.json
-│   │   ├── phase27_results.json
-│   │   ├── phase28_results.json
-│   │   ├── checkpoint_benchmark_results.json
-│   │   └── summary_report.txt
-│   └── ...                          # Benchmark datasets, diagnostic tools & sweeps
-│
-├── runners/                         # Phase and experiment execution scripts
-│   ├── __init__.py
-│   ├── run_phase17.py               # Phase 17 runner (NLI gate calibration)
-│   ├── run_phase18.py               # Phase 18 runner (Dense retrieval baseline)
-│   ├── run_phase19.py               # Phase 19 runner (Contradiction-aware utility)
-│   ├── run_phase20.py               # Phase 20 runner (Adaptive anchor management)
-│   ├── run_phase21.py               # Phase 21 runner (Anchor-beam integration)
-│   ├── run_phase22.py               # Phase 22 runner (Hybrid BM25 + dense retrieval)
-│   ├── run_phase23.py               # Phase 23 runner (Failure attribution experiments)
-│   ├── run_phase24.py               # Phase 24 runner (Retention hardening & drift)
-│   ├── run_phase25.py               # Phase 25 runner (BlackHoleMemory E2E validation)
-│   ├── run_phase26.py               # Phase 26 runner (Semantic verification calibration)
-│   ├── run_phase27.py               # Phase 27 runner (Adaptive retrieval under interference)
-│   └── run_phase28.py               # Phase 28 runner (Failure closure & verification)
-│
-├── reports/                         # Canonical historical research reports
-│   ├── PHASE_28_REPORT.md           # Phase 28: Phase 23 failure closure & verification
-│   ├── PHASE_27_REPORT.md           # Phase 27: Adaptive retrieval under interference
-│   ├── PHASE_26_REPORT.md           # Phase 26: Semantic verification calibration
-│   ├── PHASE_25_REPORT.md           # Phase 25: BlackHoleMemory unified engine
-│   ├── PHASE_24_REPORT.md           # Phase 24: Retention hardening & drift resistance
-│   ├── PHASE_23_REPORT.md           # Phase 23: Failure attribution benchmark
-│   ├── PHASE_19_REPORT.md – PHASE_22_REPORT.md
-│   ├── memory_phase2_report.md – memory_phase6_report.md
-│   ├── phase7_* – phase18_report.md
-│   ├── TASK6_SECURITY_AUDIT_REPORT.md
-│   ├── TASK7_SECURITY_REMEDIATION_REPORT.md
-│   └── TASK7_1_VERIFICATION_REPORT.md
-│
-├── tests/                           # Complete automated regression test suite (337 tests)
-│   ├── test_adversarial_verification.py
-│   ├── test_basic.py
-│   ├── test_checkpoint.py
-│   ├── test_checkpoint_integrity.py
-│   ├── test_concurrency_safety.py
-│   ├── test_contradiction_safety.py
-│   ├── test_e2e_recovery.py
-│   ├── test_memory_state.py
-│   ├── test_oracle_ablation.py
-│   ├── test_phase12_addressing.py
-│   ├── test_phase13.py – test_phase27.py
-│   ├── test_phase28_adversarial.py
-│   ├── test_phase28_false_contradiction_regression.py
-│   ├── test_phase28_contradiction_adversarial.py
-│   ├── test_security_remediation.py
-│   └── test_semantic_encoder.py
-│
-├── .github/
-│   └── workflows/
-│       └── tests.yml                # CI test suite & OSV dependency vulnerability audit
-├── .env.example                     # Environment template (no secrets)
-├── .gitignore                       # Clean ignore rules (ignores scratch/)
-├── CONTRIBUTING.md                  # Contribution guidelines & research integrity rules
-├── LICENSE                          # GNU Affero General Public License v3.0 (AGPL-3.0)
-├── README.md                        # Project documentation & navigation
-└── requirements.txt                 # Pinned dependencies (filelock==4.2.1)
+phase2/                  Engine, memory state, checkpoints, retrieval backends
+core/                    Phase 1 reference implementation
+benchmarks/              Experiment runners and raw results
+reports/                 Historical phase and audit reports
+tests/                   Test suite
+docs/                    Architecture, guides, research, and operations
 ```
 
 ---
 
-## Research Roadmap
+## Research evidence
 
-Phase 28 closes the causal failure modes identified in Phase 23. The following open problems remain for future investigation:
+All numbers below are from controlled synthetic experiments and retain their
+original caveats. They are not production guarantees. Raw artifacts are in
+[`benchmarks/results/`](benchmarks/results/) and the reports linked from
+[Phase history](docs/research/history.md).
 
-### 1. Paraphrase Acceptance — Residual 13.3% False Rejection
+| Phase | Question | Reported result |
+|---|---|---|
+| 23 | Where do end-to-end failures originate? | Eviction (Category D) accounted for 48.2% of failures at scale; oracle retention moved accuracy from 0.0% to 40.0% |
+| 24–28 | Does tiered retention plus calibrated verification close those failures? | Target survival 100.0% (20/20) at C=25, N=320; contradiction detection 100.0%; false merge 0.00% on the held-out synthetic set |
+| 28 | Does anchor-bounded consolidation resist drift? | Minimum cosine to `v0` rose from 0.9520 to 0.9826 over a 9-update paraphrase chain (63.65% less drift) |
+| 28 | Does adaptive retrieval resist interference? | R@1 = MRR = 1.000 in all four conditions; all five methods tied at this ceiling |
+| 2026-11-03 | Does Qdrant reproduce canonical ranking? | Dense results matched canonical dense results on synthetic corpora up to 1,000 target facts, because final ranking is exact and runs in MINEMOS |
 
-`cross-encoder/nli-distilroberta-base` still rejects approximately 1 in 7 valid paraphrases with high lexical variation. Options:
+The Qdrant integration benchmark does not revise the Phase 31B/31C verdict and
+does not establish 100K-scale quality. See
+[Benchmark Methodology](docs/research/benchmark-methodology.md) for tables,
+environment, and reproduction commands.
 
-- **Threshold sweep on a larger calibration set** — may recover a few more percentage points without architectural changes.
-- **Larger cross-encoder** — `cross-encoder/nli-deberta-v3-base` achieves higher NLI accuracy but adds latency. Not recommended without benchmarking streaming throughput impact.
-- **Sentence-embedding fallback with negation guard** — dense similarity > 0.92 + no negation pattern → SAME override. Requires careful safety validation.
+---
 
-### 2. Full-Scale End-to-End Accuracy
+## Limitations
 
-Phase 23 documented 0.0% E2E accuracy at C=25, 300 observations. The individual failure modes are now closed under controlled conditions, but a full-scale E2E measurement using the integrated Phase 25–28 engine has not been run. This is the key pending experiment.
+- **Research, not production validation.** The system has not been validated on
+  real conversational workloads, at 100K scale, or against latency SLOs.
+- **Synthetic evaluation.** Reported accuracy figures come from controlled
+  datasets with known ground truth.
+- **Qdrant is derived.** It cannot override canonical state. Losing the index
+  affects retrieval latency and candidate recall, not the facts themselves.
+- **Capacity includes history.** Superseded slots occupy capacity until evicted.
+  Frequent supersession needs headroom beyond the active fact count.
+- **One writer per canonical memory.** In-process access is thread-safe, but
+  multiple processes writing the same checkpoint are not coordinated.
+- **Simple observation parsing.** `absorb()` accepts structured candidates,
+  tuples, or a simple three-part sentence split; it is not a general natural
+  language extraction pipeline.
+- **Residual paraphrase rejection.** The verification model rejected 13.3% of
+  valid paraphrases on the Phase 28 held-out synthetic set.
+- **Partial unlinked-conflict detection.** Conflicts between independent active
+  facts are detectable, but the broader U1 criteria remain partially resolved;
+  see [`reports/U1_AUDIT_REPORT.md`](reports/U1_AUDIT_REPORT.md).
+- **Backup semantics.** A `.bak` checkpoint can restore facts deleted after the
+  previous save. It is not secure erasure.
+- **No bundled service layer.** There is no container image, authentication
+  layer, metrics exporter, or multi-process ingestion coordinator.
 
-### 3. Real Conversational Data
-
-All experiments use synthetic data with known ground truth. A pilot study on a real conversational memory benchmark (e.g., MemGPT-style tasks, or a subset of a dialogue dataset with factual updates) would test whether the Phase 24–28 improvements generalize.
-
-### 4. Thread Safety and Persistence
-
-`BlackHoleMemory` is single-threaded. A concurrent access model (read-write locks or actor pattern) would be required for multi-threaded deployment. Checkpoint persistence is implemented in Tasks 5–7 security hardening.
+Operational constraints and deployment expectations are in
+[Deployment](docs/guides/deployment.md) and
+[Troubleshooting](docs/operations/troubleshooting.md).
 
 ---
 
 ## Contributing
 
-This is a research codebase in active development. Contributions that:
-- Fix bugs in the core memory mechanism
-- Add new experiment phases following the existing structure
-- Improve test coverage
-- Add documentation for existing functionality
+MINEMOS is a research codebase. Contributions that fix lifecycle defects, add
+controlled experiments, improve test coverage, or document existing behavior are
+welcome. Open an issue before changing frozen baselines, the verification gate,
+or the retrieval pipeline.
 
-...are welcome. Please open an issue before starting significant work.
-
-**Important:** Do not modify frozen baseline configurations from previous phases without documenting the change explicitly. Frozen parameters are marked in code with comments and serve as experimental controls.
-
-**Research integrity:** Any new experiments that report quantitative results must:
-- State the dataset characteristics (size, capacity, seed)
-- Report both positive and negative findings
-- Distinguish between experimental conditions and production claims
+Quantitative contributions must state dataset size, capacity, and seed, and must
+report negative findings as well as positive ones. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
 ## License
 
-MINEMOS is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**.
+MINEMOS is licensed under the **GNU Affero General Public License v3.0
+(AGPL-3.0)**. See [LICENSE](LICENSE) for the complete text.
 
-See the [LICENSE](LICENSE) file for the complete license text.
-
-The AGPLv3 requires that modified versions of this software that are run over a network (e.g., as a service) make their source code available to users of that service. For research and local use, the AGPLv3 imposes no restrictions beyond standard open-source attribution.
-
-**Dependency licenses:** All runtime dependencies (PyTorch, Transformers, sentence-transformers, NumPy, SciPy, scikit-learn) are distributed under permissive licenses (BSD, Apache 2.0) and are compatible with AGPLv3 when used as libraries.
+The AGPL-3.0 requires that modified versions run as a network service make their
+source available to users of that service. For research and local use, it adds
+no restrictions beyond standard open-source attribution.
 
 ---
 
-*MINEMOS is an experimental research system. All benchmark results are from controlled experiments on synthetic data. They should not be interpreted as guarantees of production performance.*
+*MINEMOS is an experimental research system. All benchmark results are from
+controlled experiments on synthetic data and should not be interpreted as
+guarantees of production performance.*
