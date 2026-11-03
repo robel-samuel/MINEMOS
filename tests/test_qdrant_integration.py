@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import threading
 import uuid
+from dataclasses import replace
 
 import pytest
 
@@ -520,6 +521,88 @@ def test_hybrid_merges_bm25_candidates_into_dense_beam(tmp_path):
         hybrid_stats = mem.retrieval_stats()["manager"]
         assert hybrid_stats["last_dense_candidates"] == 1
         assert hybrid_stats["last_fused_candidates"] == 3
+    finally:
+        mem.close()
+
+
+def test_hybrid_rrf_fusion_reorders_the_same_candidates(tmp_path):
+    cfg = _config(tmp_path, candidate_limit=1)
+    mem = _engine(cfg)
+    try:
+        add_facts(mem, [
+            ("Alice", "likes", "zebra", 1.0),
+            ("Bob", "likes", "violin", 2.0),
+            ("Carol", "likes", "kite", 3.0),
+        ])
+        dense_hybrid = mem.query(
+            "zebra violin kite", top_k=3, hybrid=True)
+        rrf_hybrid = mem.query(
+            "zebra violin kite", top_k=3, hybrid=True, fusion="rrf")
+
+        # RRF changes ordering only: the candidate union, and therefore the
+        # returned rows and their exact dense similarities, are unchanged.
+        assert len(dense_hybrid) == 3
+        assert {row["text"] for row in dense_hybrid} == {
+            row["text"] for row in rrf_hybrid}
+        assert {(row["text"], row["similarity"]) for row in dense_hybrid} == {
+            (row["text"], row["similarity"]) for row in rrf_hybrid}
+
+        # Fusion is deterministic and works against the same beam plumbing.
+        assert rrf_hybrid == mem.query(
+            "zebra violin kite", top_k=3, hybrid=True, fusion="rrf")
+        narrow = mem.query(
+            "zebra violin kite", top_k=1, hybrid=True, fusion="rrf")
+        assert len(narrow) == 1
+        assert narrow[0]["text"] in {row["text"] for row in dense_hybrid}
+        stats = mem.retrieval_stats()["manager"]
+        assert stats["last_dense_candidates"] == 1
+        assert stats["last_fused_candidates"] == 3
+
+        with pytest.raises(ValueError, match="fusion"):
+            mem.query("q", hybrid=True, fusion="bogus")
+        with pytest.raises(ValueError, match="hybrid"):
+            mem.query("q", fusion="rrf")
+    finally:
+        mem.close()
+
+
+def test_hybrid_fusion_config_supplies_the_default(tmp_path):
+    cfg = replace(_config(tmp_path, candidate_limit=1), hybrid_fusion="rrf")
+    mem = _engine(cfg)
+    try:
+        add_facts(mem, [
+            ("Alice", "likes", "zebra", 1.0),
+            ("Bob", "likes", "violin", 2.0),
+            ("Carol", "likes", "kite", 3.0),
+        ])
+        default_rows = mem.query("zebra violin kite", top_k=3, hybrid=True)
+        explicit_rows = mem.query(
+            "zebra violin kite", top_k=3, hybrid=True, fusion="rrf")
+        assert default_rows == explicit_rows
+        stats = mem.retrieval_stats()["manager"]
+        assert stats["hybrid_fusion"] == "rrf"
+        assert stats["rrf_k"] == 60
+    finally:
+        mem.close()
+
+
+def test_successful_sync_and_query_clear_stale_error(tmp_path):
+    mem = _engine(_config(tmp_path))
+    try:
+        add_facts(mem, [
+            ("Alice", "lives in", "Paris", 10.0),
+            ("Bob", "lives in", "Oslo", 11.0),
+        ])
+        retriever = _retriever(mem)
+        retriever._last_error = "injected failure"
+        retriever._dirty = True
+        retriever.sync_state(force=True)
+        assert retriever.stats["last_error"] is None
+
+        retriever._last_error = "injected failure"
+        mem.query(QUERY, top_k=2)
+        assert retriever.stats["last_error"] is None
+        assert mem.retrieval_stats()["state"] == "ready"
     finally:
         mem.close()
 

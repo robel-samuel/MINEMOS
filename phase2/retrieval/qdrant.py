@@ -48,6 +48,36 @@ def _point_id(memory_id: Any) -> str:
         return str(uuid.uuid5(uuid.NAMESPACE_URL, text))
 
 
+def _rrf_order(dense_ids: Sequence[str], lexical_ids: Sequence[str],
+               k: int) -> List[str]:
+    """Reciprocal-rank fusion over dense and lexical candidate lists.
+
+    Only used by the opt-in ``hybrid_fusion="rrf"`` experiment.  Ties are
+    deterministic: better dense rank first, then better lexical rank.
+    """
+    dense_rank: Dict[str, int] = {}
+    for rank, point_id in enumerate(dense_ids, start=1):
+        dense_rank.setdefault(str(point_id), rank)
+    lexical_rank: Dict[str, int] = {}
+    for rank, point_id in enumerate(lexical_ids, start=1):
+        lexical_rank.setdefault(str(point_id), rank)
+
+    scores: Dict[str, float] = {}
+    for point_id, rank in dense_rank.items():
+        scores[point_id] = scores.get(point_id, 0.0) + 1.0 / (k + rank)
+    for point_id, rank in lexical_rank.items():
+        scores[point_id] = scores.get(point_id, 0.0) + 1.0 / (k + rank)
+    fallback = (len(dense_ids) + len(lexical_ids) + 1)
+    return sorted(
+        scores,
+        key=lambda point_id: (
+            -scores[point_id],
+            dense_rank.get(point_id, fallback),
+            lexical_rank.get(point_id, fallback),
+            point_id,
+        ))
+
+
 def _fingerprint(dense: np.ndarray, payload: Dict[str, Any]) -> str:
     digest = hashlib.sha256()
     digest.update(np.asarray(dense, dtype=np.float32).tobytes())
@@ -455,6 +485,7 @@ class QdrantRetriever:
                 self._indexed_version = version
                 self._complete = complete
                 self._dirty = not complete
+                self._last_error = None
                 self._last_sync_ms = round(
                     (time.perf_counter() - started) * 1000.0, 3)
                 self._sync_ms_total += self._last_sync_ms
@@ -516,7 +547,16 @@ class QdrantRetriever:
               as_of: Optional[float] = None,
               active_only: bool = True,
               filters: Optional[Dict[str, Any]] = None,
-              hybrid: bool = False) -> List[Dict[str, Any]]:
+              hybrid: bool = False,
+              fusion: Optional[str] = None) -> List[Dict[str, Any]]:
+        fusion_mode = (
+            self.config.hybrid_fusion if fusion is None
+            else str(fusion).strip().lower())
+        if fusion_mode not in ("dense", "rrf"):
+            raise ValueError(
+                f"fusion must be 'dense' or 'rrf', got {fusion!r}")
+        if not hybrid:
+            fusion_mode = "dense"
         if self._closed:
             raise QdrantUnavailable("Qdrant retriever is closed")
         with self._sync_lock:
@@ -573,6 +613,7 @@ class QdrantRetriever:
                 ) from exc
 
             self._searches += 1
+            self._last_error = None
             self._last_search_ms = round(
                 (time.perf_counter() - started) * 1000.0, 3)
             self._search_ms_total += self._last_search_ms
@@ -588,16 +629,30 @@ class QdrantRetriever:
                 }
                 # Hybrid candidate merge mirrors MINEMOS's internal fusion:
                 # dense ranks first, then lexical ranks not already present.
+                # The opt-in RRF experiment keeps that union but orders it by
+                # reciprocal rank instead of dense order.
                 candidate_ids = [str(point.id) for point in response.points]
                 dense_candidates = len(candidate_ids)
+                fused_rank: Optional[Dict[str, int]] = None
                 if hybrid:
+                    lexical_ids = []
                     seen = set(candidate_ids)
                     for idx, _score in lexical:
                         if 0 <= idx < len(slots):
                             point_id = _point_id(slots[idx].memory_id)
+                            if point_id not in lexical_ids:
+                                lexical_ids.append(point_id)
                             if point_id not in seen:
                                 seen.add(point_id)
                                 candidate_ids.append(point_id)
+                    if fusion_mode == "rrf":
+                        candidate_ids = _rrf_order(
+                            [str(point.id) for point in response.points],
+                            lexical_ids, self.config.rrf_k)
+                        fused_rank = {
+                            point_id: rank
+                            for rank, point_id in enumerate(
+                                candidate_ids, start=1)}
                 self._last_dense_candidates = dense_candidates
                 self._last_fused_candidates = len(candidate_ids)
                 rows = []
@@ -620,9 +675,14 @@ class QdrantRetriever:
                     emb = (embeddings[idx] if idx < len(embeddings)
                            else getattr(slot, "dense_emb", None))
                     sim = float(np.dot(emb, q_dense)) if emb is not None else 0.0
-                    rows.append((sim, slot, idx, text))
+                    rows.append((candidate_id, sim, slot, idx, text))
 
-                rows.sort(key=lambda item: (-item[0], item[2]))
+                if fused_rank is None:
+                    rows.sort(key=lambda item: (-item[1], item[3]))
+                else:
+                    rows.sort(key=lambda item: (
+                        fused_rank.get(item[0], len(candidate_ids) + 1),
+                        -item[1], item[3]))
                 return [
                     {
                         "slot_index": idx,
@@ -637,7 +697,7 @@ class QdrantRetriever:
                         "valid_from": slot.valid_from,
                         "valid_until": slot.valid_until,
                     }
-                    for sim, slot, idx, text in rows[:top_k]
+                    for _, sim, slot, idx, text in rows[:top_k]
                 ]
 
     # ------------------------------------------------------------------ #
@@ -660,6 +720,8 @@ class QdrantRetriever:
             "vector": VECTOR_NAME,
             "dim": self.dim,
             "candidate_limit": self.config.candidate_limit,
+            "hybrid_fusion": self.config.hybrid_fusion,
+            "rrf_k": self.config.rrf_k,
             "points": points,
             "indexed_version": self._indexed_version,
             "dirty": self._dirty,

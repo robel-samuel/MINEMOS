@@ -6,28 +6,38 @@ the retriever modules load lazily on first access, so constructing an engine
 with the default canonical backend never imports the optimized stack.
 """
 
-from .config import (BACKENDS, CANONICAL, CONTENTION_FALLBACKS, INCREMENTAL,
-                     OPTIMIZED, QDRANT, RetrievalConfig, normalize_backend)
+from .config import (BACKENDS, CANONICAL, CANONICAL_ONLY, CONTENTION_FALLBACKS,
+                     DEFAULT_RETRIEVAL_MODE, INCREMENTAL, LEGACY, OPTIMIZED,
+                     PRODUCTION, QDRANT, RETRIEVAL_MODES, RetrievalConfig,
+                     RetrievalConfigurationError, normalize_backend,
+                     normalize_mode)
 from .qdrant_config import QdrantConfig
 
 __all__ = [
     "BACKENDS",
     "CANONICAL",
+    "CANONICAL_ONLY",
     "CONTENTION_FALLBACKS",
+    "DEFAULT_RETRIEVAL_MODE",
     "INCREMENTAL",
+    "LEGACY",
     "OPTIMIZED",
+    "PRODUCTION",
     "QDRANT",
+    "RETRIEVAL_MODES",
     "IncrementalSnapshotRetriever",
     "QdrantConfig",
     "QdrantRetriever",
     "QdrantUnavailable",
     "RetrievalAdapter",
     "RetrievalConfig",
+    "RetrievalConfigurationError",
     "RetrievalUnavailable",
     "SnapshotContended",
     "SnapshotRetriever",
     "VectorizedRetriever",
     "normalize_backend",
+    "normalize_mode",
 ]
 
 _LAZY_EXPORTS = {

@@ -113,7 +113,8 @@ class RetrievalAdapter:
               as_of: Optional[float] = None,
               active_only: bool = True,
               filters: Optional[Dict[str, Any]] = None,
-              hybrid: bool = False):
+              hybrid: bool = False,
+              fusion: Optional[str] = None):
         if self._backend == CANONICAL:
             # The engine handles this case before calling the adapter; this
             # guard keeps direct adapter use honest.
@@ -124,14 +125,23 @@ class RetrievalAdapter:
         if hybrid and self._backend != QDRANT:
             raise RetrievalUnavailable(
                 "hybrid retrieval requires the qdrant backend")
+        if fusion is not None and not hybrid:
+            raise ValueError("fusion requires hybrid=True")
+        if fusion is not None:
+            fusion = str(fusion).strip().lower()
+            if fusion not in ("dense", "rrf"):
+                raise ValueError(
+                    f"fusion must be 'dense' or 'rrf', got {fusion!r}")
         try:
             retriever = self._ensure()
             if self._backend == QDRANT:
-                return retriever.query(
+                rows = retriever.query(
                     query_text, top_k=top_k, as_of=as_of,
-                    active_only=active_only, filters=filters, hybrid=hybrid)
-            return retriever.query(query_text, top_k=top_k, as_of=as_of,
-                                   active_only=active_only)
+                    active_only=active_only, filters=filters, hybrid=hybrid,
+                    fusion=fusion)
+            else:
+                rows = retriever.query(query_text, top_k=top_k, as_of=as_of,
+                                       active_only=active_only)
         except SnapshotContended as exc:
             # Contention is an expected hand-off, not a backend defect: the
             # engine answers with its exact canonical loop.  Counting it as an
@@ -150,6 +160,8 @@ class RetrievalAdapter:
                     f"{self._backend} retrieval failed: "
                     f"{type(exc).__name__}: {exc}") from exc
             raise
+        self._last_error = None
+        return rows
 
     # ------------------------------------------------------------------ #
     # Observability

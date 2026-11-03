@@ -33,6 +33,37 @@ QDRANT = "qdrant"
 BACKENDS = (CANONICAL, OPTIMIZED, INCREMENTAL, QDRANT)
 CONTENTION_FALLBACKS = ("canonical", "locked_build")
 
+# Deployment profiles.  ``legacy`` preserves the historical default (canonical
+# unless a backend is explicitly selected).  ``production`` makes Qdrant the
+# standard backend and validates its server configuration eagerly.
+# ``canonical_only`` never imports or contacts Qdrant, for development, tests,
+# recovery and unchanged installations.
+LEGACY = "legacy"
+PRODUCTION = "production"
+CANONICAL_ONLY = "canonical"
+RETRIEVAL_MODES = (LEGACY, PRODUCTION, CANONICAL_ONLY)
+DEFAULT_RETRIEVAL_MODE = LEGACY
+
+
+class RetrievalConfigurationError(ValueError):
+    """A retrieval deployment configuration is missing or unsafe."""
+
+
+def normalize_mode(mode: Optional[str]) -> str:
+    if mode is None:
+        return DEFAULT_RETRIEVAL_MODE
+    if not isinstance(mode, str):
+        raise TypeError(
+            f"retrieval_mode must be a string, got {type(mode)!r}")
+    value = mode.strip().lower()
+    if not value:
+        return DEFAULT_RETRIEVAL_MODE
+    if value not in RETRIEVAL_MODES:
+        raise RetrievalConfigurationError(
+            f"unknown retrieval_mode {mode!r}; expected one of "
+            f"{RETRIEVAL_MODES}")
+    return value
+
 
 def normalize_backend(backend: Optional[str]) -> str:
     if backend is None:
@@ -51,6 +82,7 @@ class RetrievalConfig:
     """Immutable retrieval configuration (never serialized in checkpoints)."""
 
     backend: str = CANONICAL
+    mode: str = DEFAULT_RETRIEVAL_MODE
     max_optimistic_attempts: int = 3
     max_incremental_updates: int = 64
     fallback_to_canonical: bool = True
@@ -59,6 +91,7 @@ class RetrievalConfig:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "backend", normalize_backend(self.backend))
+        object.__setattr__(self, "mode", normalize_mode(self.mode))
         if int(self.max_optimistic_attempts) < 1:
             raise ValueError("max_optimistic_attempts must be >= 1")
         if int(self.max_incremental_updates) < 0:

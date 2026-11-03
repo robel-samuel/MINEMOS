@@ -311,6 +311,9 @@ def run_method(mem: BlackHoleMemory, queries: List[RetrievalQuery],
             rows = _bm25_rows(mem, query.query_text, top_k)
         elif method == "hybrid":
             rows = mem.query(query.query_text, top_k=top_k, hybrid=True)
+        elif method == "hybrid_rrf":
+            rows = mem.query(
+                query.query_text, top_k=top_k, hybrid=True, fusion="rrf")
         else:
             rows = mem.query(query.query_text, top_k=top_k)
         latencies.append((time.perf_counter() - started) * 1000.0)
@@ -347,7 +350,8 @@ def _qdrant_config(collection: str, path: Optional[str]) -> QdrantConfig:
 
 def benchmark_size(n: int, query_count: int, seed: int, top_k: int,
                    encoder: DenseSemanticEncoder,
-                   qdrant_path: Optional[str]) -> Dict[str, Any]:
+                   qdrant_path: Optional[str],
+                   include_rrf: bool = False) -> Dict[str, Any]:
     corpus = build_corpus(n, seed)
     queries = corpus["queries"][:query_count]
     collection = f"minemos_bench_{uuid.uuid4().hex[:10]}"
@@ -380,7 +384,10 @@ def benchmark_size(n: int, query_count: int, seed: int, top_k: int,
         rebuild_ms = (time.perf_counter() - rebuild_start) * 1000.0
 
         methods: Dict[str, Any] = {}
-        for method in ("qdrant_dense", "hybrid"):
+        method_names = ["qdrant_dense", "hybrid"]
+        if include_rrf:
+            method_names.append("hybrid_rrf")
+        for method in method_names:
             methods[method] = run_method(mem, queries, method, top_k)
 
         qdrant_stats = mem.retrieval_stats().get("manager")
@@ -428,6 +435,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         "benchmarks", "results", "qdrant_integration_benchmark.json"))
     parser.add_argument("--keep-db", action="store_true",
                         help="keep the embedded Qdrant directory")
+    parser.add_argument("--include-rrf", action="store_true",
+                        help="also measure the opt-in reciprocal-rank fusion "
+                             "experiment (default hybrid ordering is unchanged)")
     args = parser.parse_args(argv)
 
     encoder = DenseSemanticEncoder()
@@ -450,6 +460,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             "top_k": args.top_k,
             "encoder": "sentence-transformers/all-MiniLM-L6-v2",
             "candidate_limit": 128,
+            "include_rrf": bool(args.include_rrf),
         },
         "results": {},
         "notes": [
@@ -468,7 +479,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         for n in args.sizes:
             print(f"[benchmark] N={n}", flush=True)
             result = benchmark_size(
-                n, args.queries, args.seed, args.top_k, encoder, qdrant_path)
+                n, args.queries, args.seed, args.top_k, encoder, qdrant_path,
+                include_rrf=args.include_rrf)
             payload["results"][str(n)] = result
             # Persist completed sizes immediately so a long later size cannot
             # discard measurements that already finished.

@@ -17,7 +17,9 @@ Implements the complete, consolidated production-grade memory system:
 """
 
 from __future__ import annotations
+import logging
 import math
+import os
 import re
 import threading
 import time
@@ -52,6 +54,8 @@ from benchmarks.phase22_experiment import (
 from benchmarks.phase24_retention import evict_slot_phase24
 from benchmarks.phase24_consolidation import consolidate_vector_phase24
 from benchmarks.phase24_verification import CalibratedSemanticVerifier
+
+_LOG = logging.getLogger(__name__)
 
 
 CUMULATIVE_PREDICATES = {
@@ -151,9 +155,10 @@ class BlackHoleMemory:
         verifier: Optional[Any] = None,
         exclusive_predicates: Optional[Any] = None,
         multi_valued_predicates: Optional[Any] = None,
-        retrieval_backend: str = "canonical",
+        retrieval_backend: Optional[str] = None,
         retrieval_config: Optional[Any] = None,
-        qdrant_config: Optional[Any] = None
+        qdrant_config: Optional[Any] = None,
+        retrieval_mode: Optional[str] = None
     ):
         self.capacity = capacity
         self.dim = dim
@@ -213,23 +218,73 @@ class BlackHoleMemory:
         self._state_version = 0
 
         # Retrieval backend selection.  Canonical is the reference path and the
-        # default; the optimized backends are opt-in and reversible.  Like the
-        # predicate policy above, this is process configuration and is not
-        # serialized into checkpoints.
-        from phase2.retrieval.config import RetrievalConfig, normalize_backend
+        # legacy default; production deployments opt into the strict Qdrant
+        # profile, and canonical-only deployments never import or contact
+        # Qdrant.  Like the predicate policy above, this is process
+        # configuration and is not serialized into checkpoints.
+        from phase2.retrieval.config import (
+            CANONICAL, CANONICAL_ONLY, PRODUCTION, QDRANT, RetrievalConfig,
+            RetrievalConfigurationError, normalize_backend, normalize_mode)
         self._retrieval_config = RetrievalConfig.from_value(retrieval_config)
-        self._retrieval_backend = normalize_backend(
-            retrieval_backend
-            if retrieval_backend is not None
-            else self._retrieval_config.backend)
+        env_mode = os.environ.get("MINEMOS_RETRIEVAL_MODE")
+        self._retrieval_mode = normalize_mode(
+            retrieval_mode if retrieval_mode is not None
+            else env_mode if env_mode is not None
+            else self._retrieval_config.mode)
+
+        requested_backend = retrieval_backend
+        if (requested_backend is None
+                and self._retrieval_config.backend != CANONICAL):
+            requested_backend = self._retrieval_config.backend
+
+        if self._retrieval_mode == PRODUCTION:
+            if (requested_backend is not None
+                    and normalize_backend(requested_backend) != QDRANT):
+                raise RetrievalConfigurationError(
+                    "retrieval_mode='production' requires the qdrant backend; "
+                    f"got retrieval_backend={requested_backend!r}. Use "
+                    "retrieval_mode='canonical' for canonical-only "
+                    "deployments.")
+            self._retrieval_backend = QDRANT
+        elif self._retrieval_mode == CANONICAL_ONLY:
+            if (requested_backend is not None
+                    and normalize_backend(requested_backend) != CANONICAL):
+                raise RetrievalConfigurationError(
+                    "retrieval_mode='canonical' does not permit another "
+                    f"backend; got retrieval_backend={requested_backend!r}.")
+            self._retrieval_backend = CANONICAL
+        else:
+            self._retrieval_backend = normalize_backend(
+                requested_backend
+                if requested_backend is not None else CANONICAL)
         self._retrieval_adapter_obj = None
+        self._retrieval_fallback_warned = False
+        self._index_failure_warned = False
 
         # Qdrant settings are validated eagerly (without importing the client)
         # when the backend is selected or an explicit config is supplied.
         # Secrets stay inside QdrantConfig and are never serialized.
-        from phase2.retrieval.qdrant_config import QdrantConfig
-        if qdrant_config is not None or self._retrieval_backend == "qdrant":
-            self._qdrant_config = QdrantConfig.from_value(qdrant_config)
+        if self._retrieval_mode == CANONICAL_ONLY:
+            self._qdrant_config = None
+        elif qdrant_config is not None or self._retrieval_backend == QDRANT:
+            from phase2.retrieval.qdrant_config import QdrantConfig
+            try:
+                self._qdrant_config = QdrantConfig.from_value(qdrant_config)
+            except (TypeError, ValueError) as exc:
+                if self._retrieval_mode == PRODUCTION:
+                    raise RetrievalConfigurationError(
+                        "retrieval_mode='production' needs a valid Qdrant "
+                        "server configuration. Set QDRANT_URL (and "
+                        "QDRANT_API_KEY for remote hosts) or pass "
+                        f"qdrant_config. Original error: {exc}") from exc
+                raise
+            if self._retrieval_mode == PRODUCTION:
+                try:
+                    self._qdrant_config.validate_production()
+                except ValueError as exc:
+                    raise RetrievalConfigurationError(
+                        f"invalid production Qdrant configuration: {exc}"
+                    ) from exc
         else:
             self._qdrant_config = None
 
@@ -256,6 +311,10 @@ class BlackHoleMemory:
     def retrieval_backend(self) -> str:
         return self._retrieval_backend
 
+    @property
+    def retrieval_mode(self) -> str:
+        return self._retrieval_mode
+
     def set_retrieval_backend(self, backend: str) -> str:
         """Switch retrieval backends at runtime.
 
@@ -263,12 +322,40 @@ class BlackHoleMemory:
         the canonical loop below and never consults snapshot state.  Switching
         between the optimized and incremental backends builds a fresh
         retriever; a stale snapshot can never be served to the new backend.
+
+        The production profile permits only the standard Qdrant backend or an
+        emergency canonical rollback.  Canonical-only mode permits canonical
+        exclusively.
         """
-        from phase2.retrieval.config import normalize_backend
+        from phase2.retrieval.config import (
+            CANONICAL, CANONICAL_ONLY, PRODUCTION, QDRANT,
+            RetrievalConfigurationError, normalize_backend)
         value = normalize_backend(backend)
-        if value == "qdrant" and self._qdrant_config is None:
+        if self._retrieval_mode == CANONICAL_ONLY and value != CANONICAL:
+            raise RetrievalConfigurationError(
+                "retrieval_mode='canonical' permits only the canonical "
+                f"backend, got {value!r}")
+        if (self._retrieval_mode == PRODUCTION
+                and value not in (QDRANT, CANONICAL)):
+            raise RetrievalConfigurationError(
+                "retrieval_mode='production' permits the standard qdrant "
+                f"backend or an emergency canonical rollback, got {value!r}")
+        if value == QDRANT and self._qdrant_config is None:
             from phase2.retrieval.qdrant_config import QdrantConfig
-            self._qdrant_config = QdrantConfig.from_env()
+            try:
+                self._qdrant_config = QdrantConfig.from_env()
+            except (TypeError, ValueError) as exc:
+                raise RetrievalConfigurationError(
+                    "cannot switch to qdrant: set QDRANT_URL (server) or "
+                    f"QDRANT_PATH (development) first. Original error: {exc}"
+                ) from exc
+            if self._retrieval_mode == PRODUCTION:
+                try:
+                    self._qdrant_config.validate_production()
+                except ValueError as exc:
+                    raise RetrievalConfigurationError(
+                        f"invalid production Qdrant configuration: {exc}"
+                    ) from exc
         with self._lock:
             self._retrieval_backend = value
             if self._retrieval_adapter_obj is not None:
@@ -289,14 +376,50 @@ class BlackHoleMemory:
         return adapter
 
     def retrieval_stats(self) -> Dict[str, Any]:
+        """Report the configured backend and whether it is actually serving.
+
+        ``state`` is ``canonical``, ``not_initialized`` (selected but not yet
+        contacted), ``ready``, or ``degraded`` (the last index operation failed
+        and queries are falling back to canonical).  This prevents a selected
+        production backend from being mistaken for a healthy one.
+        """
         with self._lock:
             adapter = self._retrieval_adapter_obj
             backend = self._retrieval_backend
+            mode = self._retrieval_mode
         if adapter is None:
-            return {"backend": backend, "active": backend != "canonical",
-                    "strategy": None, "manager": None,
-                    "published_version": None}
+            canonical = backend == "canonical"
+            return {
+                "backend": backend,
+                "mode": mode,
+                "active": not canonical,
+                "initialized": False,
+                "degraded": False,
+                "state": "canonical" if canonical else "not_initialized",
+                "strategy": None,
+                "manager": None,
+                "published_version": None,
+            }
         stats = adapter.stats()
+        stats["backend"] = backend
+        stats["mode"] = mode
+        retriever = adapter.retriever
+        stats["initialized"] = retriever is not None
+        manager = stats.get("manager") or {}
+        if backend == "canonical":
+            # A canonical rollback is a healthy state, regardless of errors
+            # recorded by the previously active retriever.
+            degraded = False
+        else:
+            degraded = bool(
+                manager.get("dirty") or manager.get("last_error")
+                or stats.get("last_error"))
+        stats["degraded"] = degraded
+        stats["state"] = (
+            "canonical" if backend == "canonical"
+            else "degraded" if degraded
+            else "ready" if retriever is not None
+            else "not_initialized")
         stats["active"] = backend != "canonical"
         return stats
 
@@ -754,6 +877,26 @@ class BlackHoleMemory:
         finally:
             self._sync_qdrant_if_active()
 
+    def _warn_index_failure(self, stage: str, exc: BaseException) -> None:
+        from phase2.retrieval.config import PRODUCTION
+        if (self._retrieval_mode != PRODUCTION
+                or self._index_failure_warned):
+            return
+        self._index_failure_warned = True
+        _LOG.warning(
+            "Qdrant %s failed; canonical memory is intact and queries fall "
+            "back to canonical retrieval: %s", stage, exc)
+
+    def _warn_backend_fallback(self, exc: BaseException) -> None:
+        from phase2.retrieval.config import PRODUCTION
+        if (self._retrieval_mode != PRODUCTION
+                or self._retrieval_fallback_warned):
+            return
+        self._retrieval_fallback_warned = True
+        _LOG.warning(
+            "Qdrant is configured but unavailable; serving this query from "
+            "canonical MINEMOS retrieval: %s", exc)
+
     def _sync_qdrant_if_active(self) -> None:
         """Reconcile the Qdrant index after a canonical mutation.
 
@@ -772,8 +915,8 @@ class BlackHoleMemory:
             if adapter is None:
                 adapter = self._get_retrieval_adapter()
             adapter.ensure_retriever().sync_state()
-        except Exception:  # noqa: BLE001 - canonical state already committed
-            pass
+        except Exception as exc:  # noqa: BLE001 - canonical state already committed
+            self._warn_index_failure("write-path sync", exc)
 
     def _sync_qdrant_after_restore(self) -> None:
         """Force a full reconcile after canonical state is replaced on load."""
@@ -785,8 +928,8 @@ class BlackHoleMemory:
                 adapter = self._get_retrieval_adapter()
             adapter.ensure_retriever().sync_state(
                 force=True, use_retry=False)
-        except Exception:  # noqa: BLE001 - the next query falls back canonical
-            pass
+        except Exception as exc:  # noqa: BLE001 - the next query falls back canonical
+            self._warn_index_failure("checkpoint-restore sync", exc)
 
     def _absorb_impl(
         self,
@@ -1854,7 +1997,8 @@ class BlackHoleMemory:
         as_of: Optional[float] = None,
         active_only: bool = True,
         filters: Optional[Dict[str, Any]] = None,
-        hybrid: bool = False
+        hybrid: bool = False,
+        fusion: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Retrieves relevant memory records for a natural-language query.
@@ -1870,6 +2014,11 @@ class BlackHoleMemory:
         requires the qdrant backend; if Qdrant is unavailable the answer falls
         through to canonical dense retrieval.
 
+        ``fusion`` optionally selects the hybrid ordering experiment:
+        ``"dense"`` (default) applies MINEMOS's exact dense re-ranking, while
+        ``"rrf"`` orders the merged candidate union by reciprocal rank.  RRF is
+        an opt-in experiment and is not used unless explicitly requested.
+
         Canonical retrieval is the reference implementation and the default.
         When another backend is explicitly selected, it answers first;
         ``RetrievalUnavailable`` falls through to the canonical loop below, so
@@ -1878,6 +2027,13 @@ class BlackHoleMemory:
         filters = self._normalize_query_filters(filters)
         if hybrid and self._retrieval_backend != "qdrant":
             raise ValueError("hybrid retrieval requires the qdrant backend")
+        if fusion is not None:
+            if not hybrid:
+                raise ValueError("fusion requires hybrid=True")
+            fusion = str(fusion).strip().lower()
+            if fusion not in ("dense", "rrf"):
+                raise ValueError(
+                    f"fusion must be 'dense' or 'rrf', got {fusion!r}")
         if self._retrieval_backend != "canonical":
             from phase2.retrieval.adapter import RetrievalUnavailable
             if not filters or self._retrieval_backend == "qdrant":
@@ -1885,9 +2041,9 @@ class BlackHoleMemory:
                     return self._get_retrieval_adapter().query(
                         query_text, top_k=top_k, as_of=as_of,
                         active_only=active_only, filters=filters,
-                        hybrid=hybrid)
-                except RetrievalUnavailable:
-                    pass
+                        hybrid=hybrid, fusion=fusion)
+                except RetrievalUnavailable as exc:
+                    self._warn_backend_fallback(exc)
 
         if not self.memory.slots:
             return []

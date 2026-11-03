@@ -164,16 +164,16 @@ flowchart TD
 
 ### Qdrant-Backed Retrieval (Implemented)
 
-MINEMOS remains the product, intelligence engine, and architectural authority. Qdrant is an optional persistent vector index inside MINEMOS — not a separate operating system, not an independent replacement for MINEMOS, and not a second memory authority.
+MINEMOS remains the product, intelligence engine, and architectural authority. Qdrant is a derived persistent vector index inside MINEMOS — not a separate operating system, not an independent replacement for MINEMOS, and not a second memory authority.
 
 The division of responsibility is deliberate:
 
 - MINEMOS retains control of memory consolidation, retention policy, contradiction/supersession handling, temporal validity, stable memory identity, and canonical persistence. Qdrant does not participate in any of those decisions and does not decide what survives.
 - Qdrant stores a derived dense vector and filter payload per live slot, and returns candidate memory IDs. MINEMOS resolves every candidate against canonical state, applies its own temporal and metadata rules, and performs the final exact re-ranking.
-- Integration is optional. Canonical MINEMOS retrieval remains the default, and the system is fully usable without any external vector store.
-- The index is rebuildable from canonical records. If Qdrant is unavailable, accepted memory mutations still commit, the index is marked dirty, and queries fall back to canonical retrieval.
+- Three deployment modes preserve backward compatibility. `legacy` (default) keeps canonical retrieval for existing installations unless a backend is explicitly selected. `production` uses Qdrant as the standard backend and fails startup on missing or unsafe configuration rather than silently serving from canonical. `canonical` never constructs or contacts Qdrant and is intended for development, tests, recovery, and installations without an index. `production` is a retrieval deployment profile; it does not change MINEMOS's status as an experimental memory platform.
+- The index is rebuildable from canonical records. If Qdrant becomes unavailable at runtime, accepted memory mutations still commit, the index is marked dirty, queries fall back to canonical retrieval, and `retrieval_stats()` reports `degraded` instead of claiming Qdrant is healthy. In production this state change also logs a one-time warning.
 
-Implementation lives in `phase2/retrieval/qdrant.py` and `phase2/retrieval/qdrant_config.py`, with stable IDs in `phase2/memory_state.py`, checkpoint schema v4 in `phase2/checkpoint.py`, and lifecycle hooks in `phase2/black_hole_memory.py`. See [docs/QDRANT_INTEGRATION.md](docs/QDRANT_INTEGRATION.md) for configuration, tenant scoping, recovery, and test instructions.
+Implementation lives in `phase2/retrieval/qdrant.py` and `phase2/retrieval/qdrant_config.py`, with stable IDs in `phase2/memory_state.py`, checkpoint schema v4 in `phase2/checkpoint.py`, and lifecycle hooks in `phase2/black_hole_memory.py`. See [docs/QDRANT_INTEGRATION.md](docs/QDRANT_INTEGRATION.md) for deployment modes, production configuration rules, tenant scoping, recovery, and test instructions.
 
 **Historical finding preserved:** the Phase 31B/31C evaluation rejected Qdrant as an authoritative memory store; it did not replace canonical/PostgreSQL persistence. This integration uses Qdrant only as a derived retrieval index, which is a different role and does not revise that verdict. Larger-scale vector workloads remain an engineering option, not a claim of superiority over canonical retrieval.
 
@@ -250,7 +250,7 @@ Phase 26 introduced calibrated bidirectional NLI verification, distinguishing bi
 
 ## Retrieval
 
-The retrieval stack combines four historical strategies with an optional persistent Qdrant index:
+The retrieval stack combines four historical strategies with a persistent Qdrant retrieval index:
 
 ### 1. Lexical Retrieval (Phases 2–17)
 `FieldAwareLexicalEncoder`: word-split bag-of-tokens with field-prefixed hashing into a 4096-dim vector. Cosine similarity against slot keys.
@@ -265,7 +265,9 @@ The retrieval stack combines four historical strategies with an optional persist
 Extends hybrid fusion with temporal validity window gating, recency decay, and contradiction anchor repulsion. Achieves **R@1 = MRR = 1.000** and **0.000 contradiction intrusion** across all 4 interference conditions in Phase 28.
 
 ### 5. Qdrant-Backed Dense and Hybrid Retrieval (Implemented)
-With `retrieval_backend="qdrant"`, each live slot is indexed in Qdrant under its stable `memory_id` using the same dense encoder as canonical MINEMOS. Dense queries return Qdrant candidates that MINEMOS resolves and re-ranks exactly. `query(..., hybrid=True)` merges Qdrant dense candidates with the existing BM25 index, then applies MINEMOS temporal/metadata filters and exact re-ranking. Metadata filters (`subject`, `predicate`, `min_confidence`, `min_update_count`, `memory_ids`) are pushed into Qdrant and re-applied exactly against canonical state. Canonical retrieval remains the default and the fallback; the Qdrant index is derived, tenant-filtered, and rebuildable.
+With `retrieval_mode="production"`, Qdrant is the standard retrieval backend for new deployments; `legacy` (the default) and `canonical` preserve canonical-only operation. Each live slot is indexed in Qdrant under its stable `memory_id` using the same dense encoder as canonical MINEMOS. Dense queries return Qdrant candidates that MINEMOS resolves and re-ranks exactly. `query(..., hybrid=True)` merges Qdrant dense candidates with the existing BM25 index, then applies MINEMOS temporal/metadata filters and exact re-ranking. Metadata filters (`subject`, `predicate`, `min_confidence`, `min_update_count`, `memory_ids`) are pushed into Qdrant and re-applied exactly against canonical state. Canonical retrieval remains the fallback in every mode; the Qdrant index is derived, tenant-filtered, and rebuildable.
+
+The hybrid merge uses dense order by default. An opt-in `fusion="rrf"` experiment orders the merged candidate union by reciprocal rank while leaving candidate membership and exact dense similarity unchanged; it exists for measurement against the dense and BM25 baselines and makes no default quality claim.
 
 ### Optional In-Process Backends (Implemented)
 
@@ -593,6 +595,36 @@ every size.
   The server measurements do not establish that Qdrant is more accurate than
   canonical retrieval, and they do not revise Phase 31B/31C.
 
+#### Opt-in RRF experiment (2026-11-03)
+
+The same benchmark was run with `--include-rrf` at 100/300 target facts to
+measure reciprocal-rank ordering against the dense and BM25 baselines. The
+results are stored separately in
+`benchmarks/results/qdrant_hybrid_fusion_benchmark.json`; historical results
+are unchanged. `hybrid_rrf` changes ordering only — candidate membership and
+the reported exact dense similarity are identical to `hybrid`.
+
+| Target facts | Method | R@1 | R@5 | MRR | nDCG@5 |
+|---|---|---|---|---|---|
+| 100 | Qdrant dense | 0.550 | 1.000 | 0.771 | 0.971 |
+| 100 | Hybrid (dense order) | 0.550 | 1.000 | 0.771 | 0.971 |
+| 100 | Hybrid RRF | 0.550 | 1.000 | 0.775 | 0.976 |
+| 100 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 |
+| 300 | Qdrant dense | 0.475 | 1.000 | 0.714 | 0.944 |
+| 300 | Hybrid (dense order) | 0.475 | 1.000 | 0.714 | 0.944 |
+| 300 | Hybrid RRF | 0.500 | 1.000 | 0.750 | 0.973 |
+| 300 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 |
+
+- RRF ordering improved MRR/nDCG@5 slightly at 200 points (+0.004/+0.005) and
+  by +0.036/+0.029 at 600 points, with R@1 rising from 0.475 to 0.500 at the
+  larger size. Recall@5 was already 1.000 for every method.
+- BM25 remains perfect on this synthetic, lexically separable corpus; RRF
+  narrows the gap but does not close it.
+- This is one corpus, one seed, and 40 queries per size. It does not support a
+  general claim that RRF improves ranking quality, and the default remains
+  exact dense ordering. Latency differences between hybrid and RRF were not
+  stable across sizes in this run and are not interpreted.
+
 | Failure Mechanism | Share | Category |
 |---|---|---|
 | Slot Eviction (Retention) | 48.2% | D |
@@ -713,17 +745,32 @@ mem.save("memory_checkpoint.json")
 restored = BlackHoleMemory.load("memory_checkpoint.json")
 ```
 
-### Use the Optional Qdrant Retrieval Backend
+### Use the Qdrant Retrieval Backend
 
 ```python
 from phase2.black_hole_memory import BlackHoleMemory
 from phase2.retrieval import QdrantConfig
 
+# Legacy/explicit selection: canonical remains the default benchmark path.
 mem = BlackHoleMemory(
     capacity=1000,
-    retrieval_backend="qdrant",          # canonical remains the default
+    retrieval_backend="qdrant",
     qdrant_config=QdrantConfig(
         url="http://127.0.0.1:6333",     # or path="/var/lib/minemos-qdrant"
+        collection="minemos",
+        tenant_id="customer-a",
+    ),
+)
+
+# Production profile: Qdrant is the standard backend. Configuration is
+# validated eagerly; missing or unsafe settings fail startup, and runtime
+# outages fall back to canonical with retrieval_stats()["state"] == "degraded".
+prod = BlackHoleMemory(
+    capacity=1000,
+    retrieval_mode="production",
+    qdrant_config=QdrantConfig(
+        url="https://qdrant.internal:6333",
+        api_key="...",
         collection="minemos",
         tenant_id="customer-a",
     ),

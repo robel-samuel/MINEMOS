@@ -10,9 +10,24 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from typing import Any, Optional
+from urllib.parse import urlsplit
 
 DEFAULT_COLLECTION = "minemos_memories"
 DEFAULT_TENANT = "default"
+HYBRID_FUSIONS = ("dense", "rrf")
+
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+class QdrantConfigurationError(ValueError):
+    """Qdrant is required but its configuration is missing or unsafe."""
+
+
+def _is_loopback(host: str) -> bool:
+    host = (host or "").strip().lower()
+    if host in _LOOPBACK_HOSTS:
+        return True
+    return host.startswith("127.") or host == "[::1]"
 
 
 @dataclass(frozen=True)
@@ -39,6 +54,9 @@ class QdrantConfig:
     retry_backoff: float = 0.25
     on_disk: bool = False
     ensure_payload_indexes: bool = True
+    allow_insecure: bool = False
+    hybrid_fusion: str = "dense"
+    rrf_k: int = 60
 
     def __post_init__(self) -> None:
         if bool(self.url) == bool(self.path):
@@ -71,8 +89,51 @@ class QdrantConfig:
         object.__setattr__(self, "on_disk", bool(self.on_disk))
         object.__setattr__(self, "ensure_payload_indexes",
                            bool(self.ensure_payload_indexes))
+        object.__setattr__(self, "allow_insecure", bool(self.allow_insecure))
+        fusion = str(self.hybrid_fusion).strip().lower()
+        if fusion not in HYBRID_FUSIONS:
+            raise ValueError(
+                f"hybrid_fusion must be one of {HYBRID_FUSIONS}, got "
+                f"{self.hybrid_fusion!r}")
+        object.__setattr__(self, "hybrid_fusion", fusion)
+        if int(self.rrf_k) < 1:
+            raise ValueError("rrf_k must be >= 1")
+        object.__setattr__(self, "rrf_k", int(self.rrf_k))
         if self.grpc_port is not None:
             object.__setattr__(self, "grpc_port", int(self.grpc_port))
+
+    def validate_production(self) -> None:
+        """Rejects embedded, destructive, or unsafe server settings.
+
+        Production deployments must use a Qdrant server.  Remote hosts must use
+        TLS and an API key; loopback hosts are exempt so a sidecar or local
+        server can run without a key.  ``allow_insecure=True`` is the explicit
+        opt-out for an internal plain-HTTP remote server.
+        """
+        if not self.url:
+            raise QdrantConfigurationError(
+                "production retrieval requires server-mode Qdrant: set "
+                "QDRANT_URL to the Qdrant HTTP endpoint. Embedded mode "
+                "(QDRANT_PATH) is rejected in production.")
+        parsed = urlsplit(self.url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            raise QdrantConfigurationError(
+                f"QDRANT_URL must be an http(s) URL with a host, got "
+                f"{self.url!r}")
+        if self.recreate:
+            raise QdrantConfigurationError(
+                "QDRANT_RECREATE must be false in production; deleting the "
+                "collection at startup is not permitted.")
+        if not _is_loopback(parsed.hostname):
+            if parsed.scheme != "https" and not self.allow_insecure:
+                raise QdrantConfigurationError(
+                    "production QDRANT_URL must use https for a non-loopback "
+                    "host; set QDRANT_ALLOW_INSECURE=true only for a trusted "
+                    "internal network.")
+            if not self.api_key:
+                raise QdrantConfigurationError(
+                    "production QDRANT_URL for a non-loopback host requires "
+                    "QDRANT_API_KEY.")
 
     @classmethod
     def from_value(cls, value: Any) -> "QdrantConfig":
@@ -94,9 +155,10 @@ class QdrantConfig:
         url = os.environ.get("QDRANT_URL") or None
         path = os.environ.get("QDRANT_PATH") or None
         if not url and not path:
-            raise ValueError(
-                "Qdrant backend requires qdrant_config={url|path} or the "
-                "QDRANT_URL / QDRANT_PATH environment variable")
+            raise QdrantConfigurationError(
+                "Qdrant backend requires qdrant_config={url|path}, QDRANT_URL "
+                "(server, standard production) or QDRANT_PATH (embedded, "
+                "development only)")
         return cls(
             url=url,
             path=None if url else path,
@@ -121,4 +183,9 @@ class QdrantConfig:
             ensure_payload_indexes=os.environ.get(
                 "QDRANT_PAYLOAD_INDEXES", "true").lower()
             not in ("0", "false", "no"),
+            allow_insecure=os.environ.get(
+                "QDRANT_ALLOW_INSECURE", "").lower()
+            in ("1", "true", "yes"),
+            hybrid_fusion=os.environ.get("QDRANT_HYBRID_FUSION", "dense"),
+            rrf_k=int(os.environ.get("QDRANT_RRF_K", "60")),
         )
