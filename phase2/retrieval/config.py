@@ -29,7 +29,8 @@ from typing import Any, Optional
 CANONICAL = "canonical"
 OPTIMIZED = "optimized"
 INCREMENTAL = "incremental"
-BACKENDS = (CANONICAL, OPTIMIZED, INCREMENTAL)
+QDRANT = "qdrant"
+BACKENDS = (CANONICAL, OPTIMIZED, INCREMENTAL, QDRANT)
 CONTENTION_FALLBACKS = ("canonical", "locked_build")
 
 

@@ -12,6 +12,7 @@ import os
 import shutil
 import hashlib
 import time
+import uuid
 import zipfile
 import threading
 from typing import Optional, Union, Any, Dict, List
@@ -23,7 +24,10 @@ from phase2.memory_state import MemoryState, MemorySlot
 # v3: supersession links are persisted as slot indices (supersedes_idx /
 # superseded_by_idx) instead of process-local id() values, and consolidated
 # latest predicate/object metadata is stored alongside the slot text.
-SCHEMA_VERSION = 3
+# v4: each slot carries a stable `memory_id` used by external vector indexes.
+# Older archives load unchanged; their slots receive a deterministic fallback
+# id derived from immutable persisted fields.
+SCHEMA_VERSION = 4
 _FILE_LOCK = threading.Lock()
 
 # Defense-in-depth resource bounds (SEC-01)
@@ -93,6 +97,23 @@ def _validate_checkpoint_path(path: str, allowed_base_dir: Optional[str] = None)
         return real_path
 
     return abs_path
+
+
+def _fallback_memory_id(key: np.ndarray, created_at: float,
+                        subject: Optional[str], predicate: Optional[str],
+                        index: int) -> str:
+    """Deterministic id for archives predating schema v4.
+
+    The id is derived only from persisted, write-once fields, so repeated loads
+    of the same archive produce the same id.  It is not guaranteed stable if a
+    legacy archive is re-saved after removing slots, but no stable identifier
+    existed in those archives to preserve.
+    """
+    digest = hashlib.sha256()
+    digest.update(np.asarray(key, dtype=np.float32).tobytes())
+    digest.update(repr((float(created_at), subject or "", predicate or "",
+                        int(index))).encode("utf-8"))
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, digest.hexdigest()))
 
 
 def _compute_checksum(
@@ -179,6 +200,7 @@ def save_checkpoint(
         texts_list = []
         latest_objects_list = []
         latest_predicates_list = []
+        memory_ids_list = []
 
         # Check dense embeddings dimension
         dense_dim = None
@@ -229,6 +251,7 @@ def save_checkpoint(
             texts_list.append(slot.text or "")
             latest_objects_list.append(slot.latest_object or "")
             latest_predicates_list.append(slot.latest_predicate or "")
+            memory_ids_list.append(slot.memory_id or "")
 
             if dense_dim is not None and slot.dense_emb is not None:
                 dense_embs[i] = slot.dense_emb
@@ -239,6 +262,7 @@ def save_checkpoint(
         texts_arr = np.array(texts_list, dtype=str)
         latest_objects_arr = np.array(latest_objects_list, dtype=str)
         latest_predicates_arr = np.array(latest_predicates_list, dtype=str)
+        memory_ids_arr = np.array(memory_ids_list, dtype=str)
 
         # Operational telemetry counters if BlackHoleMemory
         telemetry = np.zeros(6, dtype=np.int64)
@@ -313,6 +337,7 @@ def save_checkpoint(
                 texts=texts_arr,
                 latest_objects=latest_objects_arr,
                 latest_predicates=latest_predicates_arr,
+                memory_ids=memory_ids_arr,
                 dense_embs=dense_embs,
                 has_dense=has_dense,
                 telemetry=telemetry,
@@ -422,7 +447,8 @@ def _validate_and_reconstruct(data: Any, path: str) -> MemoryState:
                     f"Array '{fname}' uncompressed size {fsize} bytes exceeds expected vector bound {max_vector_bytes} in '{path}'."
                 )
             elif fname in ("texts.npy", "subjects.npy", "predicates.npy",
-                           "latest_objects.npy", "latest_predicates.npy") and fsize > max_text_bytes:
+                           "latest_objects.npy", "latest_predicates.npy",
+                           "memory_ids.npy") and fsize > max_text_bytes:
                 raise CheckpointValidationError(
                     f"Array '{fname}' uncompressed size {fsize} bytes exceeds expected text bound {max_text_bytes} in '{path}'."
                 )
@@ -538,6 +564,18 @@ def _validate_and_reconstruct(data: Any, path: str) -> MemoryState:
                 f"Array '{name}' has shape {arr.shape}, expected ({n},) in '{path}'."
             )
 
+    memory_ids = data["memory_ids"] if "memory_ids" in data else None
+    if memory_ids is not None:
+        if memory_ids.ndim != 1 or memory_ids.shape[0] != n:
+            raise CheckpointValidationError(
+                f"Array 'memory_ids' has shape {memory_ids.shape}, expected ({n},) in '{path}'."
+            )
+        restored_ids = [str(memory_ids[i]) for i in range(n) if memory_ids[i]]
+        if len(set(restored_ids)) != len(restored_ids):
+            raise CheckpointValidationError(
+                f"Checkpoint '{path}' contains duplicate memory_id values."
+            )
+
     dense_embs = data["dense_embs"] if "dense_embs" in data else None
     has_dense = data["has_dense"] if "has_dense" in data else np.zeros(n, dtype=bool)
 
@@ -608,12 +646,19 @@ def _validate_and_reconstruct(data: Any, path: str) -> MemoryState:
         if dense_embs is not None and i < len(has_dense) and has_dense[i] and dense_embs.shape[0] > i:
             d_emb = dense_embs[i].copy()
 
+        if memory_ids is not None and i < len(memory_ids) and memory_ids[i]:
+            memory_id = str(memory_ids[i])
+        else:
+            memory_id = _fallback_memory_id(
+                keys[i], float(created_ats[i]), subj, pred, i)
+
         slot = MemorySlot(
             key=keys[i].copy(),
             value=values[i].copy(),
             confidence=float(confidences[i]),
             timestamp=float(timestamps[i]),
             created_at=float(created_ats[i]),
+            memory_id=memory_id,
             update_count=int(update_counts[i]),
             debug_subject=subj,
             debug_predicate=pred,
@@ -839,5 +884,13 @@ def load_into_black_hole_memory(
                         if target_s_id not in mem.slot_contra_anchors:
                             mem.slot_contra_anchors[target_s_id] = []
                         mem.slot_contra_anchors[target_s_id].append((a_vecs[idx_a].copy(), float(a_times[idx_a])))
+
+        # An external vector index is a derived view of the restored state.
+        # Reconcile it only after every canonical field is in place.  The hook
+        # runs outside the engine lock so index I/O cannot block other readers.
+        hook = getattr(mem, "_sync_qdrant_after_restore", None)
+
+    if callable(hook):
+        hook()
 
     return mem

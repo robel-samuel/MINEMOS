@@ -12,8 +12,8 @@ from __future__ import annotations
 import threading
 from typing import Any, Dict, Optional
 
-from .config import (CANONICAL, INCREMENTAL, OPTIMIZED, RetrievalConfig,
-                     normalize_backend)
+from .config import (CANONICAL, INCREMENTAL, OPTIMIZED, QDRANT,
+                     RetrievalConfig, normalize_backend)
 from .incremental import IncrementalSnapshotRetriever
 from .snapshot import SnapshotContended, SnapshotRetriever
 
@@ -26,10 +26,12 @@ class RetrievalAdapter:
     """Owns one retriever for the configured backend and exposes its stats."""
 
     def __init__(self, mem: Any, config: Optional[RetrievalConfig] = None,
-                 backend: Optional[str] = None):
+                 backend: Optional[str] = None,
+                 qdrant_config: Optional[Any] = None):
         self.mem = mem
         self.config = config if isinstance(config, RetrievalConfig) else (
             RetrievalConfig.from_value(config))
+        self.qdrant_config = qdrant_config
         self._backend = normalize_backend(
             backend if backend is not None else self.config.backend)
         self._retriever: Optional[Any] = None
@@ -58,6 +60,16 @@ class RetrievalAdapter:
                 max_incremental_updates=self.config.max_incremental_updates,
                 verify_bound=self.config.verify_bound,
                 contended_fallback=self.config.contended_fallback)
+        if self._backend == QDRANT:
+            from .qdrant import QdrantRetriever
+            from .qdrant_config import QdrantConfig
+
+            if self.qdrant_config is None:
+                raise RetrievalUnavailable(
+                    "qdrant backend requires qdrant_config (or QDRANT_URL / "
+                    "QDRANT_PATH environment variables)")
+            return QdrantRetriever(
+                self.mem, QdrantConfig.from_value(self.qdrant_config))
         raise ValueError(
             f"RetrievalAdapter does not serve backend {self._backend!r}")
 
@@ -67,16 +79,26 @@ class RetrievalAdapter:
                 self._retriever = self._make_retriever()
             return self._retriever
 
+    def ensure_retriever(self) -> Any:
+        """Build the retriever if needed (used by write-path index sync)."""
+        return self._ensure()
+
     @property
     def retriever(self) -> Optional[Any]:
         return self._retriever
 
     def set_backend(self, backend: str) -> str:
         value = normalize_backend(backend)
+        previous = None
         with self._lock:
             if value != self._backend:
+                previous = self._retriever
                 self._backend = value
                 self._retriever = None
+        if previous is not None:
+            close = getattr(previous, "close", None)
+            if callable(close):
+                close()
         return value
 
     def force_full_rebuild(self) -> None:
@@ -89,13 +111,25 @@ class RetrievalAdapter:
     # ------------------------------------------------------------------ #
     def query(self, query_text: str, top_k: Any = 5,
               as_of: Optional[float] = None,
-              active_only: bool = True):
+              active_only: bool = True,
+              filters: Optional[Dict[str, Any]] = None,
+              hybrid: bool = False):
         if self._backend == CANONICAL:
             # The engine handles this case before calling the adapter; this
             # guard keeps direct adapter use honest.
             raise RetrievalUnavailable("adapter is configured for canonical")
-        retriever = self._ensure()
+        if filters and self._backend != QDRANT:
+            raise RetrievalUnavailable(
+                "metadata filters require the qdrant backend or canonical path")
+        if hybrid and self._backend != QDRANT:
+            raise RetrievalUnavailable(
+                "hybrid retrieval requires the qdrant backend")
         try:
+            retriever = self._ensure()
+            if self._backend == QDRANT:
+                return retriever.query(
+                    query_text, top_k=top_k, as_of=as_of,
+                    active_only=active_only, filters=filters, hybrid=hybrid)
             return retriever.query(query_text, top_k=top_k, as_of=as_of,
                                    active_only=active_only)
         except SnapshotContended as exc:
@@ -143,6 +177,14 @@ class RetrievalAdapter:
         payload["strategy"] = getattr(retriever, "strategy", None)
         payload["manager"] = dict(manager.stats)
         return payload
+
+    def close(self) -> None:
+        with self._lock:
+            retriever = self._retriever
+            self._retriever = None
+        close = getattr(retriever, "close", None)
+        if callable(close):
+            close()
 
     def reset_stats(self) -> None:
         self._errors = 0

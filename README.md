@@ -162,19 +162,20 @@ flowchart TD
     M --> N["Retrieved Context\n(point-in-time or active)"]
 ```
 
-### External Vector Databases (Optional Extension)
+### Qdrant-Backed Retrieval (Implemented)
 
-MINEMOS remains the central memory system. An external vector database is an optional integration layer within the MINEMOS ecosystem — not a separate operating system and not an independent replacement for MINEMOS.
+MINEMOS remains the product, intelligence engine, and architectural authority. Qdrant is an optional persistent vector index inside MINEMOS — not a separate operating system, not an independent replacement for MINEMOS, and not a second memory authority.
 
 The division of responsibility is deliberate:
 
-- MINEMOS retains control of memory consolidation, retention policy, and storage decisions. A vector database does not replace the existing consolidation, retention, or storage-decision engine.
-- A vector database may provide complementary indexing and retrieval capabilities alongside MINEMOS.
+- MINEMOS retains control of memory consolidation, retention policy, contradiction/supersession handling, temporal validity, stable memory identity, and canonical persistence. Qdrant does not participate in any of those decisions and does not decide what survives.
+- Qdrant stores a derived dense vector and filter payload per live slot, and returns candidate memory IDs. MINEMOS resolves every candidate against canonical state, applies its own temporal and metadata rules, and performs the final exact re-ranking.
 - Integration is optional. Canonical MINEMOS retrieval remains the default, and the system is fully usable without any external vector store.
+- The index is rebuildable from canonical records. If Qdrant is unavailable, accepted memory mutations still commit, the index is marked dirty, and queries fall back to canonical retrieval.
 
-**Status:** External vector-database integration is not implemented in this repository. No vector database is wired into `BlackHoleMemory`. The optional retrieval backends under `phase2/retrieval/` are in-process implementations (see [Retrieval](#retrieval)), not a vector-database integration.
+Implementation lives in `phase2/retrieval/qdrant.py` and `phase2/retrieval/qdrant_config.py`, with stable IDs in `phase2/memory_state.py`, checkpoint schema v4 in `phase2/checkpoint.py`, and lifecycle hooks in `phase2/black_hole_memory.py`. See [docs/QDRANT_INTEGRATION.md](docs/QDRANT_INTEGRATION.md) for configuration, tenant scoping, recovery, and test instructions.
 
-Our evaluation did not establish that a vector database improves the current engine sufficiently to justify replacing any existing component. Larger-scale memory workloads remain a possible future use case, not an established production capability.
+**Historical finding preserved:** the Phase 31B/31C evaluation rejected Qdrant as an authoritative memory store; it did not replace canonical/PostgreSQL persistence. This integration uses Qdrant only as a derived retrieval index, which is a different role and does not revise that verdict. Larger-scale vector workloads remain an engineering option, not a claim of superiority over canonical retrieval.
 
 ---
 
@@ -249,7 +250,7 @@ Phase 26 introduced calibrated bidirectional NLI verification, distinguishing bi
 
 ## Retrieval
 
-Four retrieval strategies are implemented and compared:
+The retrieval stack combines four historical strategies with an optional persistent Qdrant index:
 
 ### 1. Lexical Retrieval (Phases 2–17)
 `FieldAwareLexicalEncoder`: word-split bag-of-tokens with field-prefixed hashing into a 4096-dim vector. Cosine similarity against slot keys.
@@ -263,9 +264,12 @@ Four retrieval strategies are implemented and compared:
 ### 4. Adaptive Hybrid Retrieval (Phase 27+)
 Extends hybrid fusion with temporal validity window gating, recency decay, and contradiction anchor repulsion. Achieves **R@1 = MRR = 1.000** and **0.000 contradiction intrusion** across all 4 interference conditions in Phase 28.
 
+### 5. Qdrant-Backed Dense and Hybrid Retrieval (Implemented)
+With `retrieval_backend="qdrant"`, each live slot is indexed in Qdrant under its stable `memory_id` using the same dense encoder as canonical MINEMOS. Dense queries return Qdrant candidates that MINEMOS resolves and re-ranks exactly. `query(..., hybrid=True)` merges Qdrant dense candidates with the existing BM25 index, then applies MINEMOS temporal/metadata filters and exact re-ranking. Metadata filters (`subject`, `predicate`, `min_confidence`, `min_update_count`, `memory_ids`) are pushed into Qdrant and re-applied exactly against canonical state. Canonical retrieval remains the default and the fallback; the Qdrant index is derived, tenant-filtered, and rebuildable.
+
 ### Optional In-Process Backends (Implemented)
 
-`phase2/retrieval/` provides opt-in optimized and incremental snapshot retrievers alongside the canonical retrieval loop. Canonical retrieval remains the default; an optimized backend is selected explicitly with `retrieval_backend=`, is reversible at runtime, and falls back to canonical when unavailable. These are in-process retrieval implementations, not external vector-database integrations.
+`phase2/retrieval/` also provides opt-in optimized and incremental snapshot retrievers alongside the canonical retrieval loop. Canonical retrieval remains the default; the Qdrant, optimized, and incremental backends are selected explicitly with `retrieval_backend=`, are reversible at runtime, and fall back to canonical when unavailable.
 
 **Phase 23 finding:** Improving retrieval alone does not improve end-to-end accuracy when memory capacity is exhausted. The primary bottleneck at scale is slot eviction (Category D), not retrieval miss (Category A).
 
@@ -491,7 +495,103 @@ The false-contradiction row reflects the benchmarked allowlisted cases. Independ
 - False contradiction rate: **0.0%** (from 100% in Phase 27 baseline)
 - Genuine supersession rate: **100.0%**
 
-### Phase 23 Causal Failure Partition (pre-fix baseline, for reference)
+### Qdrant Integration Benchmark (2026-11-03, new)
+
+> New benchmark for the integrated Qdrant index. It does not modify or
+> reinterpret the historical Phase 27 or Phase 31 results.
+
+Environment: Windows 11, Python 3.12.10, `all-MiniLM-L6-v2` (384-d), Qdrant
+1.20.0 embedded persistent mode (brute-force search), 40 queries per size,
+`top_k=5`, `candidate_limit=128`. Each target fact is paired with one
+lexically overlapping distractor, so indexed points equal twice the target
+facts. All four methods answer the same queries against the same canonical
+memory; Qdrant and hybrid results are exactly re-ranked by MINEMOS.
+
+| Target facts | Method | R@1 | R@5 | MRR | nDCG@5 | p50 ms | p95 ms |
+|---|---|---|---|---|---|---|---|
+| 100 | MINEMOS dense | 0.550 | 1.000 | 0.771 | 0.971 | 20.7 | 26.4 |
+| 100 | Qdrant dense | 0.550 | 1.000 | 0.771 | 0.971 | 34.2 | 41.0 |
+| 100 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 0.8 | 1.3 |
+| 100 | Hybrid | 0.550 | 1.000 | 0.771 | 0.971 | 35.0 | 38.7 |
+| 300 | MINEMOS dense | 0.475 | 1.000 | 0.714 | 0.944 | 22.9 | 26.9 |
+| 300 | Qdrant dense | 0.475 | 1.000 | 0.714 | 0.944 | 59.6 | 66.4 |
+| 300 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 0.9 | 1.7 |
+| 300 | Hybrid | 0.475 | 1.000 | 0.714 | 0.944 | 73.3 | 91.0 |
+| 1,000 | MINEMOS dense | 0.275 | 0.875 | 0.538 | 0.799 | 31.1 | 62.5 |
+| 1,000 | Qdrant dense | 0.275 | 0.875 | 0.538 | 0.799 | 134.5 | 202.3 |
+| 1,000 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 1.8 | 4.5 |
+| 1,000 | Hybrid | 0.275 | 0.875 | 0.538 | 0.799 | 128.9 | 144.1 |
+
+| Target facts | Indexed points | Ingest total | Ingest per fact | Ingest CPU | Rebuild | RSS after ingest |
+|---|---|---|---|---|---|---|
+| 100 | 200 | 10.1 s | 50.5 ms | 13.2 s | 1.72 s | 475.3 MB |
+| 300 | 600 | 38.0 s | 63.3 ms | 59.5 s | 5.21 s | 507.1 MB |
+| 1,000 | 2,000 | 302.1 s | 151.1 ms | 468.6 s | 17.66 s | 598.9 MB |
+
+All sizes: `errors=0`, `last_error=null`, and upserts exactly equal the initial
+index plus one rebuild (400 / 1,200 / 4,000), confirming that unchanged slots
+are not re-written.
+
+**What these measurements show**
+
+- Qdrant dense and canonical MINEMOS dense return identical rows here; Qdrant
+  changes retrieval transport, not retrieval quality.
+- BM25 is strongest on this synthetic, lexically separable corpus.
+- Hybrid metrics equal dense because MINEMOS's final exact re-ranking uses
+  dense similarity; BM25 only expands the candidate set.
+- Embedded Qdrant adds latency over in-process dense retrieval (34 vs 21 ms
+  p50 at 200 points; 134 vs 31 ms at 2,000 points). Embedded mode scans without
+  HNSW, so this does not predict server-mode latency.
+- With per-mutation synchronization, ingestion cost grows with slot count
+  (50.5 → 151.1 ms/fact), while the number of index writes stays minimal. This
+  is a consistency-first default, not a throughput claim.
+- RSS is process-level and cumulative across sizes. This benchmark does not
+  establish that Qdrant is faster or more accurate than canonical retrieval, and
+  it does not revise the Phase 31B/31C verdict.
+
+The same benchmark was then run against a real Qdrant 1.20.0 **server** at
+`127.0.0.1:6333` (HNSW index, HTTP transport) with the same corpus, seed, and 40
+queries per size. These are separate measurements, stored in
+`benchmarks/results/qdrant_integration_benchmark_server.json`.
+
+| Target facts | Method | R@1 | R@5 | MRR | nDCG@5 | p50 ms | p95 ms |
+|---|---|---|---|---|---|---|---|
+| 100 | MINEMOS dense | 0.550 | 1.000 | 0.771 | 0.971 | 14.3 | 18.0 |
+| 100 | Qdrant dense | 0.550 | 1.000 | 0.771 | 0.971 | 19.9 | 35.9 |
+| 100 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 0.4 | 0.6 |
+| 100 | Hybrid | 0.550 | 1.000 | 0.771 | 0.971 | 20.0 | 36.3 |
+| 300 | MINEMOS dense | 0.475 | 0.950 | 0.714 | 0.944 | 16.9 | 24.7 |
+| 300 | Qdrant dense | 0.475 | 0.950 | 0.714 | 0.944 | 20.4 | 43.3 |
+| 300 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 1.3 | 2.0 |
+| 300 | Hybrid | 0.475 | 0.950 | 0.714 | 0.944 | 29.9 | 35.9 |
+| 1,000 | MINEMOS dense | 0.275 | 0.875 | 0.538 | 0.799 | 41.8 | 269.4 |
+| 1,000 | Qdrant dense | 0.275 | 0.875 | 0.538 | 0.799 | 59.9 | 181.3 |
+| 1,000 | BM25 | 1.000 | 1.000 | 1.000 | 1.000 | 4.7 | 14.0 |
+| 1,000 | Hybrid | 0.275 | 0.875 | 0.538 | 0.799 | 52.8 | 78.5 |
+
+| Target facts | Indexed points | Ingest total | Ingest per fact | Rebuild | RSS after ingest |
+|---|---|---|---|---|---|
+| 100 | 200 | 13.7 s | 68.7 ms | 0.17 s | 475.0 MB |
+| 300 | 600 | 39.9 s | 66.6 ms | 0.35 s | 503.6 MB |
+| 1,000 | 2,000 | 277.8 s | 138.9 ms | 3.13 s | 580.4 MB |
+
+Server-mode runs reported `mode=server`, `errors=0`, and `last_error=null` at
+every size.
+
+- Retrieval quality is identical to the embedded run at every size, as expected:
+  the same canonical state is indexed and every Qdrant result is re-ranked by
+  MINEMOS.
+- Server-mode Qdrant latency is below embedded mode (19.9 vs 34.2 ms p50 at 200
+  points; 59.9 vs 134.5 ms at 2,000 points) but still above in-process canonical
+  dense retrieval (14.3 and 41.8 ms). At 2,000 points the canonical dense p95
+  (269.4 ms) exceeded Qdrant's (181.3 ms) in this run; this is tail variance, not
+  a retrieval-quality difference.
+- Ingestion remains dominated by per-mutation synchronization and engine-side
+  work: 68.7 / 66.6 / 138.9 ms per fact, close to embedded mode. Server
+  transport did not reduce ingestion cost.
+- Hybrid still equals dense because MINEMOS's final exact re-ranking is dense.
+  The server measurements do not establish that Qdrant is more accurate than
+  canonical retrieval, and they do not revise Phase 31B/31C.
 
 | Failure Mechanism | Share | Category |
 |---|---|---|
@@ -520,6 +620,8 @@ The false-contradiction row reflects the benchmarked allowlisted cases. Independ
 7. **Capacity constraints are checked pre-construction.** Checkpoint loading validates capacity and dimension limits before allocating large arrays, but extremely large compressed archives can still allocate proportional temporary memory during decompression. See `TASK7_SECURITY_REMEDIATION_REPORT.md`.
 
 8. **Phase 23 E2E scale remains limited.** Phase 23 showed 0.0% E2E accuracy under extreme eviction pressure (C=25, 300 observations). Phase 28 closes the causal failure modes under controlled adversarial conditions; full-scale E2E measurement has not been re-run with the integrated Phase 25–28 engine.
+
+9. **Qdrant is a derived, opt-in index.** It is not authoritative and does not survive as a source of truth without canonical checkpoints. Embedded mode is a real persistent database but uses brute-force search, not the server's HNSW index; production deployments should use server mode. Index synchronization currently runs after each mutation, which favors consistency over write throughput at very large ingestion volumes. Cluster operation, replication, authentication policy design, and cross-region failover were not evaluated. The Qdrant benchmark uses synthetic data and does not revise the historical Phase 31B/31C verdict.
 
 ---
 
@@ -559,6 +661,8 @@ pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
 ```bash
 pip install -r requirements.txt
 ```
+
+**Optional Qdrant backend:** `qdrant-client==1.20.0` is included in `requirements.txt`. Canonical MINEMOS runs without a Qdrant server. For persistent vector indexing, either use embedded mode with `QDRANT_PATH`, or run a Qdrant 1.20.0 server and set `QDRANT_URL` (plus `QDRANT_API_KEY` and `QDRANT_TENANT_ID` when applicable). See [docs/QDRANT_INTEGRATION.md](docs/QDRANT_INTEGRATION.md) for the full configuration and recovery contract.
 
 ### Download Hugging Face Models
 
@@ -608,6 +712,35 @@ mem.save("memory_checkpoint.json")
 # Restore
 restored = BlackHoleMemory.load("memory_checkpoint.json")
 ```
+
+### Use the Optional Qdrant Retrieval Backend
+
+```python
+from phase2.black_hole_memory import BlackHoleMemory
+from phase2.retrieval import QdrantConfig
+
+mem = BlackHoleMemory(
+    capacity=1000,
+    retrieval_backend="qdrant",          # canonical remains the default
+    qdrant_config=QdrantConfig(
+        url="http://127.0.0.1:6333",     # or path="/var/lib/minemos-qdrant"
+        collection="minemos",
+        tenant_id="customer-a",
+    ),
+)
+mem.absorb(Candidate("alice", "works_at", "university", timestamp=1.0))
+
+dense = mem.query("alice current employer", top_k=5)
+hybrid = mem.query("alice current employer", top_k=5, hybrid=True)
+filtered = mem.query("project status", filters={"subject": "alice"})
+
+print(mem.retrieval_stats())   # points, dirty state, errors, latency
+mem.close()
+```
+
+Qdrant indexes are derived from canonical state: they can be rebuilt with
+`mem._get_retrieval_adapter().retriever.rebuild()` (or by restoring a checkpoint),
+and queries fall back to canonical retrieval when the index is unavailable.
 
 ### Run the Phase 28 Benchmark (Most Recent Experiment)
 
@@ -690,6 +823,19 @@ The test suite covers:
 | `tests/test_contradiction_safety.py` | Contradiction and false-merge safety |
 | `tests/test_e2e_recovery.py` | End-to-end save/load/recovery |
 | `tests/test_security_remediation.py` | Security: path confinement, backup retention, resource bounds |
+| `tests/test_retrieval_concurrency.py` | Snapshot isolation and concurrency behavior |
+| `tests/test_retrieval_numerics.py` | Numerical parity and bounds for optimized retrieval |
+| `tests/test_retrieval_adapter.py` | Backend selection, fallback, and stats |
+| `tests/test_qdrant_integration.py` | Real-Qdrant lifecycle, failure, tenant, hybrid, and checkpoint tests |
+
+The Qdrant integration suite uses a real persistent embedded Qdrant database by
+default. Set `MINEMOS_QDRANT_URL` (and optionally `MINEMOS_QDRANT_API_KEY`) to
+run the same suite against a Qdrant server, including the server-only roundtrip:
+
+```bash
+python -m pytest tests/test_qdrant_integration.py -q
+MINEMOS_QDRANT_URL=http://127.0.0.1:6333 python -m pytest tests/test_qdrant_integration.py -q
+```
 
 **Confirmed results (Phase 28 report, 2026-10-22):**
 

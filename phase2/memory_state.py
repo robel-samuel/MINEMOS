@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import threading
+import uuid
 from typing import Optional
 
 import numpy as np
@@ -39,6 +40,9 @@ class MemorySlot:
     confidence: float     # c_i
     timestamp: float      # t_i, last update time
     created_at: float     # for FIFO eviction / age-based recall tests
+    # Stable identity used by external indexes (Qdrant point id).  Unlike
+    # id(slot), it survives checkpoint reload and process restarts.
+    memory_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     update_count: int = 0
     # subject/predicate kept ONLY for evaluation/debugging -- NOT counted
     # as part of the persistent memory footprint (see MemoryState.footprint_bytes).
@@ -98,7 +102,8 @@ class MemoryState:
             valid_until: Optional[float] = None,
             supersedes: Optional[int] = None,
             latest_predicate: Optional[str] = None,
-            latest_object: Optional[str] = None) -> MemorySlot:
+            latest_object: Optional[str] = None,
+            memory_id: Optional[str] = None) -> MemorySlot:
         with self._lock:
             if self.is_full():
                 raise CapacityExceeded(
@@ -107,7 +112,9 @@ class MemoryState:
                 )
             slot = MemorySlot(key=key.copy(), value=value.copy(),
                               confidence=confidence, timestamp=timestamp,
-                              created_at=timestamp, update_count=1,
+                              created_at=timestamp,
+                              memory_id=memory_id or str(uuid.uuid4()),
+                              update_count=1,
                               debug_subject=debug_subject, debug_predicate=debug_predicate,
                               valid_from=timestamp if valid_from is None else valid_from,
                               valid_until=valid_until,

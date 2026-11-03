@@ -7,7 +7,8 @@ with the default canonical backend never imports the optimized stack.
 """
 
 from .config import (BACKENDS, CANONICAL, CONTENTION_FALLBACKS, INCREMENTAL,
-                     OPTIMIZED, RetrievalConfig, normalize_backend)
+                     OPTIMIZED, QDRANT, RetrievalConfig, normalize_backend)
+from .qdrant_config import QdrantConfig
 
 __all__ = [
     "BACKENDS",
@@ -15,7 +16,11 @@ __all__ = [
     "CONTENTION_FALLBACKS",
     "INCREMENTAL",
     "OPTIMIZED",
+    "QDRANT",
     "IncrementalSnapshotRetriever",
+    "QdrantConfig",
+    "QdrantRetriever",
+    "QdrantUnavailable",
     "RetrievalAdapter",
     "RetrievalConfig",
     "RetrievalUnavailable",
@@ -33,6 +38,8 @@ _LAZY_EXPORTS = {
     "VectorizedRetriever": (".snapshot", "VectorizedRetriever"),
     "IncrementalSnapshotRetriever": (".incremental",
                                      "IncrementalSnapshotRetriever"),
+    "QdrantRetriever": (".qdrant", "QdrantRetriever"),
+    "QdrantUnavailable": (".qdrant", "QdrantUnavailable"),
     "_slice_count": (".snapshot", "_slice_count"),
 }
 

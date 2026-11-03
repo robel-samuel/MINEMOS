@@ -152,7 +152,8 @@ class BlackHoleMemory:
         exclusive_predicates: Optional[Any] = None,
         multi_valued_predicates: Optional[Any] = None,
         retrieval_backend: str = "canonical",
-        retrieval_config: Optional[Any] = None
+        retrieval_config: Optional[Any] = None,
+        qdrant_config: Optional[Any] = None
     ):
         self.capacity = capacity
         self.dim = dim
@@ -223,6 +224,15 @@ class BlackHoleMemory:
             else self._retrieval_config.backend)
         self._retrieval_adapter_obj = None
 
+        # Qdrant settings are validated eagerly (without importing the client)
+        # when the backend is selected or an explicit config is supplied.
+        # Secrets stay inside QdrantConfig and are never serialized.
+        from phase2.retrieval.qdrant_config import QdrantConfig
+        if qdrant_config is not None or self._retrieval_backend == "qdrant":
+            self._qdrant_config = QdrantConfig.from_value(qdrant_config)
+        else:
+            self._qdrant_config = None
+
     def _invalidate_retrieval_cache(self) -> int:
         """Mark retrieval-derived state stale and return the new state version.
 
@@ -256,6 +266,9 @@ class BlackHoleMemory:
         """
         from phase2.retrieval.config import normalize_backend
         value = normalize_backend(backend)
+        if value == "qdrant" and self._qdrant_config is None:
+            from phase2.retrieval.qdrant_config import QdrantConfig
+            self._qdrant_config = QdrantConfig.from_env()
         with self._lock:
             self._retrieval_backend = value
             if self._retrieval_adapter_obj is not None:
@@ -270,7 +283,8 @@ class BlackHoleMemory:
                 if self._retrieval_adapter_obj is None:
                     self._retrieval_adapter_obj = RetrievalAdapter(
                         self, self._retrieval_config,
-                        backend=self._retrieval_backend)
+                        backend=self._retrieval_backend,
+                        qdrant_config=self._qdrant_config)
                 adapter = self._retrieval_adapter_obj
         return adapter
 
@@ -724,6 +738,57 @@ class BlackHoleMemory:
         return False
 
     def absorb(
+        self,
+        observation: Union[Candidate, Tuple[str, str, str], str],
+        timestamp: Optional[float] = None,
+        confidence: float = 1.0
+    ) -> dict:
+        """Absorbs an observation, then reconciles the optional Qdrant index.
+
+        Index failure is isolated from the memory decision: the canonical slot
+        mutation still commits, the index is marked dirty, and the next query
+        falls back to canonical until a sync succeeds.
+        """
+        try:
+            return self._absorb_impl(observation, timestamp, confidence)
+        finally:
+            self._sync_qdrant_if_active()
+
+    def _sync_qdrant_if_active(self) -> None:
+        """Reconcile the Qdrant index after a canonical mutation.
+
+        The retriever is built eagerly so the memory is indexed at ingestion
+        time rather than waiting for the first query.  Any failure is recorded
+        on the retriever as a dirty index and swallowed here: the canonical
+        mutation has already committed and must never be rolled back for a
+        derived-index problem.
+        """
+        if self._retrieval_backend != "qdrant":
+            return
+        adapter = self._retrieval_adapter_obj
+        if adapter is not None and adapter.backend != "qdrant":
+            return
+        try:
+            if adapter is None:
+                adapter = self._get_retrieval_adapter()
+            adapter.ensure_retriever().sync_state()
+        except Exception:  # noqa: BLE001 - canonical state already committed
+            pass
+
+    def _sync_qdrant_after_restore(self) -> None:
+        """Force a full reconcile after canonical state is replaced on load."""
+        if self._retrieval_backend != "qdrant":
+            return
+        try:
+            adapter = self._retrieval_adapter_obj
+            if adapter is None:
+                adapter = self._get_retrieval_adapter()
+            adapter.ensure_retriever().sync_state(
+                force=True, use_retry=False)
+        except Exception:  # noqa: BLE001 - the next query falls back canonical
+            pass
+
+    def _absorb_impl(
         self,
         observation: Union[Candidate, Tuple[str, str, str], str],
         timestamp: Optional[float] = None,
@@ -1716,30 +1781,113 @@ class BlackHoleMemory:
             violations.extend(self.exclusive_temporal_conflicts())
         return violations
 
+    @staticmethod
+    def _normalize_query_filters(
+        filters: Optional[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        if filters is None:
+            return None
+        if not isinstance(filters, dict):
+            raise TypeError(
+                f"filters must be a dict or None, got {type(filters)!r}")
+        allowed = {
+            "subject", "predicate", "min_confidence", "min_update_count",
+            "memory_ids",
+        }
+        unknown = set(filters) - allowed
+        if unknown:
+            raise ValueError(
+                f"unknown query filter(s): {sorted(unknown)}; "
+                f"expected {sorted(allowed)}")
+        out: Dict[str, Any] = {}
+        if filters.get("subject") is not None:
+            out["subject"] = str(filters["subject"])
+        if filters.get("predicate") is not None:
+            out["predicate"] = str(filters["predicate"]).strip().lower()
+        if filters.get("min_confidence") is not None:
+            value = float(filters["min_confidence"])
+            if not 0.0 <= value <= 1.0:
+                raise ValueError("min_confidence must be in [0, 1]")
+            out["min_confidence"] = value
+        if filters.get("min_update_count") is not None:
+            value = int(filters["min_update_count"])
+            if value < 0:
+                raise ValueError("min_update_count must be >= 0")
+            out["min_update_count"] = value
+        if filters.get("memory_ids") is not None:
+            out["memory_ids"] = [str(m) for m in filters["memory_ids"]]
+        return out or None
+
+    def _slot_matches_filters(
+        self, slot: MemorySlot, filters: Optional[Dict[str, Any]]
+    ) -> bool:
+        if not filters:
+            return True
+        if "subject" in filters:
+            if (self._normalize_subject(slot.debug_subject)
+                    != self._normalize_subject(filters["subject"])):
+                return False
+        if "predicate" in filters:
+            wanted = filters["predicate"]
+            predicates = {
+                str(p).strip().lower()
+                for p in (slot.debug_predicate, slot.latest_predicate)
+                if p
+            }
+            if wanted not in predicates:
+                return False
+        if "min_confidence" in filters:
+            if float(slot.confidence) < filters["min_confidence"]:
+                return False
+        if "min_update_count" in filters:
+            if int(slot.update_count) < filters["min_update_count"]:
+                return False
+        if "memory_ids" in filters:
+            if str(slot.memory_id) not in set(filters["memory_ids"]):
+                return False
+        return True
+
     def query(
         self,
         query_text: str,
         top_k: int = 5,
         as_of: Optional[float] = None,
-        active_only: bool = True
+        active_only: bool = True,
+        filters: Optional[Dict[str, Any]] = None,
+        hybrid: bool = False
     ) -> List[Dict[str, Any]]:
         """
         Retrieves relevant memory records for a natural-language query.
         Supports point-in-time temporal queries via as_of.
 
+        ``filters`` optionally restricts results by ``subject``, ``predicate``,
+        ``min_confidence``, ``min_update_count`` or ``memory_ids``.  Metadata
+        filters are pushed into Qdrant when that backend is selected, then
+        re-applied exactly against the live engine.
+
+        ``hybrid`` requests Qdrant dense candidates plus the existing BM25
+        lexical index, merged and then re-ranked exactly by MINEMOS.  It
+        requires the qdrant backend; if Qdrant is unavailable the answer falls
+        through to canonical dense retrieval.
+
         Canonical retrieval is the reference implementation and the default.
-        When an optimized backend is explicitly selected, a snapshot retriever
-        answers first; ``RetrievalUnavailable`` falls through to the canonical
-        loop below, so the canonical path is always the final safety net.
+        When another backend is explicitly selected, it answers first;
+        ``RetrievalUnavailable`` falls through to the canonical loop below, so
+        the canonical path is always the final safety net.
         """
+        filters = self._normalize_query_filters(filters)
+        if hybrid and self._retrieval_backend != "qdrant":
+            raise ValueError("hybrid retrieval requires the qdrant backend")
         if self._retrieval_backend != "canonical":
             from phase2.retrieval.adapter import RetrievalUnavailable
-            try:
-                return self._get_retrieval_adapter().query(
-                    query_text, top_k=top_k, as_of=as_of,
-                    active_only=active_only)
-            except RetrievalUnavailable:
-                pass
+            if not filters or self._retrieval_backend == "qdrant":
+                try:
+                    return self._get_retrieval_adapter().query(
+                        query_text, top_k=top_k, as_of=as_of,
+                        active_only=active_only, filters=filters,
+                        hybrid=hybrid)
+                except RetrievalUnavailable:
+                    pass
 
         if not self.memory.slots:
             return []
@@ -1755,6 +1903,9 @@ class BlackHoleMemory:
                     if slot.valid_from > as_of or (slot.valid_until is not None and slot.valid_until <= as_of):
                         continue
                 elif active_only and not slot.is_active:
+                    continue
+
+                if filters and not self._slot_matches_filters(slot, filters):
                     continue
 
                 emb = self.slot_dense_embs[idx] if idx < len(self.slot_dense_embs) else slot.dense_emb
@@ -1823,6 +1974,13 @@ class BlackHoleMemory:
             return results
 
     def delete_slot(self, slot_id: int) -> bool:
+        """Deletes a slot and reconciles the optional Qdrant index."""
+        try:
+            return self._delete_slot_impl(slot_id)
+        finally:
+            self._sync_qdrant_if_active()
+
+    def _delete_slot_impl(self, slot_id: int) -> bool:
         """
         Explicitly removes a specific memory slot by its identifier (id(slot)),
         synchronously purging it from active memory, auxiliary BM25 index,
@@ -1870,9 +2028,11 @@ class BlackHoleMemory:
 
             count = 0
             for s_id in matching_ids:
-                if self.delete_slot(s_id):
+                if self._delete_slot_impl(s_id):
                     count += 1
 
+            if count:
+                self._sync_qdrant_if_active()
             return count
 
     def get_history(self, subject: str, predicate: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -1907,6 +2067,13 @@ class BlackHoleMemory:
                 "total_value_verifications": self.total_value_verifications,
                 "footprint_bytes": footprint["total_bytes"],
             }
+
+    def close(self) -> None:
+        """Release optional backend connections (Qdrant client, etc.)."""
+        with self._lock:
+            adapter = self._retrieval_adapter_obj
+        if adapter is not None:
+            adapter.close()
 
     def save_checkpoint(
         self,

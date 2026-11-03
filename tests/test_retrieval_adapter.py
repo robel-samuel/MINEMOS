@@ -18,8 +18,8 @@ import numpy as np
 import pytest
 
 from phase2.checkpoint import (load_into_black_hole_memory, save_checkpoint)
-from phase2.retrieval import (CANONICAL, INCREMENTAL, OPTIMIZED, BACKENDS,
-                              RetrievalConfig, normalize_backend)
+from phase2.retrieval import (CANONICAL, INCREMENTAL, OPTIMIZED, QDRANT,
+                              BACKENDS, RetrievalConfig, normalize_backend)
 from phase2.structured_candidate import Candidate
 from tests._retrieval_helpers import (QUERY, add_facts, make_memory,
                                       rows_equal)
@@ -112,7 +112,7 @@ def test_invalid_backend_values_are_rejected():
     assert mem.retrieval_backend == CANONICAL
     assert normalize_backend(None) == CANONICAL
     assert normalize_backend(" OPTIMIZED ") == OPTIMIZED
-    assert set(BACKENDS) == {CANONICAL, OPTIMIZED, INCREMENTAL}
+    assert set(BACKENDS) == {CANONICAL, OPTIMIZED, INCREMENTAL, QDRANT}
 
 
 def test_runtime_switch_back_to_canonical_is_reversible():
