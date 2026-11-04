@@ -83,7 +83,7 @@ def test_mutation_after_capture_discards_and_rebuilds():
     def hook(attempt, version):
         if not mutated:
             mutated.append(version)
-            mem.absorb(Candidate(*NEW_FACT))
+            mem.absorb(Candidate(*NEW_FACT[:3], timestamp=NEW_FACT[3]))
 
     ret.manager.hooks["after_capture"] = hook
     ret.manager.invalidate()
@@ -115,7 +115,7 @@ def test_stale_build_cannot_replace_newer_snapshot():
     thread.start()
     assert entered.wait(10), "stalled reader never captured"
 
-    mem.absorb(Candidate(*NEW_FACT))
+    mem.absorb(Candidate(*NEW_FACT[:3], timestamp=NEW_FACT[3]))
     second = ret.query(QUERY, top_k=100)
     newer_version = ret.manager.published.version
     assert newer_version == mem._state_version
@@ -144,7 +144,7 @@ def test_retry_exhaustion_uses_one_locked_fallback(cls):
     def hook(attempt, built):
         if not mutated:
             mutated.append(built.version)
-            mem.absorb(Candidate(*NEW_FACT))
+            mem.absorb(Candidate(*NEW_FACT[:3], timestamp=NEW_FACT[3]))
 
     ret.manager.hooks["before_publish"] = hook
     ret.manager.invalidate()
@@ -167,7 +167,7 @@ def test_retry_exhaustion_can_hand_off_without_locking(cls):
     def hook(attempt, built):
         if not mutated:
             mutated.append(built.version)
-            mem.absorb(Candidate(*NEW_FACT))
+            mem.absorb(Candidate(*NEW_FACT[:3], timestamp=NEW_FACT[3]))
 
     ret.manager.hooks["before_publish"] = hook
     ret.manager.invalidate()
@@ -305,7 +305,7 @@ def test_checkpoint_restore_during_query_activity(tmp_path):
     path = os.path.join(str(tmp_path), "state.npz")
     save_checkpoint(mem, path)
 
-    mem.absorb(Candidate(*NEW_FACT))
+    mem.absorb(Candidate(*NEW_FACT[:3], timestamp=NEW_FACT[3]))
     assert any(getattr(s, "debug_subject", None) == "Zed"
                for s in mem.memory.slots)
 
@@ -367,7 +367,7 @@ def test_concurrent_writers_and_readers_converge():
         try:
             barrier.wait(10)
             for fact in writer_facts:
-                mem.absorb(Candidate(*fact))
+                mem.absorb(Candidate(*fact[:3], timestamp=fact[3]))
         except BaseException as exc:            # pragma: no cover
             errors.append(exc)
 

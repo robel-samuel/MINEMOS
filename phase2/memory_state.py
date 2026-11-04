@@ -28,9 +28,37 @@ import numpy as np
 
 from phase2.structured_candidate import DIM
 
+# Defense-in-depth resource bounds for live engine construction.  Checkpoint
+# loading already enforces the same ceilings; applying them here means an
+# invalid engine cannot be created in the first place (an unbounded ``dim`` is
+# a multi-gigabyte allocation on the first encode, and capacity <= 0 makes
+# every absorb fail during eviction).
+MAX_MEMORY_CAPACITY = 500_000
+MAX_EMBEDDING_DIM = 16_384
+
 
 class CapacityExceeded(Exception):
     pass
+
+
+def _bounded_int(value: object, name: str, maximum: int) -> int:
+    """Returns ``value`` as a positive int no larger than ``maximum``."""
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer, got {value!r}")
+    try:
+        number = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{name} must be an integer, got {value!r}") from exc
+    if number != value:
+        raise ValueError(f"{name} must be an integer, got {value!r}")
+    if number <= 0:
+        raise ValueError(f"{name} must be > 0, got {number}")
+    if number > maximum:
+        raise ValueError(
+            f"{name} exceeds the supported maximum of {maximum}, "
+            f"got {number}")
+    return number
 
 
 @dataclass
@@ -63,6 +91,10 @@ class MemorySlot:
     # paraphrases so object matching does not depend on stale wording.
     latest_predicate: Optional[str] = None
     latest_object: Optional[str] = None
+    # Privacy tombstone: the slot's content has been redacted.  The record is
+    # retained so supersession chains and index bookkeeping stay intact, but
+    # every read path, retrieval backend, and checkpoint excludes its content.
+    redacted: bool = False
 
     @property
     def is_active(self) -> bool:
@@ -75,8 +107,9 @@ class MemorySlot:
 
 class MemoryState:
     def __init__(self, capacity: int, dim: int = DIM):
-        self.capacity = capacity
-        self.dim = dim
+        self.capacity = _bounded_int(
+            capacity, "capacity", MAX_MEMORY_CAPACITY)
+        self.dim = _bounded_int(dim, "dim", MAX_EMBEDDING_DIM)
         self.slots: list[MemorySlot] = []
         self._lock = threading.RLock()
 
@@ -88,10 +121,13 @@ class MemoryState:
         """Returns slots that were active at timestamp as_of (default: current active)."""
         with self._lock:
             if as_of is None:
-                return [s for s in self.slots if s.is_active]
+                return [s for s in self.slots
+                        if s.is_active and not s.redacted]
             return [
                 s for s in self.slots
-                if s.valid_from <= as_of and (s.valid_until is None or s.valid_until > as_of)
+                if not s.redacted
+                and s.valid_from <= as_of
+                and (s.valid_until is None or s.valid_until > as_of)
             ]
 
     def add(self, key: np.ndarray, value: np.ndarray, confidence: float,
@@ -145,6 +181,10 @@ class MemoryState:
             if not self.slots:
                 return None
             import math
+            redacted_indices = [
+                idx for idx, s in enumerate(self.slots) if s.redacted]
+            if redacted_indices:
+                return self.slots.pop(redacted_indices[0])
             tier0_indices = [idx for idx, s in enumerate(self.slots) if s.update_count <= 1]
             tier1_indices = [idx for idx, s in enumerate(self.slots) if s.update_count > 1]
             max_tier1_slots = int(math.floor(self.capacity * max_longterm_ratio))

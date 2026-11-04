@@ -63,6 +63,7 @@ def _slice_count(top_k: Any, m: int) -> int:
 
 class SlotFields(NamedTuple):
     slot_id: int
+    memory_id: str
     subject: Optional[str]
     predicate: Optional[str]
     text: str
@@ -77,6 +78,7 @@ def _fields_for(slot, texts: Dict[int, str]) -> SlotFields:
     valid_until = slot.valid_until
     return SlotFields(
         slot_id=id(slot),
+        memory_id=slot.memory_id,
         subject=slot.debug_subject,
         predicate=slot.debug_predicate,
         text=texts.get(id(slot), slot.text),
@@ -96,6 +98,7 @@ def _result_rows(fields: Tuple[SlotFields, ...], chosen: np.ndarray,
         out.append({
             "slot_index": int(idx),
             "slot_id": f.slot_id,
+            "memory_id": f.memory_id,
             "similarity": round(float(sim), 4),
             "subject": f.subject,
             "predicate": f.predicate,

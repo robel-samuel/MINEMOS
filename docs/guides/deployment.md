@@ -96,10 +96,21 @@ To rebuild an index after loss or suspected drift, use the retriever's
 restore path force a full sync. See
 [Qdrant Integration](../architecture/qdrant-integration.md#failure-isolation-and-recovery).
 
+## Service boundary
+
+A stdlib HTTP service (`python -m minemos_service`) wraps the engine with API-key
+authentication, reader/writer/admin roles, tenant scoping, request validation,
+body limits, token-bucket rate limiting, structured logging, and safe error
+responses. It is verified locally against in-process fixtures and a TLS
+listener. It does not replace an external gateway or an independent security
+review. See [Service](service.md) for startup, endpoints, and the explicit list
+of unverified deployment behavior.
+
 ## What is not covered
 
 - No hosted service, container image, or orchestration manifest is provided.
-- No authentication or authorization layer is included around the engine.
+- The bundled service is not a substitute for an external identity provider,
+  gateway, or a third-party security audit.
 - No guarantee of exactly-once ingestion across processes.
 - No multi-process writer coordination for a shared checkpoint.
 - No validated high-availability Qdrant configuration.

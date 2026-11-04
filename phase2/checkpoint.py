@@ -18,7 +18,8 @@ import threading
 from typing import Optional, Union, Any, Dict, List
 import numpy as np
 
-from phase2.memory_state import MemoryState, MemorySlot
+from phase2.memory_state import (
+    MemoryState, MemorySlot, MAX_MEMORY_CAPACITY, MAX_EMBEDDING_DIM)
 
 
 # v3: supersession links are persisted as slot indices (supersedes_idx /
@@ -27,15 +28,17 @@ from phase2.memory_state import MemoryState, MemorySlot
 # v4: each slot carries a stable `memory_id` used by external vector indexes.
 # Older archives load unchanged; their slots receive a deterministic fallback
 # id derived from immutable persisted fields.
-SCHEMA_VERSION = 4
+# v5: slots can be privacy-redacted; the tombstone flag is persisted and a
+# redacted slot's content is never written back to disk.
+SCHEMA_VERSION = 5
 _FILE_LOCK = threading.Lock()
 
 # Defense-in-depth resource bounds (SEC-01)
 # Derived from architecture limits: max benchmark capacity 50,000, 
 # standard memory dimension 4096 (D_LEX) / dense dimension 384 (D_DENSE).
 # Capacity ceiling 500,000 slots (~350 MB RAM), dimension ceiling 16,384.
-MAX_CHECKPOINT_CAPACITY = 500_000
-MAX_CHECKPOINT_DIM = 16_384
+MAX_CHECKPOINT_CAPACITY = MAX_MEMORY_CAPACITY
+MAX_CHECKPOINT_DIM = MAX_EMBEDDING_DIM
 
 
 class CheckpointError(Exception):
@@ -189,6 +192,7 @@ def save_checkpoint(
         valid_froms = np.zeros(n, dtype=np.float64)
         valid_untils = np.full(n, np.nan, dtype=np.float64)
         contra_counts = np.zeros(n, dtype=np.int32)
+        redacted = np.zeros(n, dtype=bool)
         # Relationships are persisted as checkpoint-local slot indices; raw
         # Python id() values are process-local and meaningless after reload.
         id_to_index = {id(slot): idx for idx, slot in enumerate(target_mem.slots)}
@@ -217,8 +221,12 @@ def save_checkpoint(
             has_dense = np.zeros(n, dtype=bool)
 
         for i, slot in enumerate(target_mem.slots):
-            keys[i] = slot.key
-            values[i] = slot.value
+            is_redacted = bool(getattr(slot, "redacted", False))
+            redacted[i] = is_redacted
+            # A redacted slot keeps only non-content metadata in the archive.
+            if not is_redacted:
+                keys[i] = slot.key
+                values[i] = slot.value
             confidences[i] = slot.confidence
             timestamps[i] = slot.timestamp
             created_ats[i] = slot.created_at
@@ -246,14 +254,19 @@ def save_checkpoint(
                     )
                 superseded_by_idx[i] = target
 
-            subjects_list.append(slot.debug_subject or "")
-            predicates_list.append(slot.debug_predicate or "")
-            texts_list.append(slot.text or "")
-            latest_objects_list.append(slot.latest_object or "")
-            latest_predicates_list.append(slot.latest_predicate or "")
+            subjects_list.append(
+                "" if is_redacted else (slot.debug_subject or ""))
+            predicates_list.append(
+                "" if is_redacted else (slot.debug_predicate or ""))
+            texts_list.append("" if is_redacted else (slot.text or ""))
+            latest_objects_list.append(
+                "" if is_redacted else (slot.latest_object or ""))
+            latest_predicates_list.append(
+                "" if is_redacted else (slot.latest_predicate or ""))
             memory_ids_list.append(slot.memory_id or "")
 
-            if dense_dim is not None and slot.dense_emb is not None:
+            if (not is_redacted and dense_dim is not None
+                    and slot.dense_emb is not None):
                 dense_embs[i] = slot.dense_emb
                 has_dense[i] = True
 
@@ -283,6 +296,8 @@ def save_checkpoint(
             for s_id, a_list in memory.slot_contra_anchors.items():
                 if s_id in slot_id_to_idx:
                     s_idx = slot_id_to_idx[s_id]
+                    if target_mem.slots[s_idx].redacted:
+                        continue
                     for a_vec, a_t in a_list:
                         anchor_vecs.append(a_vec)
                         anchor_times.append(a_t)
@@ -330,6 +345,7 @@ def save_checkpoint(
                 valid_froms=valid_froms,
                 valid_untils=valid_untils,
                 contra_counts=contra_counts,
+                redacted=redacted,
                 supersedes_idx=supersedes_idx,
                 superseded_by_idx=superseded_by_idx,
                 subjects=subjects_arr,
@@ -510,6 +526,12 @@ def _validate_and_reconstruct(data: Any, path: str) -> MemoryState:
     valid_froms = data["valid_froms"] if "valid_froms" in data else timestamps
     valid_untils = data["valid_untils"] if "valid_untils" in data else np.full(n, np.nan, dtype=np.float64)
     contra_counts = data["contra_counts"] if "contra_counts" in data else np.zeros(n, dtype=np.int32)
+    redacted = data["redacted"] if "redacted" in data else np.zeros(n, dtype=bool)
+    if redacted.ndim != 1 or redacted.shape[0] != n:
+        raise CheckpointValidationError(
+            f"Array 'redacted' has shape {redacted.shape}, expected ({n},) in '{path}'."
+        )
+    redacted = redacted.astype(bool)
 
     supersedes_idx = None
     superseded_by_idx = None
@@ -652,9 +674,18 @@ def _validate_and_reconstruct(data: Any, path: str) -> MemoryState:
             memory_id = _fallback_memory_id(
                 keys[i], float(created_ats[i]), subj, pred, i)
 
+        is_redacted = bool(redacted[i])
+        if is_redacted:
+            # Enforce redaction semantics even if an archive still carries
+            # content: a redacted tombstone must never resurrect its payload.
+            subj = pred = latest_obj = latest_pred = None
+            txt = ""
+            d_emb = None
+
         slot = MemorySlot(
-            key=keys[i].copy(),
-            value=values[i].copy(),
+            key=(np.zeros_like(keys[i]) if is_redacted else keys[i].copy()),
+            value=(np.zeros_like(values[i]) if is_redacted
+                   else values[i].copy()),
             confidence=float(confidences[i]),
             timestamp=float(timestamps[i]),
             created_at=float(created_ats[i]),
@@ -668,7 +699,8 @@ def _validate_and_reconstruct(data: Any, path: str) -> MemoryState:
             dense_emb=d_emb,
             contra_count=int(contra_counts[i]),
             latest_predicate=latest_pred,
-            latest_object=latest_obj
+            latest_object=latest_obj,
+            redacted=is_redacted
         )
         memory.slots.append(slot)
 
@@ -849,6 +881,12 @@ def load_into_black_hole_memory(
             mem.slot_texts[slot_id] = slot.text
             mem.slot_contra_counts[slot_id] = slot.contra_count
 
+            if slot.redacted:
+                # Keep the dense row aligned with the slot list without
+                # re-encoding or indexing redacted content.
+                mem.slot_dense_embs.append(np.zeros(384, dtype=np.float32))
+                continue
+
             if slot.dense_emb is not None:
                 mem.slot_dense_embs.append(slot.dense_emb.copy())
             elif slot.text and mem.dense_encoder is not None:
@@ -880,7 +918,10 @@ def load_into_black_hole_memory(
                 for idx_a in range(len(a_vecs)):
                     s_idx = int(a_indices[idx_a])
                     if 0 <= s_idx < len(mem.memory.slots):
-                        target_s_id = id(mem.memory.slots[s_idx])
+                        target_slot = mem.memory.slots[s_idx]
+                        if target_slot.redacted:
+                            continue
+                        target_s_id = id(target_slot)
                         if target_s_id not in mem.slot_contra_anchors:
                             mem.slot_contra_anchors[target_s_id] = []
                         mem.slot_contra_anchors[target_s_id].append((a_vecs[idx_a].copy(), float(a_times[idx_a])))

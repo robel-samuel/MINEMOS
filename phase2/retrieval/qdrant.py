@@ -351,6 +351,11 @@ class QdrantRetriever:
         complete = True
         seen: set = set()
         for idx, slot in enumerate(slots):
+            # A redacted tombstone has no retrievable content.  Skipping it
+            # (rather than marking the index incomplete) lets the stale-point
+            # reconciliation delete its vector while keeping the index usable.
+            if getattr(slot, "redacted", False):
+                continue
             # Match canonical retrieval's embedding source and precedence.
             dense = (embeddings[idx] if idx < len(embeddings)
                      else getattr(slot, "dense_emb", None))
@@ -626,6 +631,7 @@ class QdrantRetriever:
                 live_by_id = {
                     _point_id(slot.memory_id): (idx, slot)
                     for idx, slot in enumerate(slots)
+                    if not getattr(slot, "redacted", False)
                 }
                 # Hybrid candidate merge mirrors MINEMOS's internal fusion:
                 # dense ranks first, then lexical ranks not already present.
@@ -687,6 +693,7 @@ class QdrantRetriever:
                     {
                         "slot_index": idx,
                         "slot_id": id(slot),
+                        "memory_id": slot.memory_id,
                         "similarity": round(sim, 4),
                         "subject": slot.debug_subject,
                         "predicate": slot.debug_predicate,

@@ -28,6 +28,10 @@ Start with the [README](../README.md) for the project overview and quick start.
   modes, environment variables, and production Qdrant rules.
 - [Deployment](guides/deployment.md) — profiles, topology, checklist, scale
   expectations, and rollback.
+- [Service](guides/service.md) — HTTP boundary, authentication, validation,
+  rate limiting, logging, and locally verified vs. unverified behavior.
+- [Data Ingestion](guides/data-ingestion.md) — real-source formats,
+  boundaries, timestamps, provenance, extraction, and deletion/retention.
 
 ## Research
 
@@ -45,6 +49,8 @@ Start with the [README](../README.md) for the project overview and quick start.
 - [Recovery](operations/recovery.md) — checkpoint save/load, backups, Qdrant
   rebuild, and canonical rollback.
 - [Troubleshooting](operations/troubleshooting.md) — common errors and fixes.
+- [Evaluation Protocol](operations/evaluation-protocol.md) — pre-registered
+  30-day real-world evaluation. **Not started**; no run is claimed.
 
 ## Reading paths
 
@@ -53,6 +59,9 @@ Start with the [README](../README.md) for the project overview and quick start.
 | Try the engine | [Installation](guides/installation.md) then [README quick start](../README.md#quick-start) |
 | Understand memory decisions | [Memory Lifecycle](architecture/memory-lifecycle.md) |
 | Enable Qdrant | [Configuration](guides/configuration.md) then [Qdrant Integration](architecture/qdrant-integration.md) |
+| Run the HTTP service | [Service](guides/service.md) |
+| Ingest real material | [Data Ingestion](guides/data-ingestion.md) |
+| Start the 30-day evaluation | [Evaluation Protocol](operations/evaluation-protocol.md) |
 | Deploy cautiously | [Deployment](guides/deployment.md) and [Recovery](operations/recovery.md) |
 | Review evidence | [Phase history](research/history.md) and [Benchmark Methodology](research/benchmark-methodology.md) |
 | Contribute | [CONTRIBUTING.md](../CONTRIBUTING.md) |

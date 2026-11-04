@@ -34,7 +34,11 @@ FACTS = [
 
 
 def _strip_ids(rows):
-    return [{k: v for k, v in r.items() if k != "slot_id"} for r in rows]
+    # slot_id is process-local; memory_id is a random uuid4 per engine.  Tests
+    # that compare independently constructed engines must drop both.  Tests
+    # that check checkpoint identity assert memory_id separately.
+    return [{k: v for k, v in r.items()
+             if k not in ("slot_id", "memory_id")} for r in rows]
 
 
 def _assert_matches_canonical(mem, backend, **query):
@@ -205,7 +209,7 @@ def test_exhausted_retries_hand_off_to_canonical_without_an_error(backend):
     def hook(attempt, built):
         if not mutated:
             mutated.append(built.version)
-            mem.absorb(Candidate("Zed", "likes", "Go", 30.0))
+            mem.absorb(Candidate("Zed", "likes", "Go", timestamp=30.0))
 
     manager.hooks["before_publish"] = hook
     manager.invalidate()
@@ -244,6 +248,8 @@ def test_checkpoint_does_not_serialize_retrieval_state(tmp_path, backend):
     load_into_black_hole_memory(restored, path)
     assert restored.retrieval_backend == CANONICAL
     assert restored._state_version == 1
+    assert ([slot.memory_id for slot in restored.memory.slots]
+            == [slot.memory_id for slot in mem.memory.slots])
     assert rows_equal(_strip_ids(restored.query(QUERY, top_k=5)),
                       _strip_ids(expected))
 

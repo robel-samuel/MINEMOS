@@ -61,8 +61,30 @@ same capacity as the restored state.
 | `CheckpointPathSecurityError` | Path escapes `allowed_base_dir` | Use a path inside the allowed directory |
 | `ValueError` from load | Archive is incompatible with the engine assumptions | Check schema version and dimensions |
 
-v1–v3 archives remain readable. They receive deterministic fallback
-`memory_id` values because stable IDs were introduced in schema v4.
+v1–v4 archives remain readable. They receive deterministic fallback
+`memory_id` values because stable IDs were introduced in schema v4. Schema v5
+adds the privacy-redaction tombstone flag; older archives load with every slot
+marked not redacted.
+
+## Privacy deletion and redaction
+
+Two distinct operations are available:
+
+| Operation | Effect |
+|---|---|
+| `delete_slot(slot_id)` / `purge_subject(subject)` | Removes the slot(s) entirely and repairs supersession chains |
+| `redact_slot(slot_id)` / `redact_subject(subject)` | Destroys the content and keeps a chain-safe tombstone |
+
+Redaction overwrites the key/value vectors and dense embedding with zeros,
+clears the text and subject/predicate labels, drops contradiction anchors and
+the BM25 document, and excludes the slot from query, recall, history, invariant
+reporting, and the Qdrant index. The checkpoint writes only the tombstone, so a
+later save does not reintroduce the content. `purge_redacted()` permanently
+removes the tombstones when they are no longer needed.
+
+Redaction cannot rewrite archives or `.bak` files that already contain the
+content. Destroy those files explicitly if erasure must cover historical
+backups.
 
 ## Backup limitation
 

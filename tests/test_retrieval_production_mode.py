@@ -70,7 +70,10 @@ def _canonical_rows(facts=FACTS):
 
 
 def _strip_ids(rows):
-    return [{k: v for k, v in row.items() if k != "slot_id"} for row in rows]
+    # Slot ids are process-local and memory ids are random per engine; callers
+    # comparing independent engines assert id preservation separately.
+    return [{k: v for k, v in row.items()
+             if k not in ("slot_id", "memory_id")} for row in rows]
 
 
 # ── default / legacy selection ─────────────────────────────────────────────

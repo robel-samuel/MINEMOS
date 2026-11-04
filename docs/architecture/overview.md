@@ -48,7 +48,7 @@ flowchart TD
     J --> O["Canonical MemoryState"]
     K --> O
     M --> O
-    O --> P["Checkpoint (.npz, schema v4)"]
+    O --> P["Checkpoint (.npz, schema v5)"]
     O -. "optional derived index" .-> Q["Qdrant dense index"]
     O --> R["Query orchestration"]
     Q -. "candidates" .-> R
@@ -80,7 +80,8 @@ canonical slot before it can appear in a result.
    a consolidated value, confidence, timestamps, validity bounds, a stable
    `memory_id`, and supersession links.
 2. **Checkpoints** persist canonical memory atomically to `.npz` archives.
-   Schema v4 adds stable memory IDs; v1–v3 archives load unchanged.
+   Schema v4 adds stable memory IDs and schema v5 adds redaction tombstones;
+   v1–v4 archives load unchanged.
 3. **Qdrant** stores a derived vector, payload metadata, and filters per slot
    under the same `memory_id`. It is rebuildable from canonical state and may be
    stale after an outage; queries fall back to canonical retrieval while the

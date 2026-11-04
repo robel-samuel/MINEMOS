@@ -36,6 +36,7 @@ from benchmarks.phase16_experiment import NliSemanticGate
 from benchmarks.phase18_experiment import (
     DenseSemanticEncoder,
     D_LEX,
+    D_DENSE,
     LEXICAL_ENCODER,
     dense_address,
 )
@@ -160,8 +161,9 @@ class BlackHoleMemory:
         qdrant_config: Optional[Any] = None,
         retrieval_mode: Optional[str] = None
     ):
-        self.capacity = capacity
-        self.dim = dim
+        self.memory = MemoryState(capacity=capacity, dim=dim)
+        self.capacity = self.memory.capacity
+        self.dim = self.memory.dim
         self.retention_policy = retention_policy
         self.verification_mode = verification_mode
         self.entail_threshold = entail_threshold
@@ -182,8 +184,7 @@ class BlackHoleMemory:
         self._exclusive_predicates = self._predicate_config_set(exclusive_predicates)
         self._multi_valued_predicates = self._predicate_config_set(multi_valued_predicates)
 
-        # Core State
-        self.memory = MemoryState(capacity=capacity, dim=dim)
+        # Core State (capacity/dim are validated by MemoryState)
         self.slot_texts: Dict[int, str] = {}
         self.slot_dense_embs: List[np.ndarray] = []
         self.slot_contra_counts: Dict[int, int] = {}
@@ -422,6 +423,61 @@ class BlackHoleMemory:
             else "not_initialized")
         stats["active"] = backend != "canonical"
         return stats
+
+    @staticmethod
+    def _validated_vector(
+        value: Any, expected_dim: Optional[int], label: str
+    ) -> np.ndarray:
+        """Rejects malformed encoder output before it can enter memory.
+
+        Encoders are an input boundary: a custom or corrupted encoder can
+        return a wrong-rank, wrong-width, empty, or non-finite vector.  Storing
+        such a row silently corrupts ranking (NaN sorts unpredictably) or
+        crashes a later ``np.stack``/Qdrant upsert, so it is rejected here.
+        """
+        try:
+            array = np.asarray(value, dtype=np.float32)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{label} must be a numeric vector: {exc}") from exc
+        if array.ndim != 1:
+            raise ValueError(
+                f"{label} must be a 1-D vector, got shape {array.shape}")
+        if array.size == 0:
+            raise ValueError(f"{label} must be non-empty")
+        if expected_dim is not None and array.shape[0] != expected_dim:
+            raise ValueError(
+                f"{label} dimension {array.shape[0]} does not match the "
+                f"expected dimension {expected_dim}")
+        if not np.all(np.isfinite(array)):
+            raise ValueError(f"{label} contains NaN or Inf values")
+        return array
+
+    def _expected_dense_dim(self) -> Optional[int]:
+        """Dense width declared by the encoder, else the live row width.
+
+        Encoders that expose neither ``dim`` nor ``width`` fall back to the
+        architecture's dense dimension.  Structure-only test doubles can opt
+        out with a ``width`` attribute matching their vectors.
+        """
+        for attribute in ("dim", "width"):
+            declared = getattr(self.dense_encoder, attribute, None)
+            if declared is not None:
+                return int(declared)
+        if self.slot_dense_embs:
+            return int(self.slot_dense_embs[0].shape[0])
+        return D_DENSE
+
+    @staticmethod
+    def _validated_confidence(value: Any) -> float:
+        try:
+            confidence = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"confidence must be a number, got {value!r}") from exc
+        if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+            raise ValueError(
+                f"confidence must be finite and in [0, 1], got {value!r}")
+        return confidence
 
     def _parse_candidate(self, obs: Union[Candidate, Tuple[str, str, str], str], timestamp: float) -> Candidate:
         if isinstance(obs, Candidate):
@@ -682,6 +738,8 @@ class BlackHoleMemory:
 
     def _find_lexically_equivalent_slot(self, candidate: Candidate) -> Optional[int]:
         for idx, slot in enumerate(self.memory.slots):
+            if slot.redacted:
+                continue
             if slot.is_active and self._lexically_same_fact(slot, candidate):
                 return idx
         return None
@@ -750,6 +808,8 @@ class BlackHoleMemory:
         cand_pred = (candidate.predicate or "").strip().lower()
         chain = []
         for slot in self.memory.slots:
+            if slot.redacted:
+                continue
             if self._normalize_subject(slot.debug_subject) != cand_subject:
                 continue
             if any(
@@ -873,9 +933,17 @@ class BlackHoleMemory:
         falls back to canonical until a sync succeeds.
         """
         try:
-            return self._absorb_impl(observation, timestamp, confidence)
+            result = self._absorb_impl(observation, timestamp, confidence)
         finally:
             self._sync_qdrant_if_active()
+        slot_id = result.get("slot_id")
+        if slot_id is not None:
+            with self._lock:
+                for slot in self.memory.slots:
+                    if id(slot) == slot_id:
+                        result["memory_id"] = slot.memory_id
+                        break
+        return result
 
     def _warn_index_failure(self, stage: str, exc: BaseException) -> None:
         from phase2.retrieval.config import PRODUCTION
@@ -951,19 +1019,37 @@ class BlackHoleMemory:
           7. Enforces capacity pressure via Tiered Retention (evicting uncorroborated singletons first).
         """
         if timestamp is not None:
-            t_now = float(timestamp)
+            try:
+                t_now = float(timestamp)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"timestamp must be a number, got {timestamp!r}") from exc
         elif isinstance(observation, Candidate):
             t_now = float(observation.timestamp)
         else:
             t_now = float(time.time())
+        if not math.isfinite(t_now):
+            raise ValueError(f"timestamp must be finite, got {t_now!r}")
         candidate = self._parse_candidate(observation, timestamp=t_now)
+        # The explicit confidence argument applies to tuple/string
+        # observations.  A Candidate keeps its own confidence, preserving the
+        # documented behaviour that a structured observation carries it.
+        if not isinstance(observation, Candidate):
+            candidate.confidence = self._validated_confidence(confidence)
+        else:
+            candidate.confidence = self._validated_confidence(
+                candidate.confidence)
         cand_text = f"{candidate.subject} {candidate.predicate} {candidate.object}."
         # A historical statement reports a past state.  It is recorded as a
         # closed observation and is never consolidated into, or allowed to
         # supersede, a current one.
         is_historical_observation = self._has_historical_marker(cand_text)
-        x_t = self.lex_encoder.encode_full(candidate, dim=self.dim)
-        cand_dense = self.dense_encoder.encode(cand_text)
+        x_t = self._validated_vector(
+            self.lex_encoder.encode_full(candidate, dim=self.dim),
+            self.dim, "lexical embedding")
+        cand_dense = self._validated_vector(
+            self.dense_encoder.encode(cand_text),
+            self._expected_dense_dim(), "dense embedding")
 
         with self._lock:
             # Invalidate before the first possible mutation.  Every branch
@@ -1702,11 +1788,11 @@ class BlackHoleMemory:
         findings: List[Dict[str, Any]] = []
         for i in range(len(slots)):
             a = slots[i]
-            if not a.is_active:
+            if a.redacted or not a.is_active:
                 continue
             for j in range(i + 1, len(slots)):
                 b = slots[j]
-                if not b.is_active:
+                if b.redacted or not b.is_active:
                     continue
                 if self._slots_are_linked(a, b):
                     continue
@@ -1847,6 +1933,13 @@ class BlackHoleMemory:
                         "reason": "non_reciprocal_link",
                         "slot_indices": [pair[0], pair[1]],
                     })
+                    continue
+                # A redacted tombstone intentionally has no subject or value,
+                # so its link cannot be classified as consistent or
+                # inconsistent.  Reciprocity was already checked above; leave
+                # it out of the grouping pass rather than reporting a false
+                # corruption.
+                if a.redacted or b.redacted:
                     continue
                 subject_match = (
                     self._normalize_subject(a.debug_subject)
@@ -2048,12 +2141,18 @@ class BlackHoleMemory:
         if not self.memory.slots:
             return []
 
-        q_dense = self.dense_encoder.encode(query_text)
+        # Query-side non-finite handling is part of the pinned retrieval
+        # contract: canonical and optimized backends must agree on NaN/Inf and
+        # width-mismatch outcomes rather than rejecting the query here.
+        q_dense = np.asarray(self.dense_encoder.encode(query_text),
+                             dtype=np.float32)
 
         with self._lock:
             candidate_slots = []
 
             for idx, slot in enumerate(self.memory.slots):
+                if slot.redacted:
+                    continue
                 # Temporal filter
                 if as_of is not None:
                     if slot.valid_from > as_of or (slot.valid_until is not None and slot.valid_until <= as_of):
@@ -2074,6 +2173,7 @@ class BlackHoleMemory:
                 results.append({
                     "slot_index": idx,
                     "slot_id": id(slot),
+                    "memory_id": slot.memory_id,
                     "similarity": round(sim, 4),
                     "subject": slot.debug_subject,
                     "predicate": slot.debug_predicate,
@@ -2100,6 +2200,8 @@ class BlackHoleMemory:
             results = []
             lookup_subject = self._normalize_subject(subject)
             for idx, slot in enumerate(self.memory.slots):
+                if slot.redacted:
+                    continue
                 if self._normalize_subject(slot.debug_subject) != lookup_subject:
                     continue
                 if predicate is not None and predicate not in (
@@ -2117,6 +2219,7 @@ class BlackHoleMemory:
                 results.append({
                     "slot_index": idx,
                     "slot_id": id(slot),
+                    "memory_id": slot.memory_id,
                     "subject": slot.debug_subject,
                     "predicate": slot.debug_predicate,
                     "text": self.slot_texts.get(id(slot), slot.text),
@@ -2135,6 +2238,21 @@ class BlackHoleMemory:
             return self._delete_slot_impl(slot_id)
         finally:
             self._sync_qdrant_if_active()
+
+    def delete_memory(self, memory_id: str) -> bool:
+        """Deletes a slot by its stable ``memory_id`` instead of ``id(slot)``.
+
+        ``delete_slot`` addresses slots by a process-local object identity that
+        cannot be persisted or used across restarts; provenance records use the
+        stable id so deletion remains correct after a checkpoint reload.
+        """
+        with self._lock:
+            target = next(
+                (s for s in self.memory.slots
+                 if s.memory_id == memory_id), None)
+            if target is None:
+                return False
+            return self.delete_slot(id(target))
 
     def _delete_slot_impl(self, slot_id: int) -> bool:
         """
@@ -2191,6 +2309,111 @@ class BlackHoleMemory:
                 self._sync_qdrant_if_active()
             return count
 
+    def redact_slot(self, slot_id: int, reason: Optional[str] = None) -> bool:
+        """Irreversibly removes a slot's content while keeping its tombstone.
+
+        The slot object stays in place so supersession links and index
+        bookkeeping remain valid, but its key/value vectors, text, embeddings,
+        subject/predicate labels, contradiction anchors, and BM25 document are
+        destroyed.  Redacted slots are excluded from every read path and from
+        the Qdrant index, and the checkpoint persists only the tombstone.
+
+        ``reason`` is accepted for audit call sites but is deliberately not
+        stored: recording a free-form reason could itself retain the personal
+        data the caller asked to remove.
+        """
+        changed = False
+        try:
+            with self._lock:
+                target = next(
+                    (s for s in self.memory.slots if id(s) == slot_id), None)
+                if target is None or target.redacted:
+                    return False
+                self._redact_slot(target)
+                changed = True
+        finally:
+            if changed:
+                self._sync_qdrant_if_active()
+        return changed
+
+    def redact_memory(self, memory_id: str, reason: Optional[str] = None) -> bool:
+        """Redacts a slot by its stable ``memory_id`` instead of ``id(slot)``."""
+        with self._lock:
+            target = next(
+                (s for s in self.memory.slots
+                 if s.memory_id == memory_id), None)
+            if target is None:
+                return False
+            return self.redact_slot(id(target), reason=reason)
+
+    def redact_subject(self, subject: str, exact_match: bool = True,
+                       reason: Optional[str] = None) -> int:
+        """Redacts every slot belonging to ``subject``.
+
+        Matching happens before any content is wiped.  ``exact_match=False``
+        compares case-insensitively after stripping surrounding whitespace.
+        Returns the number of slots redacted.
+        """
+        if not isinstance(subject, str) or not subject.strip():
+            return 0
+        match_target = subject.strip() if exact_match else subject.strip().lower()
+        changed = 0
+        try:
+            with self._lock:
+                targets = []
+                for slot in self.memory.slots:
+                    if slot.redacted:
+                        continue
+                    slot_subject = slot.debug_subject or ""
+                    value = (slot_subject.strip() if exact_match
+                             else slot_subject.strip().lower())
+                    if value == match_target:
+                        targets.append(slot)
+                for slot in targets:
+                    self._redact_slot(slot)
+                    changed += 1
+        finally:
+            if changed:
+                self._sync_qdrant_if_active()
+        return changed
+
+    def _redact_slot(self, slot: MemorySlot) -> None:
+        """Destroys one slot's content in place.  Caller holds the lock."""
+        self._invalidate_retrieval_cache()
+        idx = self._slot_index(slot)
+        slot.key = np.zeros_like(slot.key)
+        slot.value = np.zeros_like(slot.value)
+        slot.text = ""
+        slot.debug_subject = None
+        slot.debug_predicate = None
+        slot.latest_predicate = None
+        slot.latest_object = None
+        slot.dense_emb = (
+            np.zeros_like(slot.dense_emb)
+            if slot.dense_emb is not None else None)
+        slot.contra_count = 0
+        slot.redacted = True
+
+        self.slot_texts.pop(id(slot), None)
+        if idx is not None and idx < len(self.slot_dense_embs):
+            self.slot_dense_embs[idx] = np.zeros_like(
+                self.slot_dense_embs[idx])
+        self.slot_contra_counts.pop(id(slot), None)
+        self.slot_contra_anchors.pop(id(slot), None)
+        self.bm25_index.remove_document(id(slot))
+
+    def purge_redacted(self) -> int:
+        """Permanently removes redacted tombstones.  Returns the count."""
+        with self._lock:
+            ids = [id(s) for s in self.memory.slots if s.redacted]
+            count = 0
+            for slot_id in ids:
+                if self._delete_slot_impl(slot_id):
+                    count += 1
+            if count:
+                self._sync_qdrant_if_active()
+            return count
+
     def get_history(self, subject: str, predicate: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Retrieves the complete temporal history of an entity/attribute,
@@ -2201,15 +2424,19 @@ class BlackHoleMemory:
     def status(self) -> Dict[str, Any]:
         """Returns diagnostic status and memory footprint."""
         with self._lock:
-            active = sum(1 for s in self.memory.slots if s.is_active)
-            provisional = sum(1 for s in self.memory.slots if s.update_count <= 1 and s.is_active)
-            consolidated = sum(1 for s in self.memory.slots if s.update_count > 1 and s.is_active)
-            superseded = sum(1 for s in self.memory.slots if not s.is_active)
+            live = [s for s in self.memory.slots if not s.redacted]
+            redacted = len(self.memory.slots) - len(live)
+            active = sum(1 for s in live if s.is_active)
+            provisional = sum(1 for s in live if s.update_count <= 1 and s.is_active)
+            consolidated = sum(1 for s in live if s.update_count > 1 and s.is_active)
+            superseded = sum(1 for s in live if not s.is_active)
             footprint = self.memory.footprint_bytes()
 
             return {
                 "capacity": self.capacity,
                 "total_slots": len(self.memory.slots),
+                "live_slots": len(live),
+                "redacted_slots": redacted,
                 "active_slots": active,
                 "provisional_slots": provisional,
                 "consolidated_slots": consolidated,

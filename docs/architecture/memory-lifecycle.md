@@ -51,6 +51,13 @@ addressing, retrieval, and the novelty score.
 7. **Reconcile the optional index.** If Qdrant is active, it is synchronized
    after the canonical mutation commits.
 
+Engine construction enforces `1 <= capacity <= 500,000` and
+`1 <= dim <= 16,384`; larger or non-positive values raise `ValueError`.
+Absorb also rejects malformed encoder output (wrong rank or width, empty,
+NaN/Inf) and non-finite or out-of-range timestamps/confidences before any
+state is mutated, so an invalid observation cannot leave a partially updated
+or unpersistable memory.
+
 ### Decision rules
 
 | Situation | Result |
@@ -175,8 +182,9 @@ capacity, dimensions, checksums, and path confinement before restoring state.
 `BlackHoleMemory.from_checkpoint(path, **kwargs)` constructs and restores in one
 step.
 
-Schema v4 persists stable `memory_id` values. v1–v3 archives load unchanged and
-slots receive deterministic fallback IDs. Configuration such as predicate
+Schema v4 persists stable `memory_id` values and schema v5 the privacy-redaction
+tombstone. v1–v4 archives load unchanged and slots receive deterministic
+fallback IDs where the archive predates them. Configuration such as predicate
 overrides and retrieval mode is not stored in the archive.
 
 Backup archives retain the pre-save state, including records deleted since that

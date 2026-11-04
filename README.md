@@ -131,7 +131,7 @@ flowchart TD
 
     subgraph Canonical["Canonical state (source of truth)"]
         F["MemoryState slots<br/>key, value, confidence, timestamps,<br/>validity bounds, memory_id"]
-        G["Checkpoint .npz<br/>atomic, schema v4"]
+        G["Checkpoint .npz<br/>atomic, schema v5"]
     end
 
     subgraph Retrieval["Retrieval orchestration"]
@@ -227,8 +227,9 @@ research system is production-ready. Resolution order is constructor argument,
 | Slot lifecycle: absorb, consolidate, contradict, supersede, temporal validity | **Implemented** | Covered by the test suite; synthetic evaluation |
 | Tiered retention and eviction | **Implemented** | Default policy `tiered` |
 | Canonical dense retrieval and `recall` | **Implemented** | Reference retrieval path |
-| Checkpoint persistence | **Implemented** | Atomic `.npz`, schema v4, v1–v3 archives readable |
-| Stable memory IDs and supersession links | **Implemented** | Schema v4 |
+| Checkpoint persistence | **Implemented** | Atomic `.npz`, schema v5, v1–v4 archives readable |
+| Stable memory IDs and supersession links | **Implemented** | Introduced in schema v4 |
+| Privacy redaction with chain-safe tombstones | **Implemented** | Schema v5; excludes content from reads, index, and archives |
 | Qdrant derived retrieval index | **Implemented** | Optional; canonical state remains authoritative |
 | `legacy` / `production` / `canonical` modes | **Implemented** | Strict production validation and runtime fallback |
 | Metadata filters | **Implemented** | Pushed to Qdrant and re-applied in MINEMOS |
@@ -237,11 +238,14 @@ research system is production-ready. Resolution order is constructor argument,
 | Reciprocal-rank fusion (`fusion="rrf"`) | **Experimental, opt-in** | Ordering experiment; no quality claim |
 | Qdrant integration benchmark | **Experimental evidence** | Synthetic corpora up to 1,000 target facts |
 | Full-scale end-to-end accuracy on the integrated engine | **Planned** | Phase 23 measured individual failure modes, not a full integrated E2E result |
-| Real conversational memory benchmark | **Planned** | All current evaluation uses synthetic data |
+| HTTP service boundary | **Implemented, locally verified** | API-key auth, roles, tenant scoping, validation, rate limiting, TLS listener; no external IdP or audit |
+| Real-data ingestion pipeline | **Implemented, locally verified** | Boundary-preserving conversation/document/prose parsing, provenance, deletion/redaction |
+| Real-world evaluation environment | **Ready, verified with synthetic fixtures** | Dedicated store, independent ground truth, versioned results; no real-world run yet |
+| 30-day continuous evaluation | **Not started** | Pre-registered protocol; zero days elapsed |
 | Residual paraphrase rejection research | **Planned** | 13.3% false rejection on the Phase 28 held-out synthetic set |
 | 100K-scale production validation, latency SLOs, HA, multi-process ingestion | **Not yet production-validated** | Not measured or supported |
 
-The suite currently collects **542 tests**. CI runs the suite on Python 3.12 and
+The suite currently collects **660 tests** (659 pass, 1 skip). CI runs the suite on Python 3.12 and
 performs a dependency vulnerability audit. See
 [`.github/workflows/tests.yml`](.github/workflows/tests.yml).
 
@@ -390,7 +394,7 @@ environment-variable reference is in
 python -m pytest tests/ -q
 ```
 
-The suite collects **542 tests**. Cache both model weights first (see
+The suite collects **660 tests**. Cache both model weights first (see
 [Quick start](#quick-start)). Qdrant integration tests use an embedded Qdrant
 database by default; run them against a server with:
 
@@ -483,8 +487,14 @@ environment, and reproduction commands.
   see [`reports/U1_AUDIT_REPORT.md`](reports/U1_AUDIT_REPORT.md).
 - **Backup semantics.** A `.bak` checkpoint can restore facts deleted after the
   previous save. It is not secure erasure.
-- **No bundled service layer.** There is no container image, authentication
-  layer, metrics exporter, or multi-process ingestion coordinator.
+- **Service boundary is not a hardened perimeter.** The bundled stdlib HTTP
+  service adds authentication, roles, validation and rate limiting, but there is
+  no container image, external identity provider, gateway, metrics exporter, or
+  multi-process ingestion coordinator. Do not expose the engine directly to
+  untrusted clients without those protections.
+- **Real-world evaluation is not run.** The ingestion and evaluation
+  environment is prepared and locally verified; the 30-day protocol has not
+  started and no real-world accuracy claim exists.
 
 Operational constraints and deployment expectations are in
 [Deployment](docs/guides/deployment.md) and

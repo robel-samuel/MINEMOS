@@ -22,7 +22,7 @@ rows = mem.query(
 Each row contains:
 
 ```text
-slot_index, slot_id, similarity, subject, predicate, text,
+slot_index, slot_id, memory_id, similarity, subject, predicate, text,
 confidence, update_count, is_active, valid_from, valid_until
 ```
 

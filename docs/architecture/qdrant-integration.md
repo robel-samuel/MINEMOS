@@ -234,8 +234,12 @@ MINEMOS. Unknown filter keys raise `ValueError`.
 - `absorb()` (insert, consolidate, temporal update) commits canonical state
   first, then reconciles the index.
 - `delete_slot()` and `purge_subject()` reconcile after each logical deletion.
-- `save_checkpoint()` persists `memory_id` (checkpoint schema v4); older v1-v3
-  archives load unchanged and receive deterministic fallback ids.
+- `redact_slot()` and `redact_subject()` destroy canonical content and keep a
+  tombstone; the next reconciliation deletes the redacted point while keeping
+  the index complete.
+- `save_checkpoint()` persists `memory_id` (checkpoint schema v4) and the
+  redaction tombstone (schema v5); older v1-v4 archives load unchanged and
+  receive deterministic fallback ids.
 - `load_checkpoint()` replaces canonical state, then forces a full index
   reconcile through `_sync_qdrant_after_restore()`.
 - `sync_state()` is an idempotent convergence pass: unchanged slots are skipped,
@@ -284,9 +288,10 @@ touches another tenant's points in a shared collection.
   ignores them there.
 - The index is derived. Back up canonical checkpoints, not Qdrant, as the source
   of truth. Qdrant snapshots can accelerate recovery but are not required.
-- Checkpoint schema v4 persists stable `memory_id` values. v1-v3 archives load
-  unchanged; deterministic ids are assigned where an archive predates them, so
-  enabling the index does not require a checkpoint migration.
+- Checkpoint schema v4 persists stable `memory_id` values and schema v5 the
+  redaction tombstone. v1-v4 archives load unchanged; deterministic ids are
+  assigned where an archive predates them, so enabling the index does not
+  require a checkpoint migration.
 - Do not expose the API key through logs or `retrieval_stats()`; neither path
   includes it.
 - Historical Phase 31B/31C conclusions remain unchanged: Qdrant was rejected as
