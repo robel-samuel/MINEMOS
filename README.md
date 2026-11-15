@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/minemos-logo.png" alt="MINEMOS" width="520">
+</p>
+
 # MINEMOS
 
 **Persistent memory for AI applications.**
