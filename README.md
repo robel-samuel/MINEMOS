@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/minemos-logo.png" alt="MINEMOS" width="520">
+  <img src="docs/assets/minemos-logo.png" alt="MINEMOS" width="100%">
 </p>
 
 # MINEMOS
