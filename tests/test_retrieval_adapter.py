@@ -17,10 +17,10 @@ import os
 import numpy as np
 import pytest
 
-from phase2.checkpoint import (load_into_black_hole_memory, save_checkpoint)
-from phase2.retrieval import (CANONICAL, INCREMENTAL, OPTIMIZED, QDRANT,
+from minemos_engine.checkpoint import (load_into_black_hole_memory, save_checkpoint)
+from minemos_engine.retrieval import (CANONICAL, INCREMENTAL, OPTIMIZED, QDRANT,
                               BACKENDS, RetrievalConfig, normalize_backend)
-from phase2.structured_candidate import Candidate
+from minemos_engine.structured_candidate import Candidate
 from tests._retrieval_helpers import (QUERY, add_facts, make_memory,
                                       rows_equal)
 

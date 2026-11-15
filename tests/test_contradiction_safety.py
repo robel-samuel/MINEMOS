@@ -15,8 +15,8 @@ J. Direct query accuracy comparing pre-fix and post-fix behavior.
 """
 
 import pytest
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
+from minemos_engine.black_hole_memory import BlackHoleMemory
+from minemos_engine.structured_candidate import Candidate
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -89,6 +89,52 @@ def test_category_b_genuine_state_update():
     active = mem.recall("Alice")
     assert len(active) == 1
     assert "does not reside" in active[0]["text"]
+
+
+def test_verb_first_copular_numeric_correction_is_state_update():
+    """
+    Regression (real-export revalidation 2026-11-13): a verb-first copular
+    predicate with an adjective complement ("is aged") names one scalar
+    attribute.  A differing number for the same subject and predicate is a
+    correction, not a second independent fact.  It must supersede the old
+    value so the stale value is no longer the active answer.
+    """
+    mem = BlackHoleMemory(capacity=10, strict_entity_identity=True)
+    r1 = mem.absorb(Candidate("Rowan Ingram", "is aged", "61", timestamp=100.0))
+    r2 = mem.absorb(Candidate("Rowan Ingram", "is aged", "27", timestamp=200.0))
+
+    assert r1["action"] == "insert"
+    assert r2["action"] == "temporal_update"
+    assert len(mem.memory.slots) == 2
+
+    old, new = mem.memory.slots
+    assert not old.is_active
+    assert old.valid_until == 200.0
+    assert new.is_active
+    assert new.valid_until is None
+    assert new.supersedes == id(old)
+
+    active = mem.recall("Rowan Ingram", "is aged")
+    assert len(active) == 1
+    assert "27" in active[0]["text"]
+    assert "61" not in active[0]["text"]
+
+
+def test_verb_first_prepositional_copular_relation_stays_coexisting():
+    """
+    Guard for the same fix: a verb-first copular predicate whose complement is
+    prepositional ("is compatible with", "is a member of") expresses a relation
+    that may legitimately hold several values at once.  Differing objects must
+    remain independent active facts, not supersede each other.
+    """
+    mem = BlackHoleMemory(capacity=10, strict_entity_identity=True)
+    r1 = mem.absorb(Candidate("Rowan Ingram", "is compatible with", "adapter A", timestamp=100.0))
+    r2 = mem.absorb(Candidate("Rowan Ingram", "is compatible with", "adapter B", timestamp=200.0))
+
+    assert r1["action"] == "insert"
+    assert r2["action"] == "insert", f"Expected insert but got {r2['action']}"
+    assert len(mem.memory.slots) == 2
+    assert all(slot.is_active for slot in mem.memory.slots)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

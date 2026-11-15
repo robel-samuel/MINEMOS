@@ -17,9 +17,9 @@ import pytest
 
 pytest.importorskip("qdrant_client")
 
-from phase2.retrieval import QdrantConfig
-from phase2.retrieval.qdrant import _point_id
-from phase2.structured_candidate import Candidate
+from minemos_engine.retrieval import QdrantConfig
+from minemos_engine.retrieval.qdrant import _point_id
+from minemos_engine.structured_candidate import Candidate
 from tests._retrieval_helpers import (QUERY, RuleVerifier, add_facts,
                                       make_memory, rows_equal)
 
@@ -206,6 +206,54 @@ def test_metadata_filters_match_canonical(tmp_path):
             QUERY, top_k=10, filters={"predicate": "works at"})] == ["Carol"]
         with pytest.raises(ValueError):
             mem.query(QUERY, filters={"unknown": 1})
+    finally:
+        mem.close()
+
+
+def test_scope_filter_matches_canonical_and_never_widens(tmp_path):
+    """A joint scope filter returns exactly the canonical rows in those scopes.
+
+    The Qdrant pushdown is an optimization of the canonical membership test:
+    it must neither drop in-scope rows nor admit a row from a scope the caller
+    did not request.
+    """
+    cfg = _config(tmp_path)
+    mem = _engine(cfg)
+    try:
+        add_facts(mem, [
+            ("conversation:alpha", "segment_0", "wing hive moss fern", 10.0),
+            ("conversation:beta", "segment_0", "dune reed kelp vine", 11.0),
+            ("conversation:gamma", "segment_0", "wing unrelated noise", 12.0),
+        ])
+        mem.query(QUERY, top_k=10)
+        cases = (
+            {"subjects": ["conversation:alpha", "conversation:beta"]},
+            {"subjects": ["conversation:beta"]},
+            {"subjects": ["conversation:alpha", "conversation:missing"]},
+            {"subjects": ["conversation:alpha"]},
+        )
+        for filters in cases:
+            selected = mem.query(QUERY, top_k=10, filters=filters)
+            canonical = _canonical_rows(mem, top_k=10, filters=filters)
+            assert rows_equal(selected, canonical), filters
+            hybrid = mem.query(
+                QUERY, top_k=10, filters=filters, hybrid=True)
+            assert rows_equal(hybrid, canonical), ("hybrid", filters)
+
+        pair = mem.query(
+            QUERY, top_k=10,
+            filters={"subjects": ["conversation:alpha", "conversation:beta"]})
+        assert {row["subject"] for row in pair} == {
+            "conversation:alpha", "conversation:beta"}
+        assert mem.query(
+            QUERY, top_k=10,
+            filters={"subjects": ["conversation:missing"]}) == []
+        with pytest.raises(ValueError):
+            mem.query(QUERY, filters={"subjects": "conversation:alpha"})
+        with pytest.raises(ValueError):
+            mem.query(QUERY, filters={
+                "subject": "conversation:alpha",
+                "subjects": ["conversation:beta"]})
     finally:
         mem.close()
 
@@ -586,6 +634,55 @@ def test_hybrid_fusion_config_supplies_the_default(tmp_path):
         mem.close()
 
 
+def test_rrf_fuses_the_exact_dense_ranking_not_transport_order(tmp_path):
+    """RRF is defined over MINEMOS's exact ranking.
+
+    Qdrant's response order is a candidate-selection order; in server mode it
+    is approximate.  Fusion must therefore rank the dense list with the same
+    exact dot product the engine serves, not whatever order the transport
+    happened to return.
+    """
+    cfg = _config(tmp_path, candidate_limit=64)
+    mem = _engine(cfg)
+    try:
+        add_facts(mem, [
+            ("Alice", "likes", "zebra zebra zebra", 1.0),
+            ("Bob", "likes", "violin violin", 2.0),
+            ("Carol", "likes", "kite kite kite kite", 3.0),
+            ("Dave", "likes", "piano", 4.0),
+        ])
+        query = "zebra violin kite piano"
+        mem.query(query, top_k=4)
+        retriever = _retriever(mem)
+        baseline = [
+            row["memory_id"]
+            for row in mem.query(
+                query, top_k=4, hybrid=True, fusion="rrf")]
+
+        class Reordered:
+            def __init__(self, points):
+                self.points = points
+
+        transport = retriever.client.query_points
+
+        def reversed_transport(*args, **kwargs):
+            response = transport(*args, **kwargs)
+            return Reordered(list(reversed(response.points)))
+
+        retriever.client.query_points = reversed_transport
+        try:
+            scrambled = [
+                row["memory_id"]
+                for row in mem.query(
+                    query, top_k=4, hybrid=True, fusion="rrf")]
+        finally:
+            retriever.client.query_points = transport
+
+        assert scrambled == baseline
+    finally:
+        mem.close()
+
+
 def test_successful_sync_and_query_clear_stale_error(tmp_path):
     mem = _engine(_config(tmp_path))
     try:
@@ -637,3 +734,268 @@ def test_real_qdrant_server_roundtrip(tmp_path):
         assert mem.retrieval_stats()["manager"]["points"] == 2
     finally:
         mem.close()
+
+
+# ── 18. Rebuild from corrected canonical state ────────────────────────────
+
+
+def test_rebuild_matches_corrected_canonical_state(tmp_path):
+    from tests.test_consolidation_integrity import DirectionalVerifier
+
+    cfg = _config(tmp_path)
+    verifier = DirectionalVerifier([
+        ("lima", "oslo", "CONTRADICTION", 0.93, 0.92),
+        ("lima", "visa", "CONTRADICTION", 0.90, 0.88),
+        ("oslo", "visa", "SAME", 0.80, 0.34),
+    ])
+    mem = _engine(cfg, verifier=verifier)
+    try:
+        mem.absorb(Candidate("Ada", "lives in", "Lima", timestamp=100.0))
+        mem.absorb(Candidate("Ada", "lives in", "Oslo", timestamp=300.0))
+        mem.absorb(Candidate(
+            "Ada", "lives in", "worker visa", timestamp=200.0))
+        mem.query(QUERY, top_k=10, active_only=False)
+
+        expected = _canonical_rows(mem, top_k=10, active_only=False)
+        assert len(expected) == 3
+        canonical_texts = {row["text"] for row in expected}
+        assert canonical_texts == {
+            "Ada lives in Lima.",
+            "Ada lives in worker visa.",
+            "Ada lives in Oslo.",
+        }
+
+        retriever = _retriever(mem)
+        assert len(_points(mem)) == 3
+        retriever.client.delete_collection(cfg.collection)
+        result = retriever.rebuild()
+        assert result["points"] == 3
+        assert result["complete"] is True
+
+        rows = mem.query(QUERY, top_k=10, active_only=False)
+        assert _parity(rows, expected)
+        payloads = {p["text"]: p for p in _points(mem).values()}
+        assert set(payloads) == canonical_texts
+        assert payloads["Ada lives in Lima."]["valid_until"] == 200.0
+        assert payloads["Ada lives in worker visa."]["valid_until"] == 300.0
+        assert payloads["Ada lives in Oslo."]["valid_until"] is None
+        assert payloads["Ada lives in Oslo."]["is_active"] is True
+    finally:
+        mem.close()
+
+
+# ── 9. Automatic scope discovery over indexed candidates ───────────────────
+
+
+def test_scope_discovery_matches_canonical_backend(tmp_path):
+    """Discovery uses the selected backend; it must not change the answer."""
+    cfg = _config(tmp_path)
+    mem = _engine(cfg)
+    question = "wing dune hive reed moss kelp fern vine"
+    try:
+        add_facts(mem, [
+            ("conversation:alpha", "segment_0", "wing hive moss fern", 10.0),
+            ("conversation:beta", "segment_0", "dune reed kelp vine", 11.0),
+            ("conversation:gamma", "segment_0", "wing unrelated noise", 12.0),
+        ])
+        via_qdrant = mem.eligible_query(
+            question, top_k=10, discover_scopes=True)
+        assert via_qdrant["status"] == "answered"
+        assert set(via_qdrant["scopes"]) == {
+            "conversation:alpha", "conversation:beta"}
+        assert via_qdrant["evidence"]["cross_scope"] is True
+        assert len(via_qdrant["rows"]) == 2
+
+        mem.set_retrieval_backend("canonical")
+        try:
+            via_canonical = mem.eligible_query(
+                question, top_k=10, discover_scopes=True)
+        finally:
+            mem.set_retrieval_backend("qdrant")
+            mem._get_retrieval_adapter().ensure_retriever()
+
+        assert via_canonical["status"] == via_qdrant["status"]
+        assert via_canonical["scopes"] == via_qdrant["scopes"]
+        assert via_canonical["discovery"] == via_qdrant["discovery"]
+        assert [row["memory_id"] for row in via_canonical["rows"]] == [
+            row["memory_id"] for row in via_qdrant["rows"]]
+    finally:
+        mem.close()
+
+
+# ── 19. External drift, corrupt index and query-time outage ────────────────
+
+
+def test_external_stale_point_and_payload_drift_are_not_authority(tmp_path):
+    """The index is derived: a rogue point is deleted by sync, and even a
+    drifted payload on a live point cannot change a returned answer because
+    rows are hydrated from canonical state.  Rebuild restores the payload."""
+    cfg = _config(tmp_path)
+    mem = _engine(cfg)
+    try:
+        add_facts(mem, [
+            ("Alice", "lives in", "Paris", 10.0),
+            ("Bob", "lives in", "Oslo", 11.0),
+        ])
+        expected = mem.query(QUERY, top_k=5)
+        retriever = _retriever(mem)
+
+        from qdrant_client import models as qm
+        from minemos_engine.retrieval.qdrant import VECTOR_NAME
+
+        rogue = str(uuid.uuid4())
+        retriever.client.upsert(cfg.collection, [qm.PointStruct(
+            id=rogue,
+            vector={VECTOR_NAME: [0.0] * retriever.dim},
+            payload={"tenant_id": cfg.tenant_id, "subject": "Mallory",
+                     "text": "Mallory lives in Atlantis."},
+        )], wait=True)
+        synced = retriever.sync_state(force=True)
+        assert synced["points"] == 2
+        assert synced["stale_deleted"] == 1
+        assert rogue not in _points(mem)
+        assert rows_equal(mem.query(QUERY, top_k=5), expected)
+
+        # Drift a live point's payload without changing the point count; the
+        # incremental sync cannot see it, but the answer still comes from
+        # canonical state.
+        live_id = next(iter(_points(mem)))
+        retriever.client.set_payload(
+            cfg.collection, {"text": "Mallory lives in Atlantis."},
+            points=[live_id])
+        assert any("Atlantis" in (p.get("text") or "")
+                   for p in _points(mem).values())
+        rows = mem.query(QUERY, top_k=5)
+        assert rows_equal(rows, expected)
+        assert not any("atlantis" in (row.get("text") or "").casefold()
+                       for row in rows)
+
+        # A rebuild replaces the drifted payload from canonical state.
+        rebuilt = retriever.rebuild()
+        assert rebuilt["points"] == 2
+        assert not any("Atlantis" in (p.get("text") or "")
+                       for p in _points(mem).values())
+        assert rows_equal(mem.query(QUERY, top_k=5), expected)
+    finally:
+        mem.close()
+
+
+def test_missing_collection_falls_back_then_recovers_on_sync(tmp_path):
+    cfg = _config(tmp_path)
+    mem = _engine(cfg)
+    try:
+        add_facts(mem, [
+            ("Alice", "lives in", "Paris", 10.0),
+            ("Bob", "lives in", "Oslo", 11.0),
+        ])
+        expected = mem.query(QUERY, top_k=5)
+        retriever = _retriever(mem)
+        retriever.client.delete_collection(cfg.collection)
+
+        # The search fails on the missing collection; the engine answers from
+        # canonical state and reports the index error.
+        rows = mem.query(QUERY, top_k=5)
+        assert rows_equal(rows, expected)
+        assert mem.retrieval_stats()["errors"] >= 1
+
+        recovered = retriever.sync_state(force=True)
+        assert recovered["points"] == 2
+        assert recovered["complete"] is True
+        assert rows_equal(mem.query(QUERY, top_k=5), expected)
+    finally:
+        mem.close()
+
+
+def test_wrong_dimension_index_fails_closed_and_recovers(tmp_path):
+    """A collection holding another encoder's vectors is refused rather than
+    served; the engine answers from canonical state until the index is
+    repointed at a correctly sized collection."""
+    cfg = _config(tmp_path)
+    mem = _engine(cfg)
+    bad_collection = f"{cfg.collection}_bad"
+    try:
+        add_facts(mem, [
+            ("Alice", "lives in", "Paris", 10.0),
+            ("Bob", "lives in", "Oslo", 11.0),
+        ])
+        expected = mem.query(QUERY, top_k=5)
+        retriever = _retriever(mem)
+
+        from qdrant_client import models as qm
+        from minemos_engine.retrieval.qdrant import VECTOR_NAME
+
+        retriever.client.create_collection(
+            bad_collection,
+            vectors_config={VECTOR_NAME: qm.VectorParams(
+                size=retriever.dim + 1, distance=qm.Distance.DOT)})
+
+        original = retriever.collection
+        retriever.collection = bad_collection
+        retriever._indexed_fingerprints = {}
+        retriever._indexed_signatures = {}
+        retriever._indexed_version = -1
+        retriever._dirty = True
+
+        rows = mem.query(QUERY, top_k=5)
+        assert rows_equal(rows, expected)
+        stats = mem.retrieval_stats()
+        assert stats["errors"] >= 1
+        assert "vectors but MINEMOS encodes" in (stats["last_error"] or "")
+
+        retriever.collection = original
+        retriever._indexed_version = -1
+        retriever._dirty = True
+        recovered = retriever.sync_state(force=True)
+        assert recovered["points"] == 2
+        assert rows_equal(mem.query(QUERY, top_k=5), expected)
+    finally:
+        mem.close()
+
+
+def test_query_outage_falls_back_without_losing_answers(tmp_path):
+    cfg = _config(tmp_path)
+    mem = _engine(cfg)
+    try:
+        add_facts(mem, [
+            ("Alice", "lives in", "Paris", 10.0),
+            ("Bob", "lives in", "Oslo", 11.0),
+        ])
+        expected = mem.query(QUERY, top_k=5)
+        _retriever(mem).client.close()
+
+        rows = mem.query(QUERY, top_k=5)
+        assert rows_equal(rows, expected)
+        assert mem.retrieval_stats()["errors"] >= 1
+        state = mem.retrieval_stats()["state"]
+        assert state in ("degraded", "ready")
+    finally:
+        mem.close()
+
+
+def test_lost_index_store_is_rebuilt_from_checkpoint(tmp_path):
+    """Losing the whole vector store loses no memory: a fresh store is
+    populated from the restored canonical checkpoint."""
+    cfg = _config(tmp_path)
+    checkpoint = str(tmp_path / "memory.npz")
+    mem = _engine(cfg)
+    add_facts(mem, [
+        ("Alice", "lives in", "Paris", 10.0),
+        ("Bob", "lives in", "Oslo", 11.0),
+    ])
+    expected = mem.query(QUERY, top_k=5)
+    mem.save_checkpoint(checkpoint)
+    mem.close()
+
+    # A server cannot be repointed at a fresh directory; a new collection is
+    # the equivalent store loss for the tenant.
+    fresh_cfg = (
+        replace(cfg, collection=f"minemos_test_{uuid.uuid4().hex[:12]}")
+        if cfg.url else replace(cfg, path=str(tmp_path / "fresh_store")))
+    fresh = _engine(fresh_cfg)
+    try:
+        fresh.load_checkpoint(checkpoint)
+        assert _parity(fresh.query(QUERY, top_k=5), expected)
+        assert fresh.retrieval_stats()["manager"]["points"] == 2
+        assert fresh.retrieval_stats()["manager"]["errors"] == 0
+    finally:
+        fresh.close()

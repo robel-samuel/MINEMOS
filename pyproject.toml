@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "minemos"
+version = "0.1.0"
+description = "Persistent memory intelligence for AI applications"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+keywords = ["memory", "ai", "retrieval", "qdrant", "llm"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+
+# Direct runtime dependencies, pinned to the versions verified in this
+# repository. Transitive versions are locked in requirements.txt.
+dependencies = [
+    "numpy==2.5.2",
+    "scikit-learn==1.9.0",
+    "torch==2.14.0",
+    "transformers==5.16.1",
+    # TLS trust store used by the Hugging Face client and Qdrant client.
+    "certifi==2026.10.23",
+]
+
+[project.optional-dependencies]
+qdrant = [
+    "qdrant-client==1.20.0",
+]
+test = [
+    "pytest==9.1.1",
+]
+dev = [
+    "pytest==9.1.1",
+    "pip-audit==2.7.3",
+]
+
+[tool.setuptools.packages.find]
+include = ["minemos*", "minemos_engine*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

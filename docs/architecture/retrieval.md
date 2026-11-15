@@ -82,12 +82,10 @@ similarity, so BM25 contributes candidate membership, not ordering. This is why
 hybrid can equal dense metrics on corpora where BM25 would have ranked
 differently.
 
-`fusion="rrf"` is an opt-in experiment that orders the same candidate union by
-reciprocal rank (`rrf_k=60` by default). It changes ordering only: membership
-and the reported exact similarity are unchanged. It is not enabled by default
-and no general ranking improvement is claimed. See
-[Benchmark Methodology](../research/benchmark-methodology.md) for the measured
-synthetic result.
+`fusion="rrf"` is an opt-in ordering mode that orders the same candidate union
+by reciprocal rank (`rrf_k=60` by default). It changes ordering only:
+membership and the reported exact similarity are unchanged. It is not enabled by
+default; `hybrid_fusion="dense"` remains the standard.
 
 ## Metadata filters
 
@@ -121,7 +119,7 @@ Both preserve exact dense ranking parity with canonical. A snapshot is
 stale-but-coherent: it may omit mutations that happened after capture, but every
 row belongs to one engine state. Contention is an expected hand-off to
 canonical, not a correctness failure. Configuration lives in
-`phase2/retrieval/config.py`.
+`minemos_engine/retrieval/config.py`.
 
 These backends are opt-in and reversible at runtime with
 `mem.set_retrieval_backend("canonical")`. Canonical is always the default.
@@ -140,14 +138,14 @@ Mode resolution order is constructor argument, `MINEMOS_RETRIEVAL_MODE`, then
 Qdrant and validates its configuration at startup; the `canonical` mode never
 contacts Qdrant. Details are in
 [Configuration](../guides/configuration.md) and
-[Deployment](../guides/deployment.md).
+[Qdrant Integration](qdrant-integration.md).
 
 ## What retrieval does not do
 
 - It does not decide whether a fact should be remembered. That happens during
   `absorb()`.
 - It does not use lexical scoring in the canonical path.
-- It does not normalize BM25 scores against dense scores. Rank fusion was added
-  as the safer experiment because those scales are not comparable.
+- It does not normalize BM25 scores against dense scores. Rank fusion is the
+  safer option because those scales are not comparable.
 - It does not guarantee that the top-ranked row is the correct fact. End-to-end
   correctness also depends on consolidation, verification, and retention.

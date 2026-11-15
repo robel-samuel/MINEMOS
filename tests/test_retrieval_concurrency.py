@@ -14,10 +14,10 @@ import threading
 
 import pytest
 
-from phase2.checkpoint import (load_into_black_hole_memory, save_checkpoint)
-from phase2.retrieval import (IncrementalSnapshotRetriever, SnapshotContended,
+from minemos_engine.checkpoint import (load_into_black_hole_memory, save_checkpoint)
+from minemos_engine.retrieval import (IncrementalSnapshotRetriever, SnapshotContended,
                               SnapshotRetriever)
-from phase2.structured_candidate import Candidate
+from minemos_engine.structured_candidate import Candidate
 from tests._retrieval_helpers import (QUERY, add_facts, make_memory,
                                       rows_equal)
 
@@ -361,6 +361,7 @@ def test_concurrent_writers_and_readers_converge():
     errors = []
     last = {}
     barrier = threading.Barrier(5)
+    writer_done = threading.Event()
     writer_facts = [(f"W{i}", "likes", f"V{i}", 50.0 + i) for i in range(25)]
 
     def writer():
@@ -370,6 +371,8 @@ def test_concurrent_writers_and_readers_converge():
                 mem.absorb(Candidate(*fact[:3], timestamp=fact[3]))
         except BaseException as exc:            # pragma: no cover
             errors.append(exc)
+        finally:
+            writer_done.set()
 
     def reader(i):
         try:
@@ -383,6 +386,10 @@ def test_concurrent_writers_and_readers_converge():
                 assert len({r["slot_index"] for r in rows}) == len(rows)
                 assert len({r["slot_id"] for r in rows}) == len(rows)
                 last[i] = rows
+            # The final snapshot is taken after every write so the row-count
+            # assertion below does not depend on the writer's progress.
+            assert writer_done.wait(30), "writer did not finish"
+            last[i] = ret.query(QUERY, top_k=20)
         except BaseException as exc:            # pragma: no cover
             errors.append(exc)
 

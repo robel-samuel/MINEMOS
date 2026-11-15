@@ -10,8 +10,8 @@ from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
+from minemos_engine.black_hole_memory import BlackHoleMemory
+from minemos_engine.structured_candidate import Candidate
 
 WIDTH = 384
 QUERY = "q"

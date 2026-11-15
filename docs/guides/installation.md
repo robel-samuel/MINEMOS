@@ -1,7 +1,8 @@
 # Installation
 
-MINEMOS runs from the repository checkout. It is not published as an installable
-package, so examples assume the repository root is the working directory.
+MINEMOS installs as a Python package from the repository. `pip install -e .`
+registers both the public `minemos` interface and the `minemos_engine` engine
+package in editable mode, so edits in the checkout take effect immediately.
 
 ## Requirements
 
@@ -10,6 +11,10 @@ package, so examples assume the repository root is the working directory.
 - Approximately 2 GB of free space for the virtual environment and models.
 - Optional: a Qdrant server for the `production` retrieval profile. The
   canonical engine does not need it.
+
+Installation and the full suite are verified on Windows 10/11 with Python
+3.12.10. The code paths are platform-neutral and the CI workflow targets Ubuntu;
+run the suite on your platform before relying on it there.
 
 ## 1. Clone and create a virtual environment
 
@@ -26,18 +31,32 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-## 2. Install Python dependencies
+## 2. Install the package
 
-Install CPU-only PyTorch first from the PyTorch index, then the remaining pinned
-requirements:
+Install CPU-only PyTorch first from the PyTorch index, then install MINEMOS in
+editable mode:
 
 ```bash
 pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
+pip install -e .
 ```
 
-`requirements.txt` also pins `qdrant-client`; installing it does not start or
-connect to a Qdrant server. The canonical backend never imports the client.
+`pyproject.toml` declares the runtime dependencies (`numpy`, `scikit-learn`,
+`torch`, `transformers`, `certifi`). The canonical engine does not import or
+require the Qdrant client.
+
+Optional extras:
+
+```bash
+pip install -e ".[qdrant]"    # Qdrant backend
+pip install -e ".[test]"      # pytest
+pip install -e ".[dev]"       # pytest + pip-audit
+```
+
+`requirements.txt` pins the complete development and CI environment, including
+transitive packages, and can still be used when an exact environment is
+required. Installing `qdrant-client` does not start or connect to a Qdrant
+server.
 
 ## 3. Download the two models
 
@@ -66,14 +85,12 @@ this step to place them elsewhere. For offline runs after caching, set
 
 ## 4. Smoke test
 
-From the repository root:
-
 ```python
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
+from minemos import BlackHoleMemory, Candidate
 
 mem = BlackHoleMemory(capacity=50)
-result = mem.absorb(Candidate("alice", "works_at", "university", timestamp=1.0))
+result = mem.absorb(Candidate("alice", "works_at", "university",
+                              timestamp=1.0))
 print(result["action"])
 
 rows = mem.query("where does alice work", top_k=3)
@@ -85,7 +102,11 @@ missing, run step 3 again or check the Hugging Face cache location.
 
 ## 5. Run the tests
 
+Install the test extra first if it was skipped above, then run the suite from
+the repository root:
+
 ```bash
+pip install -e ".[test]"
 python -m pytest tests/ -q
 ```
 
@@ -111,14 +132,14 @@ docker run -p 6333:6333 -p 6334:6334 \
 
 Then set `QDRANT_URL` (and `QDRANT_API_KEY` for a secured remote host) before
 starting MINEMOS. Configuration details are in
-[Configuration](configuration.md); deployment rules are in
-[Deployment](deployment.md).
+[Configuration](configuration.md); the index contract is in
+[Qdrant Integration](../architecture/qdrant-integration.md).
 
 Embedded mode (`QDRANT_PATH`) is supported for development and tests. It is
 rejected by `retrieval_mode="production"`.
 
 ## Next steps
 
+- [Getting Started](../getting-started.md)
 - [Configuration](configuration.md)
-- [Quick start in the README](../../README.md#quick-start)
 - [Troubleshooting](../operations/troubleshooting.md)

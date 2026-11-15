@@ -36,7 +36,7 @@ Or construct directly:
 ```python
 mem = BlackHoleMemory.from_checkpoint(
     "state/memory.npz",
-    capacity=100,        # use the capacity recorded for the deployment
+    capacity=100,        # use the capacity recorded for this memory
     dim=4096,
 )
 ```
@@ -86,12 +86,27 @@ Redaction cannot rewrite archives or `.bak` files that already contain the
 content. Destroy those files explicitly if erasure must cover historical
 backups.
 
-## Backup limitation
+## Backup behavior
 
 The `.bak` archive contains the state from before the most recent save. If a
 slot was deleted and a new checkpoint saved, the `.bak` still contains that
 slot. Restoring it recovers deleted information. This is documented behavior,
 not secure erasure. Destroy backups explicitly if deletion must be permanent.
+
+## Restore behavior
+
+- Saving with `create_backup=True` keeps the previous archive as `<path>.bak`.
+- A truncated or corrupt primary raises `CheckpointCorruptedError` unless
+  `allow_backup_recovery=True` is set and a valid backup exists.
+- Loading a path outside `allowed_base_dir` raises `CheckpointPathSecurityError`.
+- A redacted slot stays redacted after save and reload. The archive stores an
+  empty text with the tombstone flag, and no redacted value remains in it.
+- A `.bak` written before a redaction still contains the redacted content.
+  Restoring it brings that content back.
+- `purge_redacted()` removes the tombstone; the purged memory does not return
+  after the next save and load.
+- With Qdrant active, loading a checkpoint triggers a forced reconcile. Point
+  ids equal the canonical `memory_id` set and stored texts equal the originals.
 
 ## Qdrant recovery
 
@@ -100,8 +115,8 @@ If Qdrant is lost or inconsistent:
 1. Canonical memory is unaffected. Confirm `retrieval_stats()` reports
    `degraded` with a canonical fallback.
 2. Restore canonical state from a checkpoint if needed.
-3. Rebuild the tenant's points from canonical slots through the Qdrant
-   retriever's `rebuild()`, or force a sync after restore.
+3. Call `mem.sync_retrieval_after_restore()` (or reload a checkpoint) to force
+   a full reconcile of this tenant's points from canonical state.
 4. Confirm `state` returns to `ready` and `degraded` is false.
 
 Never restore Qdrant as an authority over canonical memory. A Qdrant snapshot

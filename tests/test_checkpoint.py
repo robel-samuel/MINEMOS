@@ -3,11 +3,11 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from phase2.structured_candidate import Candidate
-from phase2.memory_state import MemoryState
-from phase2.memory_update import absorb
-from phase2.recall import recall
-from phase2.checkpoint import save_checkpoint, load_checkpoint
+from minemos_engine.structured_candidate import Candidate
+from minemos_engine.memory_state import MemoryState
+from minemos_engine.memory_update import absorb
+from minemos_engine.recall import recall
+from minemos_engine.checkpoint import save_checkpoint, load_checkpoint
 
 
 def test_checkpoint_roundtrip_preserves_recall(tmp_path):

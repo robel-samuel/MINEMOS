@@ -12,7 +12,9 @@ Commands are running outside the project virtual environment. Activate it:
 source .venv/bin/activate
 ```
 
-Then run commands from the repository root so `phase2` is importable.
+After `pip install -e .`, imports resolve from anywhere. Without an editable
+install, run commands from the repository root so `minemos` and `minemos_engine`
+are importable.
 
 ## Model download or loading failures
 
@@ -54,7 +56,8 @@ omit `hybrid`.
 The configured index is unavailable or dirty, and queries are being answered by
 canonical retrieval.
 
-1. Inspect `mem.retrieval_stats()` for `last_error` and `manager.dirty`.
+1. Inspect `mem.retrieval_stats()` for `last_error` and, when a manager is
+   present, `manager.dirty`.
 2. Check that the Qdrant server is reachable from the process.
 3. Verify the collection and tenant exist.
 4. Rebuild or resync the index if it was lost.
@@ -69,6 +72,25 @@ A non-canonical backend is selected but no retriever has been built yet. This is
 normal before the first query or write-path sync. If it persists after a query,
 the retriever could not be constructed; check the Qdrant configuration.
 
+## `eligible_query` abstains unexpectedly
+
+Inspect `status`, `reason`, and `evidence["state"]` in the outcome:
+
+| Reason | Cause |
+|---|---|
+| `subject_not_found` | The query names no stored entity |
+| `attribute_not_stored` | The entity exists but does not store the asked attribute |
+| `subject_ambiguous` | Two stored entities match the name equally well |
+| `evidence_insufficient` | The rows do not contain the question's content |
+| `document_scope_required` | Memory holds only document-scoped records; pass `subject` or `scope_subjects` |
+| `scope_not_found` | One or more requested scopes contain no visible record |
+| `low_similarity` | The caller's `min_similarity` was not met |
+
+Eligibility is opt-in filtering around canonical ranking, not a replacement for
+it. Use `query()` when you only need ranked rows and will judge them yourself.
+Use explicit `subject` for a document/conversation record; a verbatim archive
+cannot identify people from a name.
+
 ## Checkpoint load failures
 
 See [Recovery](recovery.md#what-can-go-wrong). Do not edit `.npz` archives by
@@ -77,9 +99,9 @@ it.
 
 ## High ingestion latency
 
-With Qdrant enabled, every accepted mutation triggers an index reconciliation.
-This is the consistency-first default. Ingestion cost grows with slot count, as
-shown in the synthetic benchmark. Alternatives:
+When an index is enabled, every accepted mutation triggers an index
+reconciliation. This is the consistency-first default. Ingestion cost grows with
+slot count. Alternatives:
 
 - Use the canonical backend when an index is not required.
 - Ingest in a controlled maintenance window.
@@ -99,8 +121,8 @@ consolidated, and superseded slots.
 
 Consolidation depends on the NLI verifier and entity/attribute rules. A
 high-lexical-variation paraphrase may be rejected and inserted separately. This
-is a measured limitation of the current verifier, not a configuration error.
-Inspect `absorb()` actions and the stored text to confirm.
+is behavior of the verifier, not a configuration error. Inspect `absorb()`
+actions and the stored text to confirm.
 
 ## Qdrant embedded database errors
 

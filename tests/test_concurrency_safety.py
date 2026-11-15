@@ -19,9 +19,9 @@ import tempfile
 import pytest
 import numpy as np
 
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
-from phase2.checkpoint import save_checkpoint, load_checkpoint
+from minemos_engine.black_hole_memory import BlackHoleMemory
+from minemos_engine.structured_candidate import Candidate
+from minemos_engine.checkpoint import save_checkpoint, load_checkpoint
 
 
 # ─────────────────────────────────────────────────────────────────────────────

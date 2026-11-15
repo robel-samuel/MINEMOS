@@ -1,13 +1,13 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "phase2"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "minemos_engine"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from phase2.structured_candidate import Candidate, encode_full, encode_query
-from phase2.memory_state import MemoryState, CapacityExceeded
-from phase2.memory_update import absorb, address, novelty, cosine_similarity
-from phase2.recall import recall
+from minemos_engine.structured_candidate import Candidate, encode_full, encode_query
+from minemos_engine.memory_state import MemoryState, CapacityExceeded
+from minemos_engine.memory_update import absorb, address, novelty, cosine_similarity
+from minemos_engine.recall import recall
 
 
 def test_empty_memory_novelty_is_1():

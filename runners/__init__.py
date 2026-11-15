@@ -1,3 +1,0 @@
-"""
-MINEMOS phase runners package.
-"""

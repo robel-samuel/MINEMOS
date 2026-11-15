@@ -1,5 +1,9 @@
-# MINEMOS dependencies
+# MINEMOS pinned development environment
 # Python 3.12
+#
+# Runtime dependencies and optional extras are declared in pyproject.toml.
+# This file locks the complete environment (including transitive packages,
+# the Qdrant client and pytest) used by CI and reproducible development.
 #
 # Core numeric / ML stack
 numpy==2.5.2
@@ -34,3 +38,9 @@ mpmath==1.3.0
 Jinja2==3.1.6
 MarkupSafe==3.0.3
 cloudpickle==3.1.2
+
+# TLS trust store used by httpx/requests (Qdrant client, Hugging Face Hub).
+# Pinned above PYSEC-2026-4320: certifi < 2026.10.18 trusts emSign roots whose
+# intermediate CA keys were compromised. 2026.10.18 removed all emSign roots;
+# 2026.10.19 restored the unaffected ones, so the floor is 2026.10.19.
+certifi==2026.10.23

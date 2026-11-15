@@ -1,12 +1,12 @@
 # Qdrant Integration
 
-Status: implemented and tested.  The `production` profile uses Qdrant as the
-standard retrieval backend for new deployments.  Existing installations and
-development keep the canonical default unless they opt in.
+The `production` retrieval profile uses Qdrant as the standard retrieval backend.
+Existing installations and development keep the canonical default unless they
+opt in.
 
 Related: [Architecture Overview](overview.md) ·
 [Retrieval](retrieval.md) · [Configuration](../guides/configuration.md) ·
-[Deployment](../guides/deployment.md) · [Recovery](../operations/recovery.md)
+[Recovery](../operations/recovery.md)
 
 MINEMOS remains the product, the intelligence engine, and the architectural
 authority. Qdrant is a derived persistent vector index inside MINEMOS. It is
@@ -18,9 +18,7 @@ survives.
 
 `retrieval_mode` selects how the retrieval backend is chosen.  It resolves in
 this order: constructor argument, `MINEMOS_RETRIEVAL_MODE`, then
-`RetrievalConfig.mode`; omitted values stay in `legacy` mode.  `production` is a
-retrieval deployment profile and does not change MINEMOS's status as an
-experimental memory platform.
+`RetrievalConfig.mode`; omitted values stay in `legacy` mode.
 
 | Mode | Selection | Behaviour |
 |---|---|---|
@@ -29,8 +27,7 @@ experimental memory platform.
 | `canonical` | `retrieval_mode="canonical"` or `MINEMOS_RETRIEVAL_MODE=canonical` | Canonical-only. Qdrant is never constructed or contacted, even when `QDRANT_*` variables are present. Intended for development, tests, recovery, and existing installations that choose not to run an index. |
 
 ```python
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.retrieval import QdrantConfig
+from minemos import BlackHoleMemory, QdrantConfig
 
 # Production: Qdrant is the standard retrieval backend.
 mem = BlackHoleMemory(
@@ -70,7 +67,7 @@ starts.  It requires:
 - `QDRANT_RECREATE=false`; automatic collection recreation is rejected in
   production.
 
-Failures raise `phase2.retrieval.RetrievalConfigurationError` with the specific
+Failures raise `minemos.RetrievalConfigurationError` with the specific
 missing or unsafe setting named in the message.  A configuration error is not a
 runtime outage: it fails startup rather than silently degrading to canonical.
 
@@ -129,8 +126,7 @@ The examples below use explicit construction.  In `production` mode the same
 settings are required; see [Deployment modes](#deployment-modes).
 
 ```python
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.retrieval import QdrantConfig
+from minemos import BlackHoleMemory, QdrantConfig
 
 mem = BlackHoleMemory(
     capacity=1000,
@@ -185,22 +181,22 @@ not introduce a second embedding pipeline and does not discard either existing
 retriever.
 
 The default ordering is **dense**: BM25 can only add candidates that dense
-retrieval did not return, and the final order is exact dense similarity.  The
-existing integration benchmark therefore reports hybrid metrics equal to dense
-on its lexically separable corpus; this is a property of the ordering, not a
-measurement of BM25's ranking value.
+retrieval did not return, and the final order is exact dense similarity. Hybrid
+ordering can therefore match dense ordering even when BM25 contributed
+candidate membership; this is a property of the ordering, not a measurement of
+BM25's ranking value.
 
-The audit conclusion is that this merge is not a true score fusion: BM25
+This merge is not a true score fusion: BM25
 contributes candidates, not ordering.  Raw BM25 scores are unbounded and not on
 the same scale as exact dot-product similarity, so score normalization would be
-corpus- and query-dependent.  Rank fusion is the safer first experiment because
+corpus- and query-dependent.  Rank fusion is the safer alternative because
 it needs only candidate order and leaves membership and the reported exact
 dense similarity untouched.
 
 #### Opt-in rank fusion
 
-`fusion="rrf"` (or `QDRANT_HYBRID_FUSION=rrf`) is an experimental, opt-in
-alternative that orders the merged candidate union by reciprocal rank instead
+`fusion="rrf"` (or `QDRANT_HYBRID_FUSION=rrf`) is an opt-in alternative that
+orders the merged candidate union by reciprocal rank instead
 of dense order.  It changes ordering only: the candidate union is identical,
 `similarity` remains the exact dense dot product, and no consolidation,
 retention, contradiction, temporal, or eviction logic changes.
@@ -294,8 +290,6 @@ touches another tenant's points in a shared collection.
   require a checkpoint migration.
 - Do not expose the API key through logs or `retrieval_stats()`; neither path
   includes it.
-- Historical Phase 31B/31C conclusions remain unchanged: Qdrant was rejected as
-  an authoritative memory store. Here it is only a derived retrieval index.
 
 ## Tests
 
@@ -321,51 +315,8 @@ By default the suite uses persistent embedded mode. Set `MINEMOS_QDRANT_URL`
 server-only roundtrip, against a real Qdrant server.
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/test_retrieval_production_mode.py -q
-.venv/Scripts/python.exe -m pytest tests/test_qdrant_integration.py -q
+python -m pytest tests/test_retrieval_production_mode.py -q
+python -m pytest tests/test_qdrant_integration.py -q
 MINEMOS_QDRANT_URL=http://127.0.0.1:6333 \
-  .venv/Scripts/python.exe -m pytest tests/test_qdrant_integration.py -q
+  python -m pytest tests/test_qdrant_integration.py -q
 ```
-
-## Benchmark
-
-`benchmarks/qdrant_retrieval_benchmark.py` compares MINEMOS canonical dense,
-Qdrant dense, BM25, and hybrid retrieval on the same canonical memory at
-increasing sizes. It reports Recall@1/3/5, MRR, nDCG@5, p50/p95 latency, CPU
-time, ingestion time with live indexing, rebuild time, and RSS.
-
-```bash
-.venv/Scripts/python.exe -m benchmarks.qdrant_retrieval_benchmark
-MINEMOS_QDRANT_URL=http://127.0.0.1:6333 \
-  .venv/Scripts/python.exe -m benchmarks.qdrant_retrieval_benchmark
-.venv/Scripts/python.exe -m benchmarks.qdrant_retrieval_benchmark \
-    --sizes 100 300 --include-rrf \
-    --output benchmarks/results/qdrant_hybrid_fusion_benchmark.json
-```
-
-Results are written to `benchmarks/results/qdrant_integration_benchmark.json`
-(embedded mode) or `benchmarks/results/qdrant_integration_benchmark_server.json`
-(server mode).  The opt-in RRF run writes a separate
-`benchmarks/results/qdrant_hybrid_fusion_benchmark.json` so the historical
-dense/hybrid results remain intact. The historical Phase 27 and Phase 31 results
-are not modified or reinterpreted.
-
-Measured on 2026-11-03 for 100/300/1000 target facts (200/600/2000 indexed
-points): Qdrant dense returned the same rows and metrics as canonical dense in
-both modes. Server-mode p50 latency was lower than embedded mode (19.9 vs
-34.2 ms at 200 points; 59.9 vs 134.5 ms at 2,000) but still above in-process
-canonical retrieval (14.3 and 41.8 ms). Per-fact ingestion with live indexing was
-68.7 / 66.6 / 138.9 ms in server mode, close to embedded mode, so ingestion is
-dominated by per-mutation synchronization rather than transport. Hybrid metrics
-equal dense because the final exact re-ranking is dense-based. These synthetic
-measurements do not claim Qdrant is faster or more accurate than canonical
-retrieval.
-
-The opt-in RRF run (`--include-rrf`, 100/300 target facts, stored in
-`benchmarks/results/qdrant_hybrid_fusion_benchmark.json`) measured MRR 0.775
-vs 0.771 at 200 points and 0.750 vs 0.714 at 600 points, with nDCG@5 0.976 vs
-0.971 and 0.973 vs 0.944. Recall@1 rose from 0.475 to 0.500 at the larger size;
-Recall@5 was 1.000 for every method. BM25 remained 1.000 on that synthetic
-corpus. With one corpus, one seed, and 40 queries per size, this is not
-evidence of a general ranking improvement; `hybrid_fusion="dense"` remains the
-default.

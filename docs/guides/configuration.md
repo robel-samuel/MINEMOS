@@ -22,7 +22,7 @@ policy.
 | `top_k_dense` | `8` | Dense candidate beam during absorption |
 | `top_k_bm25` | `8` | BM25 candidate beam |
 | `k_fusion` | `10` | Fused candidate count during absorption |
-| `w_anchor`, `decay_lambda`, `max_anchors` | frozen values | Anchor repulsion controls |
+| `w_anchor`, `decay_lambda`, `max_anchors` | engine defaults | Anchor repulsion controls |
 | `exclusive_predicates` | `None` | Explicit exclusive-predicate overrides |
 | `multi_valued_predicates` | `None` | Explicit multi-valued-predicate overrides |
 | `retrieval_backend` | `None` | `canonical`, `optimized`, `incremental`, `qdrant` |
@@ -31,8 +31,9 @@ policy.
 | `qdrant_config` | `None` | `QdrantConfig`, dict, or environment lookup |
 | `dense_encoder`, `nli_gate`, `verifier`, `lex_encoder` | `None` | Dependency injection for tests or custom models |
 
-Frozen parameter values must not be changed without a new controlled experiment.
-They are experimental controls, not tuning knobs.
+Defaults such as `delta_max` and `lambda_anchor` define the memory decision.
+Changing them changes what the engine stores, so treat them as behavioral
+settings rather than tuning knobs; existing checkpoints do not record them.
 
 Predicate policy overrides accept an iterable of predicates. Exclusivity is
 never inferred from predicate identity alone: an unlisted predicate is treated as
@@ -117,11 +118,11 @@ do not silently downgrade to canonical.
 ## Environment file
 
 Copy `.env.example` to `.env` only if you need optional settings such as
-`HF_HOME`, `OMP_NUM_THREADS`, or `TRANSFORMERS_OFFLINE`. Most users need no
+`HF_HOME`, `TRANSFORMERS_OFFLINE`, or a Qdrant endpoint. Most users need no
 environment variables. `.env` is ignored by git and must not be committed.
 
 ## Next steps
 
-- [Deployment](deployment.md)
 - [Qdrant Integration](../architecture/qdrant-integration.md)
-- [Monitoring](../operations/monitoring.md)
+- [Retrieval](../architecture/retrieval.md)
+- [Python API](../python-api.md)

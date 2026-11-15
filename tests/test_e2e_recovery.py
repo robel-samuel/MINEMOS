@@ -21,8 +21,8 @@ import subprocess
 import numpy as np
 import pytest
 
-from phase2.memory_state import MemoryState, MemorySlot
-from phase2.checkpoint import (
+from minemos_engine.memory_state import MemoryState, MemorySlot
+from minemos_engine.checkpoint import (
     save_checkpoint,
     load_checkpoint,
     load_into_black_hole_memory,
@@ -31,8 +31,8 @@ from phase2.checkpoint import (
     CheckpointValidationError,
     CheckpointNotFoundError,
 )
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
+from minemos_engine.black_hole_memory import BlackHoleMemory
+from minemos_engine.structured_candidate import Candidate
 
 
 def test_cross_process_lifecycle_e2e(tmp_path):
@@ -51,8 +51,8 @@ def test_cross_process_lifecycle_e2e(tmp_path):
     p1_code = f"""
 import sys
 sys.path.insert(0, '.')
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
+from minemos_engine.black_hole_memory import BlackHoleMemory
+from minemos_engine.structured_candidate import Candidate
 
 mem = BlackHoleMemory(capacity=20)
 mem.absorb(Candidate("Ada", "lives in", "London", timestamp=100.0))
@@ -71,8 +71,8 @@ print("P1_OK", len(mem.memory.slots))
     p2_code = f"""
 import sys
 sys.path.insert(0, '.')
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
+from minemos_engine.black_hole_memory import BlackHoleMemory
+from minemos_engine.structured_candidate import Candidate
 
 mem = BlackHoleMemory.from_checkpoint({repr(ckpt_path)}, capacity=20)
 assert len(mem.memory.slots) == 4
@@ -105,7 +105,7 @@ print("P2_OK", len(mem.memory.slots))
     p3_code = f"""
 import sys
 sys.path.insert(0, '.')
-from phase2.black_hole_memory import BlackHoleMemory
+from minemos_engine.black_hole_memory import BlackHoleMemory
 
 mem = BlackHoleMemory.from_checkpoint({repr(ckpt_path)}, capacity=20)
 assert len(mem.memory.slots) == 5
@@ -142,8 +142,8 @@ def test_process_crash_simulated_sigkill(tmp_path):
 import os
 import sys
 sys.path.insert(0, '.')
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
+from minemos_engine.black_hole_memory import BlackHoleMemory
+from minemos_engine.structured_candidate import Candidate
 
 mem = BlackHoleMemory(capacity=10)
 mem.absorb(Candidate("Alice", "status", "Active", timestamp=10.0))
@@ -160,7 +160,7 @@ os._exit(0)
     p_recover_code = f"""
 import sys
 sys.path.insert(0, '.')
-from phase2.black_hole_memory import BlackHoleMemory
+from minemos_engine.black_hole_memory import BlackHoleMemory
 
 mem = BlackHoleMemory.from_checkpoint({repr(ckpt_path)}, capacity=10)
 assert len(mem.memory.slots) == 2
@@ -203,8 +203,8 @@ import sys
 import os
 sys.path.insert(0, '.')
 import numpy as np
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
+from minemos_engine.black_hole_memory import BlackHoleMemory
+from minemos_engine.structured_candidate import Candidate
 
 mem = BlackHoleMemory.from_checkpoint({repr(ckpt_path)}, capacity=10)
 mem.absorb(Candidate("Bob", "level", "2", timestamp=2.0))
@@ -233,7 +233,7 @@ mem.save_checkpoint({repr(ckpt_path)})
     p_check = f"""
 import sys
 sys.path.insert(0, '.')
-from phase2.black_hole_memory import BlackHoleMemory
+from minemos_engine.black_hole_memory import BlackHoleMemory
 
 mem = BlackHoleMemory.from_checkpoint({repr(ckpt_path)}, capacity=10)
 assert len(mem.memory.slots) == 1

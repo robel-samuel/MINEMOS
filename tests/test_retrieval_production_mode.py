@@ -12,9 +12,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.checkpoint import load_checkpoint, load_into_black_hole_memory
-from phase2.retrieval import (
+from minemos_engine.black_hole_memory import BlackHoleMemory
+from minemos_engine.checkpoint import load_checkpoint, load_into_black_hole_memory
+from minemos_engine.retrieval import (
     CANONICAL,
     CANONICAL_ONLY,
     LEGACY,
@@ -24,7 +24,7 @@ from phase2.retrieval import (
     RetrievalConfig,
     RetrievalConfigurationError,
 )
-from phase2.structured_candidate import Candidate
+from minemos_engine.structured_candidate import Candidate
 from tests._retrieval_helpers import (
     QUERY,
     FixedEncoder,
@@ -315,7 +315,7 @@ def test_unavailable_qdrant_falls_back_to_canonical_and_reports_degraded(
         qdrant_config=_unreachable_config())
     add_facts(mem, FACTS)
 
-    with caplog.at_level("WARNING", logger="phase2.black_hole_memory"):
+    with caplog.at_level("WARNING", logger="minemos_engine.black_hole_memory"):
         rows = mem.query(QUERY, top_k=10)
         assert "canonical MINEMOS retrieval" in caplog.text or \
             "canonical retrieval" in caplog.text
@@ -467,7 +467,7 @@ def test_hybrid_fusion_defaults_to_dense_and_validates_values():
 
 
 def test_rrf_order_is_deterministic_and_rank_based():
-    from phase2.retrieval.qdrant import _rrf_order
+    from minemos_engine.retrieval.qdrant import _rrf_order
 
     # Dense: A, B, C.  Lexical: C, A, D.
     order = _rrf_order(["A", "B", "C"], ["C", "A", "D"], k=60)

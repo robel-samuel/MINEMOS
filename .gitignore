@@ -113,3 +113,10 @@ temp/
 *.dylib
 *.dll
 *.pyd
+
+# Private real-world evaluation data — never distribute
+evaluation/real_world/
+
+# Private research archive, commercial platform code and evaluation harness.
+# Kept on the maintainer's machine only; never part of the public repository.
+private/

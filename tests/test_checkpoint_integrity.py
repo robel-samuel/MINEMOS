@@ -25,8 +25,8 @@ import threading
 import numpy as np
 import pytest
 
-from phase2.memory_state import MemoryState, MemorySlot
-from phase2.checkpoint import (
+from minemos_engine.memory_state import MemoryState, MemorySlot
+from minemos_engine.checkpoint import (
     save_checkpoint,
     load_checkpoint,
     load_into_black_hole_memory,
@@ -36,8 +36,8 @@ from phase2.checkpoint import (
     CheckpointNotFoundError,
     SCHEMA_VERSION
 )
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
+from minemos_engine.black_hole_memory import BlackHoleMemory
+from minemos_engine.structured_candidate import Candidate
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -549,3 +549,47 @@ def test_concurrent_saves_during_heavy_mutations(tmp_path):
     final_mem = load_checkpoint(ckpt_path)
     assert len(final_mem.slots) > 0
     assert len(final_mem.slots) <= mem.capacity
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 13. Non-finite validity intervals
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_non_finite_valid_from_rejected(tmp_path):
+    path = str(tmp_path / "nan_valid_from.npz")
+    np.savez(
+        path,
+        keys=np.zeros((2, 64), dtype=np.float32),
+        values=np.zeros((2, 64), dtype=np.float32),
+        confidences=np.ones(2, dtype=np.float32),
+        timestamps=np.ones(2, dtype=np.float64),
+        created_ats=np.ones(2, dtype=np.float64),
+        update_counts=np.ones(2, dtype=np.int32),
+        valid_froms=np.array([1.0, np.nan], dtype=np.float64),
+        valid_untils=np.array([np.nan, np.nan], dtype=np.float64),
+        capacity=10,
+        dim=64,
+    )
+    with pytest.raises(CheckpointValidationError) as exc:
+        load_checkpoint(path)
+    assert "valid_froms" in str(exc.value)
+
+
+def test_infinite_valid_until_rejected(tmp_path):
+    path = str(tmp_path / "inf_valid_until.npz")
+    np.savez(
+        path,
+        keys=np.zeros((2, 64), dtype=np.float32),
+        values=np.zeros((2, 64), dtype=np.float32),
+        confidences=np.ones(2, dtype=np.float32),
+        timestamps=np.ones(2, dtype=np.float64),
+        created_ats=np.ones(2, dtype=np.float64),
+        update_counts=np.ones(2, dtype=np.int32),
+        valid_froms=np.array([1.0, 2.0], dtype=np.float64),
+        valid_untils=np.array([np.inf, np.nan], dtype=np.float64),
+        capacity=10,
+        dim=64,
+    )
+    with pytest.raises(CheckpointValidationError) as exc:
+        load_checkpoint(path)
+    assert "valid_untils" in str(exc.value)

@@ -1,150 +1,181 @@
-# Real-Data Ingestion
+# Data Ingestion
 
-The evaluation package (`evaluation/`) ingests naturally occurring material into
-an isolated MINEMOS store. It is separate from the service and from every
-research benchmark. Nothing in this package is part of the canonical engine API.
+MINEMOS stores observations, not documents. Ingestion therefore has two explicit
+stages that your application controls:
+
+1. **Parse** a source into boundary-preserving segments.
+2. **Extract** observations from each segment as `(subject, predicate, object)`.
+
+The engine does not ship a general-purpose natural-language fact extractor. It
+accepts structured observations and decides what to do with each one. Anything
+that turns free text into observations belongs to your application, where you can
+choose and audit the extractor.
 
 ## What the engine accepts
 
-The engine stores observations, not documents. Ingestion therefore has two
-explicit stages:
+```python
+from minemos import BlackHoleMemory, Candidate
 
-1. **Parse** a source file into boundary-preserving segments.
-2. **Extract** observations from each segment, either verbatim (one memory per
-   segment) or from an authorized upstream structured extractor.
+mem = BlackHoleMemory(capacity=10_000)
+mem.absorb(Candidate("user", "city", "Berlin"), timestamp=1767225600)
+```
 
-No template heuristic is presented as general-purpose fact extraction.
-
-## Source files and boundaries
-
-Sources are UTF-8 JSONL files. Every segment keeps its `source_id`,
-`document_id`/`conversation_id`, `segment_index`, character offsets, optional
-speaker, and original timestamp. A conversation is never flattened into an
-unstructured bag of facts.
-
-| `--source-type` | File shape |
+| Input | Behavior |
 |---|---|
-| `conversation` | Lines with `conversation_id` and either `messages[]` (`content`/`text`, `role`/`speaker`, `timestamp`) or a single message per line |
-| `document` | Lines with `document_id`/`id` and `text`, or an explicit `segments[]` list |
-| `notes`, `journal`, `technical_doc`, `research_doc`, `project_history`, `other` | Prose treated as a document; paragraphs and then sentences are split at ≤2000 characters |
-| `observation` | Lines with `subject`, `predicate`, `object`, optional `confidence`/`timestamp` |
+| `Candidate(subject, predicate, object, confidence=1.0, timestamp=0.0)` | Used as given; the candidate carries its own confidence and timestamp |
+| `(subject, predicate, object)` tuple | Wrapped in a candidate; the `absorb` arguments supply timestamp and confidence |
+| `"Subject predicate object."` string | Split on the first two spaces, remainder is the object; a string with fewer than three parts becomes `entity states <text>` |
 
-Conversation example:
+The string form is a convenience for already-structured facts. It is not a
+sentence parser and should not be used for conversations or documents.
 
-```jsonl
-{"conversation_id":"conv-2026-01","timestamp":1767225600,"messages":[{"role":"user","content":"I moved to Berlin in March.","timestamp":1767225600},{"role":"assistant","content":"Noted."}]}
-{"conversation_id":"conv-2026-01","timestamp":1767229200,"messages":[{"role":"user","content":"I moved to Munich last week.","timestamp":1767229200}]}
+## Choosing subjects and predicates
+
+| Source | Subject | Predicate | Object |
+|---|---|---|---|
+| User profile | `user` or the account ID | `city`, `language`, `employer` | The value |
+| Conversation archive | `conversation:<conversation-id>` | Segment position, e.g. `segment_12` | The message text |
+| Project notes | `project:<name>` | `deadline`, `owner`, `status` | The value |
+| External record | The record's stable ID | The field name | The field value |
+
+Rules that keep corrections working:
+
+- A subject is an identity your application will use again. Do not store
+  pronouns or display names that change.
+- A predicate is an attribute, not a sentence. Reuse the same predicate for the
+  same attribute across writers.
+- If a predicate must hold one value at a time, declare it with
+  `exclusive_predicates=["city", "employer"]`. An unlisted predicate is treated
+  as unknown, not exclusive.
+- Store values, not whole messages, when you need entity-level corrections.
+  Conversation-scoped segments are search material, not entity facts.
+
+## Ingesting a conversation
+
+```python
+import json
+from pathlib import Path
+
+from minemos import BlackHoleMemory, Candidate
+
+mem = BlackHoleMemory(capacity=10_000)
+
+for line in Path("conversation.jsonl").read_text(encoding="utf-8").splitlines():
+    record = json.loads(line)
+    conversation_id = record["conversation_id"]
+    subject = f"conversation:{conversation_id}"
+
+    for index, message in enumerate(record["messages"]):
+        mem.absorb(
+            Candidate(
+                subject,
+                f"segment_{index}",
+                message["content"],
+                timestamp=message.get("timestamp", record["timestamp"]),
+            ),
+            timestamp=message.get("timestamp", record["timestamp"]),
+        )
+
+mem.save_checkpoint("state/conversations.npz")
 ```
 
-Observation example:
+Each message keeps its own boundary and timestamp. The conversation is never
+flattened into a bag of unrelated facts.
 
-```jsonl
-{"subject":"user","predicate":"city","object":"Berlin","confidence":0.95,"timestamp":1767225600}
-{"subject":"user","predicate":"city","object":"Munich","confidence":0.95,"timestamp":1767312000}
+For entity facts inside the conversation, extract them and store them under the
+entity's normal subject:
+
+```python
+mem.absorb(Candidate("user", "city", "Berlin"), timestamp=turn_timestamp)
+mem.absorb(Candidate("user", "city", "Munich"), timestamp=later_turn_timestamp)
 ```
 
-### Timestamps
+The second observation supersedes the first; both remain queryable by time.
 
-- `original_timestamp` is a Unix float taken from the source when present.
-- Missing timestamps are allowed and counted in dry runs; they are not invented
-  from the file name or ingestion order.
-- `ingestion_timestamp` is recorded separately by the store for every
-  observation. Temporal evaluation can then distinguish source time from
-  arrival time.
+## Point-in-time queries over ingested content
 
-### Provenance fields
+```python
+# What was true at a given moment?
+mem.recall("user", "city", as_of=1767225600)
 
-Every ingested observation records `source_id`, `source_type`, `document_id`,
-`segment_index`, `segment_key` (`source_id:document_id:segment_index`),
-`ingestion_timestamp`, and content/fact digests. The provenance ledger contains
-digests and identifiers only — never source text.
-
-## Structured extraction
-
-Verbatim mode writes one segment per memory. Structured mode requires an
-observation mapping aligned by `segment_key`:
-
-```jsonl
-{"segment_key":"conv-2026-01:conv-2026-01:2","subject":"user","predicate":"city","object":"Munich"}
+# What does an explicit conversation scope contain?
+outcome = mem.eligible_query(
+    "where did the user say they moved",
+    scope_subjects=["conversation:conv-2026-01"],
+)
 ```
 
-```bash
-python -m evaluation.ingest ingest --root evaluation-data \
-  --source conversations.jsonl --source-type conversation \
-  --source-id conv-2026-01 --mode structured \
-  --observations extracted.jsonl
+The engine filters by the interval `[valid_from, valid_until)`. Source timestamps
+are what make this meaningful, so pass them.
+
+## Re-ingestion is not duplication
+
+Absorbing the same fact again is a decision, not an append. A repeated or
+paraphrased fact consolidates into the existing slot and raises its confidence.
+A changed value supersedes the old one. Re-running an ingestion job over the same
+source therefore does not create duplicate facts, but it does re-apply the
+decision to the current state.
+
+If you need to know how a re-ingested row was treated, inspect the `action` and
+`consolidation_class` in the `absorb()` result:
+
+```python
+result = mem.absorb(Candidate("user", "city", "Berlin"), timestamp=t)
+if result["action"] == "consolidate":
+    ...  # same fact restated
+elif result["action"] == "temporal_update":
+    ...  # value changed
 ```
 
-Structured mode is applied before the engine sees anything, so it is the
-authorized point at which an upstream extractor may be introduced. The mapping
-must cover the segments it claims; a structured file with no observations is
-rejected.
+## Large documents
 
-## Ingestion commands
+Split prose into paragraph-sized segments and keep an ordinal predicate:
 
-```bash
-# Create an isolated store (refuses a non-empty directory without a manifest).
-python -m evaluation.ingest init --root evaluation-data --tenant evaluation
-
-# Validate parsing without loading models or writing state.
-python -m evaluation.ingest ingest --root evaluation-data \
-  --source conversations.jsonl --source-type conversation \
-  --source-id conv-2026-01 --dry-run
-
-# Ingest verbatim.
-python -m evaluation.ingest ingest --root evaluation-data \
-  --source conversations.jsonl --source-type conversation \
-  --source-id conv-2026-01 --mode verbatim
-
-# Inspect, delete or redact.
-python -m evaluation.ingest list-sources --root evaluation-data
-python -m evaluation.ingest delete-source --root evaluation-data \
-  --source-id conv-2026-01
-python -m evaluation.ingest redact-source --root evaluation-data \
-  --source-id conv-2026-01
-python -m evaluation.ingest delete-memory --root evaluation-data \
-  --memory-id <uuid>
-python -m evaluation.ingest redact-memory --root evaluation-data \
-  --memory-id <uuid>
+```python
+subject = f"document:{document_id}"
+for index, paragraph in enumerate(paragraphs):
+    mem.absorb(Candidate(subject, f"segment_{index}", paragraph,
+                         timestamp=document_timestamp))
 ```
 
-Ingestion is idempotent per source: re-running the same source skips
-already-ingested segments rather than duplicating them. A source must contain
-exactly one `source_id` per file.
+Segments keep retrieval focused. A single observation containing an entire
+document dilutes similarity and cannot be corrected or partly redacted.
 
-## Credentials and sensitive content
+Use `segment_<index>` rather than a natural-language predicate so that
+document-scoped records are not mistaken for entity attributes.
 
-- `--credential-policy reject` (default) refuses content or identifiers that
-  contain credentials.
-- `--credential-policy redact` replaces detected credentials with a placeholder
-  before storage.
-- Sensitive personal information is not silently filtered. Operators must
-  either pre-clean sources or accept that they are stored; evaluation queries
-  and reports must never reproduce it.
+## Sensitive content
 
-Do not send private sources to any external service — model download, index
-service, or extractor — without explicit authorization.
+MINEMOS does not filter sensitive personal information. If a source contains
+data you should not store, clean it before ingestion or do not ingest it.
 
-## Deletion, redaction and retention
+- Do not put credentials, API keys, or tokens into an observation. They become
+  ordinary memory content and are persisted in checkpoints.
+- Redact before ingestion when the content is sensitive but the fact is needed.
+- Redaction after ingestion destroys the content in canonical state and the
+  Qdrant index, but cannot rewrite checkpoints and backups written earlier.
+  See [Recovery](../operations/recovery.md#privacy-deletion-and-redaction).
 
-Deleting or redacting a source removes the normalized segment file that holds
-its text and writes a tombstone; the source cannot be revived under the same
-`source_id`. Deleting a memory removes it from canonical state and Qdrant.
-Redaction zeroes content and excludes the memory from reads, checkpoints and
-retrieval.
+## Deletion and lifecycle
 
-**This is not secure erasure.** Filesystem snapshots, copy-on-write layers, disk
-images, and backups may retain earlier copies. The store cannot reach external
-backups. Document your own backup-retention rules before ingesting sensitive
-material, and treat the evaluation directory as containing sensitive data even
-after deletion.
+```python
+mem.redact_subject("user")          # destroy all content for one subject
+mem.delete_memory(memory_id)        # remove one slot by stable id
+mem.purge_subject("conversation:conv-2026-01")
+mem.purge_redacted()                # drop tombstones when they are no longer needed
+```
+
+`redact_*` keeps a chain-safe tombstone so supersession links remain valid; the
+content is excluded from queries, history, checkpoints, and the index.
+`delete_*` and `purge_*` remove the records. Neither operation rewrites files
+already written to disk outside the current checkpoint, so apply your own backup
+retention rules before ingesting sensitive material.
 
 ## Isolation
 
-An evaluation store owns its own directory, manifest, canonical checkpoint,
-provenance ledger, normalized sources, queries, ground truth and results. It
-never points at a production checkpoint. Use a distinct `tenant` per evaluation
-environment; one canonical memory serves one tenant.
+An ingestion job should own its own engine and checkpoint. Do not point a bulk
+ingestion process at a checkpoint that another process is writing. Partition by
+tenant and keep one writer per canonical memory.
 
-See [Evaluation Protocol](../operations/evaluation-protocol.md) for the
-pre-registered experiment and [Service](service.md) for the HTTP path.
+See [Integration](../integration.md) for the application-side pattern and
+[Python API](../python-api.md) for every call used here.

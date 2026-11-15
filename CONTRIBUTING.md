@@ -1,41 +1,42 @@
 # Contributing to MINEMOS
 
-Thank you for your interest in contributing. MINEMOS is a research codebase. Contributing here is different from contributing to a production library — the primary concern is **research integrity**, not feature velocity.
+MINEMOS is an open-source memory engine. Contributions that fix lifecycle
+defects, improve retrieval, add test coverage, or document existing behavior are
+welcome.
 
----
+## Before you start
 
-## Before You Start
+Open an issue describing the change before writing code when it affects:
 
-Open an issue describing what you intend to do before writing code. This is especially important for:
+- memory decisions (consolidation, contradiction, supersession, retention);
+- the verification gate or retrieval pipeline;
+- checkpoint format or compatibility;
+- public API behavior.
 
-- Changes to any frozen baseline parameter (these are experimental controls)
-- New experiment phases
-- Changes to the core update equation
-- Changes to the NLI gate or retrieval pipeline
+Small bug fixes and documentation improvements do not need an issue.
 
-For small bug fixes or documentation improvements, an issue is optional.
-
----
-
-## Development Setup
+## Development setup
 
 ```bash
 git clone <repository-url>
 cd MINEMOS
 
-# Windows
 python -m venv .venv
+
+# Windows
 .venv\Scripts\activate
 
 # Linux / macOS
-python -m venv .venv
 source .venv/bin/activate
 
 pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
+pip install -e ".[test]"
 ```
 
-Download the required models once:
+Use `pip install -e ".[qdrant,test]"` when working on the Qdrant backend, or
+`pip install -r requirements.txt` for the exact pinned CI environment.
+
+Download the two models once while online:
 
 ```python
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel
@@ -46,71 +47,60 @@ AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 ```
 
----
-
-## Running Tests
+## Running tests
 
 ```bash
-python -m pytest tests/ -v
+python -m pytest tests/ -q
 ```
 
-All 542 tests must pass before submitting a pull request.
+The Qdrant integration tests use an embedded database by default. To run them
+against a server:
 
----
-
-## Research Integrity Guidelines
-
-### Frozen Baselines
-
-Parameters marked as "FROZEN" in the source code are experimental controls established in earlier phases. They must not be changed without:
-
-1. Creating a new experiment phase
-2. Running against the frozen baseline as a control
-3. Documenting both outcomes
-
-Currently frozen (as of Phase 23):
-
-```
-w_anchor = 0.15
-decay_lambda = 0.005
-max_anchors = 3
-tau_min = 0.40
-tau_high = 0.75
-delta_margin = 0.10
-k_max = 3
-tau_anchor = 0.70
-MATCH_THRESHOLD = 0.75
+```bash
+MINEMOS_QDRANT_URL=http://127.0.0.1:6333 \
+  python -m pytest tests/test_qdrant_integration.py -q
 ```
 
-### Reporting Results
+A change is ready when the full suite passes. If a test fails only under heavy
+load, reproduce it in isolation and report the conditions instead of weakening
+the assertion.
 
-Any pull request that includes quantitative results must:
+## Engineering guidelines
 
-- State the dataset size, capacity, and random seed
-- Report both positive and negative findings
-- Distinguish experimental results from production claims
-- Not selectively report results that make the system look better than it is
+### Memory decisions are governed behavior
 
-### Code Comments and Docstrings
+Consolidation bounds, anchor weights, verification thresholds, and fusion
+weights are part of the engine's behavior. Do not change them as a side effect
+of an unrelated change. If a change intentionally alters memory decisions, add
+tests that pin the new behavior and explain the trade-off in the pull request.
 
-Preserve existing comments. They explain design decisions that are not obvious from the code alone — particularly the known limitations documented at the module level.
+### Correctness before speed
 
----
+Retrieval and lifecycle paths are concurrent. Keep the snapshot and
+cache-invalidation contracts intact: mutate canonical state through engine
+methods, never by writing `MemorySlot` fields or `memory.slots` directly.
 
-## Pull Request Checklist
+### Results need context
 
-- [ ] Tests pass (`pytest tests/ -v`)
-- [ ] No frozen baseline was silently modified
-- [ ] Existing docstrings and comments are preserved
+If a pull request includes measurements, state the dataset, capacity, and seed,
+and report negative results as well as positive ones. Do not present a result
+from one corpus as a general property of the engine.
+
+### Code comments
+
+Preserve comments that explain a non-obvious constraint, invariant, or
+workaround. Do not add comments that restate what the code does.
+
+## Pull request checklist
+
+- [ ] Tests pass (`python -m pytest tests/ -q`)
+- [ ] New behavior has a regression test
+- [ ] No checkpoint-format change without a compatibility note
 - [ ] No secrets, API keys, or personal paths committed
-- [ ] `scratch/` output files are not committed
-- [ ] If reporting new numbers: dataset, capacity, and seed are documented
+- [ ] Public documentation updated when the API changes
+- [ ] Generated artifacts and local data directories are not committed
 
----
+## License
 
-## What We Are Not Looking For
-
-- Performance optimizations that hide failures
-- Silent modifications to research behavior to make tests pass
-- Marketing-style descriptions of results
-- New dependencies unless clearly necessary
+By contributing, you agree that your contributions are licensed under the
+GNU Affero General Public License v3.0, the license of this repository.

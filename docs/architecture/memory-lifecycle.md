@@ -81,6 +81,14 @@ Historical statements such as "Alice previously lived in Oslo" are recorded as
 closed observations. They do not consolidate into, or supersede, a current
 state.
 
+Past-state detection applies to entity claims and deliberately not to verbatim
+transcript records. A `conversation:<key>` or `document:<key>` subject names a
+search boundary, not an entity whose state a past-tense clause can close;
+applying the marker rule there stored the whole message as a zero-length closed
+observation that active retrieval could never return. Document-scoped
+observations therefore take the normal lifecycle, while entity-scoped
+past-state statements keep the closed-observation behavior above.
+
 ### Return value
 
 `absorb()` returns a dictionary describing what happened. The `action` field is
@@ -126,6 +134,16 @@ meaning.
 Alternative consolidation modes (`baseline`, `bounded`, `anchor`) exist for
 controlled comparison. The default is `hybrid`.
 
+A whole-statement SAME verdict never authorizes a cross-relation merge by
+itself. When the predicates differ and they are not members of one exclusive
+attribute, the engine requires positive relation compatibility (both
+predicates belong to a configured relation family), non-empty fact content and
+mutual directional support; the verifier's SAME carries the paraphrase when the
+object wording differs. If either predicate is unclassified, the pair is
+preserved as independent facts: equal object strings are object identity, not
+relation identity. `plays guitar` and `owns guitar` therefore coexist in both
+observation orders, while a same-predicate paraphrase still consolidates.
+
 ## Contradiction and supersession
 
 When a genuine contradiction is established for the same entity and exclusive
@@ -154,6 +172,20 @@ active states.
 - `exclusive_temporal_conflicts()` reports active facts that cannot both hold
   for one exclusive attribute but are not linked by supersession. This detector
   is diagnostic and does not mutate memory.
+- `unresolved_temporal_corrections()` reports a retained older ownership fact
+  and a newer explicit disposal of the same entity that could not be safely
+  superseded. This is a narrow, evidence-backed pattern (ownership relation,
+  disposal verb, matching entity core, compatible legal form, non-negated
+  statement); broader paraphrased corrections are not detected by this
+  detector.
+- Both detectors, and `temporal_history_violations(...)`, hold the engine lock
+  and walk a copied slot list, so concurrent appends cannot change the
+  population mid-check and a diagnostic always describes one instant.
+- `eligible_query` returns this state as a separate `temporal` object
+  (`conflict_status`, `answer_is_settled`, `uncertain`, `confidence_scope`,
+  `temporal_conflicts`, `unresolved_corrections`) scoped to the returned rows.
+  In the strict profile implicated rows are stamped `settled: false`; rows and
+  competing values are never removed.
 
 ## Retention and eviction
 
@@ -173,6 +205,37 @@ one slot is evicted according to `retention_policy`:
 The live temporal successor is protected from eviction so that link chains never
 point at a removed slot. If every slot is protected, the policy falls back to all
 slots and the caller's capacity constraints take precedence.
+
+### Eviction contract
+
+Eviction is a single, complete removal. The evicted slot is popped from
+canonical state together with its text, dense vector, BM25 document,
+contradiction counters and anchors; supersession links that pointed at it are
+repaired, and the optional Qdrant index is reconciled so the point is deleted.
+Consequences:
+
+- **Active retrieval** (`query`, `recall`, `eligible_query` with the default
+  `active_only=True`) can never return an evicted slot.
+- **Historical retrieval** is available only for slots that are still resident.
+  A closed interval is not protected from capacity pressure: when the policy
+  selects it, point-in-time retrieval for that interval stops. This is the
+  documented retention trade-off, not a temporal-corruption state.
+- **Canonical persistence** writes the resident slots only. A checkpoint reload
+  cannot recreate an evicted slot, and stable `memory_id` values make the
+  absence verifiable.
+- **Derived retrieval** may never resurrect content. Qdrant search validates
+  every candidate against the live canonical state and drops stale points;
+  `sync_state` deletes points that are no longer canonical, and a full rebuild
+  re-indexes only resident slots.
+
+Capacity is exact. It is a working-set limit, not a durability guarantee: if
+the number of distinct facts exceeds capacity, the selected policy decides
+which provisional slot loses. In the default `tiered` policy the ordering is
+(1) consolidated slots are protected up to 80% of capacity, (2) provisional
+slots are ranked by verification-aware utility, (3) a live temporal successor
+is always protected. An active but provisional fact is not privileged over
+another active provisional fact; size capacity above the expected working set
+when every current fact must remain resident.
 
 ## Checkpoint persistence
 

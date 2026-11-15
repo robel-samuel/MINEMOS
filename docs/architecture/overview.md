@@ -10,15 +10,14 @@ vector index can be attached as a retrieval accelerator, but it does not decide
 what is remembered, what is superseded, or what survives capacity pressure. Those
 decisions belong to MINEMOS.
 
-This page describes the implemented system. Research motivation and historical
-measurements are in [Research](../research/README.md); deployment guidance is in
-[Deployment](../guides/deployment.md).
+This page describes the implemented system. For installation and first use, see
+[Getting Started](../getting-started.md).
 
 ## System boundary
 
 | Layer | Responsibility |
 |---|---|
-| Observation input | Natural-language text or explicit `(subject, predicate, object)` candidates |
+| Observation input | Structured three-part text or explicit `(subject, predicate, object)` candidates |
 | MINEMOS memory intelligence | Candidate addressing, consolidation, contradiction handling, supersession, temporal validity, retention and eviction |
 | Canonical state | Authoritative in-process `MemoryState` plus `.npz` checkpoints |
 | Retrieval orchestration | Candidate retrieval, metadata/temporal filtering, exact re-ranking, canonical fallback |
@@ -29,7 +28,7 @@ measurements are in [Research](../research/README.md); deployment guidance is in
 
 ```mermaid
 flowchart TD
-    A["Observation text or Candidate"] --> B["Parse / normalize\nsubject, predicate, object"]
+    A["Structured observation or Candidate"] --> B["Parse / normalize\nsubject, predicate, object"]
     B --> C["Lexical encoding\nFieldAwareLexicalEncoder\n(slot content, 4096-d default)"]
     B --> D["Dense encoding\nall-MiniLM-L6-v2\n(addressing and query, 384-d)"]
     C --> E["Adaptive dense candidate beam"]
@@ -64,15 +63,14 @@ canonical slot before it can appear in a result.
 
 | Component | Location | Role |
 |---|---|---|
-| `BlackHoleMemory` | `phase2/black_hole_memory.py` | Unified engine: `absorb`, `query`, `recall`, lifecycle and backend coordination |
-| `MemoryState`, `MemorySlot` | `phase2/memory_state.py` | Canonical slots, stable `memory_id`, validity windows, capacity enforcement |
-| Candidate/encoding | `phase2/structured_candidate.py`, `phase2/encoders.py` | Structured observations and deterministic lexical encoding |
-| Consolidation | `benchmarks/phase24_consolidation.py` | Bounded and anchor-regularized value updates |
-| Verification | `benchmarks/phase24_verification.py` | Calibrated bidirectional NLI decisions |
-| Retention | `benchmarks/phase24_retention.py` | Tiered and baseline eviction policies |
-| Retrieval backends | `phase2/retrieval/` | Canonical reference, optional snapshot backends, Qdrant |
-| Checkpoints | `phase2/checkpoint.py` | Atomic persistence, checksums, schema versioning |
-| Legacy store | `core/memory.py` | Phase 1 subject/predicate implementation, kept for reference |
+| `BlackHoleMemory` | `minemos_engine/black_hole_memory.py` | Unified engine: `absorb`, `query`, `recall`, lifecycle and backend coordination |
+| `MemoryState`, `MemorySlot` | `minemos_engine/memory_state.py` | Canonical slots, stable `memory_id`, validity windows, capacity enforcement |
+| Candidate/encoding | `minemos_engine/structured_candidate.py`, `minemos_engine/encoders.py` | Structured observations and deterministic lexical encoding |
+| Consolidation | `minemos_engine/intelligence/consolidation.py` | Bounded and anchor-regularized value updates |
+| Verification | `minemos_engine/intelligence/verification.py` | Calibrated bidirectional NLI decisions |
+| Retention | `minemos_engine/intelligence/retention.py` | Tiered and baseline eviction policies |
+| Retrieval backends | `minemos_engine/retrieval/` | Canonical reference, optional snapshot backends, Qdrant |
+| Checkpoints | `minemos_engine/checkpoint.py` | Atomic persistence, checksums, schema versioning |
 
 ## Where state lives
 

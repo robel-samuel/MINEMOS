@@ -1,75 +1,65 @@
 # MINEMOS Documentation
 
-MINEMOS is an experimental memory system for AI applications. It stores
+MINEMOS is a persistent memory engine for AI applications. It stores
 observations in a fixed-capacity canonical memory, consolidates repeated facts,
 records supersession and temporal validity, evicts under pressure, and retrieves
-relevant state. Qdrant can serve as a derived retrieval index, but MINEMOS remains
+relevant state. Qdrant can serve as a derived retrieval index; MINEMOS remains
 the memory authority.
 
-Start with the [README](../README.md) for the project overview and quick start.
+Start with the [README](../README.md) for the product overview and quick start,
+or [Getting Started](getting-started.md) to run the engine.
+
+## Learn and use
+
+- [Getting Started](getting-started.md) — install, absorb, query, look back in
+  time, persist, and restore.
+- [Python API](python-api.md) — every public engine method, its result shape,
+  and the answer presentation contract.
+- [Integration](integration.md) — adding memory to a chat assistant, agent, or
+  multi-user application.
+- [Data Ingestion](guides/data-ingestion.md) — turning conversations, documents,
+  and records into observations.
 
 ## Architecture
 
 - [Overview](architecture/overview.md) — components, boundaries, data flow, and
   where state lives.
-- [Memory Lifecycle](architecture/memory-lifecycle.md) — representation,
-  absorb decisions, consolidation, contradiction/supersession, retention, and
+- [Memory Lifecycle](architecture/memory-lifecycle.md) — representation, absorb
+  decisions, consolidation, contradiction and supersession, retention, and
   checkpoints.
 - [Retrieval](architecture/retrieval.md) — canonical retrieval, hybrid
   candidates, filters, snapshot backends, and fallback.
 - [Qdrant Integration](architecture/qdrant-integration.md) — deployment modes,
-  production rules, index lifecycle, tenancy, and failure isolation.
+  index lifecycle, tenancy, and failure isolation.
 
 ## Guides
 
 - [Installation](guides/installation.md) — Python 3.12 setup, CPU PyTorch,
   models, smoke test, and optional Qdrant.
-- [Configuration](guides/configuration.md) — engine parameters, retrieval
-  modes, environment variables, and production Qdrant rules.
-- [Deployment](guides/deployment.md) — profiles, topology, checklist, scale
-  expectations, and rollback.
-- [Service](guides/service.md) — HTTP boundary, authentication, validation,
-  rate limiting, logging, and locally verified vs. unverified behavior.
-- [Data Ingestion](guides/data-ingestion.md) — real-source formats,
-  boundaries, timestamps, provenance, extraction, and deletion/retention.
-
-## Research
-
-- [Research overview](research/README.md) — program, artifact map, and scope.
-- [Phase history](research/history.md) — what each phase changed and measured.
-- [Benchmark methodology and results](research/benchmark-methodology.md) —
-  failure schema, synthetic results, Qdrant tables, RRF experiment, and caveats.
-- [`reports/`](../reports/) and [`benchmarks/results/`](../benchmarks/results/)
-  — preserved historical reports and raw results.
+- [Configuration](guides/configuration.md) — engine parameters, retrieval modes,
+  and environment variables.
 
 ## Operations
 
-- [Monitoring](operations/monitoring.md) — status fields, retrieval state, logs,
-  and capacity checks.
-- [Recovery](operations/recovery.md) — checkpoint save/load, backups, Qdrant
-  rebuild, and canonical rollback.
+- [Recovery](operations/recovery.md) — checkpoint save/load, backups, privacy
+  deletion, Qdrant rebuild, and canonical rollback.
 - [Troubleshooting](operations/troubleshooting.md) — common errors and fixes.
-- [Evaluation Protocol](operations/evaluation-protocol.md) — pre-registered
-  30-day real-world evaluation. **Not started**; no run is claimed.
 
 ## Reading paths
 
 | Goal | Read |
 |---|---|
-| Try the engine | [Installation](guides/installation.md) then [README quick start](../README.md#quick-start) |
+| Try the engine | [Getting Started](getting-started.md) |
+| Add memory to an application | [Integration](integration.md) |
 | Understand memory decisions | [Memory Lifecycle](architecture/memory-lifecycle.md) |
+| Learn the API | [Python API](python-api.md) |
 | Enable Qdrant | [Configuration](guides/configuration.md) then [Qdrant Integration](architecture/qdrant-integration.md) |
-| Run the HTTP service | [Service](guides/service.md) |
-| Ingest real material | [Data Ingestion](guides/data-ingestion.md) |
-| Start the 30-day evaluation | [Evaluation Protocol](operations/evaluation-protocol.md) |
-| Deploy cautiously | [Deployment](guides/deployment.md) and [Recovery](operations/recovery.md) |
-| Review evidence | [Phase history](research/history.md) and [Benchmark Methodology](research/benchmark-methodology.md) |
+| Recover or erase state | [Recovery](operations/recovery.md) |
 | Contribute | [CONTRIBUTING.md](../CONTRIBUTING.md) |
 
 ## Documentation conventions
 
-- Implemented behavior is described from source code.
-- Experimental or opt-in behavior is labeled as such.
-- Historical results are reported as measured, with their original caveats.
-- Planned work is not described as implemented.
-- Configuration examples use placeholders, never real credentials.
+- Behavior is described from source code.
+- Examples use the supported `minemos` import path and placeholder credentials.
+- Optional components are labeled as optional.
+- Configuration examples never contain real credentials.

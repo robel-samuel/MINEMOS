@@ -11,9 +11,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from phase2.retrieval import (IncrementalSnapshotRetriever,
+from minemos_engine.retrieval import (IncrementalSnapshotRetriever,
                               SnapshotRetriever, _slice_count)
-from phase2.retrieval.snapshot import VectorizedRetriever
+from minemos_engine.retrieval.snapshot import VectorizedRetriever
 from tests._retrieval_helpers import (QUERY, FixedEncoder, Q_VECTOR, WIDTH,
                                       add_facts, make_memory, rows_equal,
                                       unit_vector)

@@ -1,267 +1,157 @@
 # MINEMOS
 
-**A persistent memory system for AI applications that retains, consolidates, supersedes, and retrieves knowledge under a fixed capacity.**
+**Persistent memory for AI applications.**
 
-[![Tests](https://github.com/robel-samuel/MINEMOS/actions/workflows/tests.yml/badge.svg)](https://github.com/robel-samuel/MINEMOS/actions/workflows/tests.yml)
-[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+MINEMOS is a Python memory engine that gives an AI application a durable,
+self-managing memory. It stores observations, reconciles new information against
+what it already knows, keeps superseded state queryable, and returns relevant
+facts for later questions.
 
-> **Research system.** MINEMOS is an experimental platform for studying memory
-> lifecycle behavior. Its results come from controlled experiments on synthetic
-> data. It is not a validated production memory service, and it is not a
-> vector database or a retrieval-augmented generation wrapper. See
-> [Status and maturity](#status-and-maturity) and [Limitations](#limitations).
+It is not a vector database and not a retrieval wrapper. A vector index can
+accelerate search, but it does not decide what is remembered, what is outdated,
+or what survives when memory is full. MINEMOS makes those decisions.
 
 ---
 
 ## Contents
 
-- [What MINEMOS is](#what-minemos-is)
-- [Why memory needs more than retrieval](#why-memory-needs-more-than-retrieval)
-- [Core idea](#core-idea)
+- [Why MINEMOS](#why-minemos)
+- [Capabilities](#capabilities)
 - [Architecture](#architecture)
-- [MINEMOS and Qdrant](#minemos-and-qdrant)
-- [Retrieval modes](#retrieval-modes)
-- [Status and maturity](#status-and-maturity)
+- [How memory flows](#how-memory-flows)
+- [Installation](#installation)
 - [Quick start](#quick-start)
+- [Use it from Python](#use-it-from-python)
+- [Persistence and retrieval](#persistence-and-retrieval)
+- [Qdrant's role](#qdrants-role)
 - [Configuration](#configuration)
-- [Tests](#tests)
+- [Requirements](#requirements)
 - [Documentation](#documentation)
-- [Research evidence](#research-evidence)
-- [Limitations](#limitations)
-- [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-## What MINEMOS is
+## Why MINEMOS
 
-MINEMOS is a memory engine for AI applications. It accepts observations,
-decides whether each observation reinforces, replaces, or adds to what it already
-knows, stores the result in a fixed-capacity canonical memory, and returns
-relevant state for later queries.
+A stateless model forgets everything between calls, and a context window has a
+fixed size. Retrieving more text does not solve the underlying problem:
 
-It is not a generic vector database and not an ordinary RAG layer. A vector index
-can accelerate candidate retrieval, but it does not decide what is remembered,
-what is outdated, what is superseded, or what survives capacity pressure. Those
-decisions belong to MINEMOS.
+- **Similarity is not sameness.** A paraphrase should reinforce a memory; a
+  changed value should replace it. Similar embeddings cannot reliably tell these
+  apart.
+- **Old and new facts compete.** A store that only appends eventually returns a
+  stale value and a current one with similar scores.
+- **Storage is not memory management.** Without consolidation and eviction,
+  memory fills with duplicates and contradictory records.
+- **History matters.** After a fact changes, the previous value is often needed
+  for point-in-time questions and audit.
 
-The engine maintains:
+MINEMOS treats these as memory lifecycle decisions rather than retrieval edge
+cases.
 
-- **Memory slots** with a frozen key, a consolidated value, confidence,
-  timestamps, validity bounds, a stable `memory_id`, and supersession links.
-- **Consolidation** of repeated or paraphrased facts using bounded,
-  anchor-regularized value updates.
-- **Contradiction handling** that distinguishes genuine state revision from
-  independent facts about the same subject.
-- **Temporal validity** with half-open intervals, point-in-time queries, and
+## Capabilities
+
+- **Structured observations.** Accepts `(subject, predicate, object)` candidates
+  with timestamps and confidence.
+- **Consolidation.** Repeated and paraphrased facts update a stored value
+  instead of creating duplicates.
+- **Contradiction handling.** A changed value closes the old validity window and
+  opens a successor; independent facts are stored separately.
+- **Temporal validity.** Half-open validity intervals, point-in-time queries, and
   queryable history after supersession.
-- **Tiered retention and eviction** under a hard capacity limit.
-- **Canonical persistence** through atomic `.npz` checkpoints.
-- **Retrieval** through exact canonical dense search, with an optional derived
-  Qdrant index and optional in-process snapshot backends.
-
----
-
-## Why memory needs more than retrieval
-
-A context window is finite, and a stateless model forgets everything between
-interactions. Simply retrieving more text does not solve the underlying problem:
-
-- **Relevance is not the same as truth.** Retrieval can return an old fact and a
-  newer, conflicting one with similar scores.
-- **Similarity is not the same as sameness.** A paraphrase should reinforce a
-  memory; a changed value should replace it. Dense similarity alone cannot
-  reliably tell these apart.
-- **Storage is not memory management.** A store that only appends eventually
-  fills with duplicates, stale values, and contradictory records.
-- **Capacity is a real constraint.** When memory is full, something must be
-  chosen for eviction, and that choice determines what can still be recalled.
-- **History matters.** After a fact is superseded, the previous state may still
-  be needed for point-in-time queries and audit.
-
-MINEMOS treats these as first-class lifecycle problems rather than retrieval
-edge cases.
-
----
-
-## Core idea
-
-Each memory slot stores a **frozen key** `k_i` and an updated **value** `v_i`.
-The key anchors retrieval and does not drift. On a SAME decision, the default
-`hybrid` consolidation mode bounds one update step and then regularizes the
-result toward the key:
-
-```text
-delta   = alpha * (x_t - v_prev)
-delta   = clip(delta, delta_max)
-v_next  = normalize((1 - lambda_anchor) * (v_prev + delta)
-                    + lambda_anchor * key)
-```
-
-where `alpha` is novelty (`1 - max dense similarity` to the candidate set),
-`delta_max = 0.25`, and `lambda_anchor = 0.20`. The key stays fixed, so repeated
-paraphrases cannot indefinitely rotate the stored representation away from its
-original meaning. Exact implementation details and alternative modes are in
-[Memory Lifecycle](docs/architecture/memory-lifecycle.md#consolidation).
-
----
+- **Identity.** Every slot has a stable `memory_id` that survives checkpoint
+  reloads.
+- **Retention.** A hard capacity limit with tiered, utility-aware eviction.
+- **Canonical persistence.** Atomic, checksummed `.npz` checkpoints with schema
+  versioning and backup recovery.
+- **Deletion and redaction.** Remove slots, or destroy their content while
+  keeping supersession chains intact.
+- **Retrieval.** Exact dense ranking over canonical state, optional metadata and
+  temporal filters, and an optional Qdrant index.
+- **Answer awareness.** An opt-in eligibility gate that distinguishes a settled
+  answer from a contested, ambiguous, or unsupported one.
 
 ## Architecture
 
-The canonical memory is the source of truth. Qdrant, when enabled, is a derived
-index that returns candidate IDs; MINEMOS resolves those IDs against canonical
-slots, applies its own temporal and metadata rules, and performs the final exact
-re-ranking.
+Canonical memory is the source of truth. Qdrant, when enabled, is a derived
+index: it returns candidate IDs, and MINEMOS resolves each ID against canonical
+state before a row can appear in a result.
 
 ```mermaid
 flowchart TD
-    subgraph Input["Memory input"]
-        A["Observation text or<br/>structured Candidate"]
-        B["Parse and encode"]
+    subgraph Input
+        A["Candidate or tuple<br/>subject, predicate, object"]
     end
 
-    subgraph Intelligence["MINEMOS memory intelligence"]
-        C["Candidate addressing<br/>dense beam + BM25"]
+    subgraph Decisions["Memory decisions"]
+        B["Lexical and dense encoding"]
+        C["Dense candidate beam<br/>+ BM25 candidates"]
         D["Verification gate<br/>SAME / CONTRADICTION / NEUTRAL"]
-        E{"Lifecycle decision"}
-        E1["Consolidate value<br/>(bounded, anchor-regularized)"]
-        E2["Supersede<br/>close validity window,<br/>open successor"]
-        E3["Insert or evict<br/>under capacity"]
+        E{"Decision"}
+        E1["Consolidate value"]
+        E2["Supersede<br/>close window, open successor"]
+        E3["Insert or evict"]
     end
 
-    subgraph Canonical["Canonical state (source of truth)"]
-        F["MemoryState slots<br/>key, value, confidence, timestamps,<br/>validity bounds, memory_id"]
-        G["Checkpoint .npz<br/>atomic, schema v5"]
+    subgraph Canonical["Canonical state"]
+        F["Memory slots<br/>key, value, confidence,<br/>validity window, memory_id"]
+        G["Checkpoint .npz<br/>atomic and checksummed"]
     end
 
-    subgraph Retrieval["Retrieval orchestration"]
+    subgraph Retrieval["Retrieval"]
         H["Query"]
-        R{"Backend"}
-        I["Candidate resolution<br/>temporal + metadata filters"]
-        K["Canonical fallback<br/>exact dense scan"]
-        L["Ranked memory rows"]
+        I["Candidate resolution<br/>temporal and metadata filters"]
+        J["Exact dense ranking"]
+        K["Ranked memory rows"]
     end
 
-    subgraph Index["Qdrant (derived index, optional)"]
+    subgraph Index["Qdrant (optional, derived)"]
         Q["Tenant-scoped dense vectors<br/>and payload metadata"]
     end
 
     A --> B --> C --> D --> E
-    E -- "SAME" --> E1
-    E -- "CONTRADICTION" --> E2
-    E -- "NEUTRAL / independent" --> E3
-
+    E -- SAME --> E1
+    E -- CONTRADICTION --> E2
+    E -- NEW --> E3
     E1 --> F
     E2 --> F
     E3 --> F
     F --> G
 
-    H --> R
-    R -- "qdrant" --> Q
+    H --> I
+    F --> J
     Q -. "candidate IDs only" .-> I
-    R -- "canonical / fallback" --> K
-    F --> K
+    I --> J --> K
     F -. "index sync after mutation" .-> Q
-    K --> I
-    I --> L
 ```
 
-Every mutation is committed to canonical state before the optional index is
-reconciled. If the index is unavailable, the memory decision still stands and
-queries fall back to canonical retrieval. The index is rebuildable and never
+A memory mutation commits to canonical state before the optional index is
+reconciled. If the index is unavailable, the decision still stands and queries
+fall back to canonical retrieval. The index is rebuildable and never
 authoritative.
 
-More detail: [Architecture Overview](docs/architecture/overview.md) ·
-[Memory Lifecycle](docs/architecture/memory-lifecycle.md) ·
-[Retrieval](docs/architecture/retrieval.md).
+## How memory flows
 
----
+1. **Observe.** Your application passes an observation: a subject, a predicate,
+   an object, and a timestamp.
+2. **Address.** MINEMOS encodes the observation lexically and densely, then
+   gathers candidate slots with a dense beam and a BM25 lexical index.
+3. **Verify.** A local NLI model compares the new observation with the
+   candidates and decides whether it restates a fact, contradicts it, or says
+   something new.
+4. **Decide.** A restatement consolidates the stored value. A contradiction
+   closes the old slot's validity window and opens a successor. A new fact is
+   inserted, evicting another slot if memory is full.
+5. **Persist.** Canonical state can be written to an atomic checkpoint at any
+   time.
+6. **Retrieve.** Queries rank canonical state by exact dense similarity and
+   apply temporal and metadata filters. Qdrant, when enabled, only supplies
+   candidates.
 
-## MINEMOS and Qdrant
+## Installation
 
-Qdrant is retrieval infrastructure, not the memory authority.
-
-| Concern | MINEMOS | Qdrant |
-|---|---|---|
-| Decide whether a fact is remembered | Owns | Not involved |
-| Consolidation and value updates | Owns | Not involved |
-| Contradiction, supersession, validity windows | Owns | Not involved |
-| Retention and eviction | Owns | Not involved |
-| Canonical state and checkpoints | Owns | Not stored authoritatively |
-| Dense candidate search | Configures and re-ranks | Executes |
-| Temporal and metadata filters | Re-applies exactly | Pre-filters |
-| Index recovery | Rebuilds from canonical state | Rebuildable derived index |
-
-A Qdrant hit can appear in a result only after it resolves to a live canonical
-slot. Unknown or stale IDs are dropped. Configuration, tenancy, recovery, and
-failure isolation are documented in
-[Qdrant Integration](docs/architecture/qdrant-integration.md).
-
-The historical Phase 31B/31C evaluation rejected Qdrant as an **authoritative**
-memory store. The current integration uses a different role — a derived
-retrieval index — and does not revise that verdict or claim Qdrant superiority.
-
----
-
-## Retrieval modes
-
-`retrieval_mode` selects the deployment profile:
-
-| Mode | Behavior |
-|---|---|
-| `legacy` (default) | Canonical retrieval unless a backend is selected explicitly. Existing installations are unchanged. |
-| `production` | Qdrant is the required retrieval backend. Configuration is validated at construction; missing or unsafe settings raise `RetrievalConfigurationError`. Runtime outages fall back to canonical and report `degraded`. |
-| `canonical` | Canonical only. Qdrant is never constructed or contacted, even if `QDRANT_*` variables are set. |
-
-`production` is a **strict retrieval deployment profile**, not a claim that the
-research system is production-ready. Resolution order is constructor argument,
-`MINEMOS_RETRIEVAL_MODE`, `RetrievalConfig.mode`, then `legacy`. See
-[Configuration](docs/guides/configuration.md#retrieval-modes).
-
----
-
-## Status and maturity
-
-| Area | Status | Notes |
-|---|---|---|
-| Slot lifecycle: absorb, consolidate, contradict, supersede, temporal validity | **Implemented** | Covered by the test suite; synthetic evaluation |
-| Tiered retention and eviction | **Implemented** | Default policy `tiered` |
-| Canonical dense retrieval and `recall` | **Implemented** | Reference retrieval path |
-| Checkpoint persistence | **Implemented** | Atomic `.npz`, schema v5, v1–v4 archives readable |
-| Stable memory IDs and supersession links | **Implemented** | Introduced in schema v4 |
-| Privacy redaction with chain-safe tombstones | **Implemented** | Schema v5; excludes content from reads, index, and archives |
-| Qdrant derived retrieval index | **Implemented** | Optional; canonical state remains authoritative |
-| `legacy` / `production` / `canonical` modes | **Implemented** | Strict production validation and runtime fallback |
-| Metadata filters | **Implemented** | Pushed to Qdrant and re-applied in MINEMOS |
-| Hybrid dense + BM25 candidate expansion | **Implemented (opt-in query)** | `hybrid=True` requires the Qdrant backend |
-| Optimized and incremental snapshot backends | **Experimental, opt-in** | Exact-ranking parity tested; not defaults |
-| Reciprocal-rank fusion (`fusion="rrf"`) | **Experimental, opt-in** | Ordering experiment; no quality claim |
-| Qdrant integration benchmark | **Experimental evidence** | Synthetic corpora up to 1,000 target facts |
-| Full-scale end-to-end accuracy on the integrated engine | **Planned** | Phase 23 measured individual failure modes, not a full integrated E2E result |
-| HTTP service boundary | **Implemented, locally verified** | API-key auth, roles, tenant scoping, validation, rate limiting, TLS listener; no external IdP or audit |
-| Real-data ingestion pipeline | **Implemented, locally verified** | Boundary-preserving conversation/document/prose parsing, provenance, deletion/redaction |
-| Real-world evaluation environment | **Ready, verified with synthetic fixtures** | Dedicated store, independent ground truth, versioned results; no real-world run yet |
-| 30-day continuous evaluation | **Not started** | Pre-registered protocol; zero days elapsed |
-| Residual paraphrase rejection research | **Planned** | 13.3% false rejection on the Phase 28 held-out synthetic set |
-| 100K-scale production validation, latency SLOs, HA, multi-process ingestion | **Not yet production-validated** | Not measured or supported |
-
-The suite currently collects **660 tests** (659 pass, 1 skip). CI runs the suite on Python 3.12 and
-performs a dependency vulnerability audit. See
-[`.github/workflows/tests.yml`](.github/workflows/tests.yml).
-
----
-
-## Quick start
-
-### Requirements
-
-- Python 3.12 (the version used by CI and the pinned dependencies)
-- CPU-only PyTorch; no GPU is required
-- Disk space for the virtual environment and the two model downloads
-- Optional: a Qdrant server for the `production` profile; the canonical engine
-  does not need it
-
-### Install
+Python 3.12 and CPU-only PyTorch are sufficient. No GPU and no external service
+are required.
 
 ```bash
 git clone https://github.com/robel-samuel/MINEMOS.git
@@ -276,10 +166,14 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
+pip install -e .
 ```
 
-Download the two models once while online:
+`pip install -e .` installs MINEMOS in editable mode from the repository root.
+Runtime dependencies are declared in `pyproject.toml`. For the optional Qdrant
+backend, use `pip install -e ".[qdrant]"` instead.
+
+Download the two local models once while online:
 
 ```bash
 python - <<'PY'
@@ -293,21 +187,23 @@ print("Models ready.")
 PY
 ```
 
-### Minimal working example
+Models are cached under `~/.cache/huggingface` by default. Set `HF_HOME` before
+this step to store them elsewhere, and `TRANSFORMERS_OFFLINE=1` for later
+offline runs.
 
-Run this from the repository root. It inserts a fact, supersedes it with a newer
-value, queries the active state, and retrieves the historical state as of an
-earlier timestamp.
+## Quick start
+
+Run this after installation. It stores a fact, supersedes it with a newer
+value, queries current state, and retrieves the earlier state.
 
 ```python
-from phase2.black_hole_memory import BlackHoleMemory
-from phase2.structured_candidate import Candidate
+from minemos import BlackHoleMemory, Candidate
 
 mem = BlackHoleMemory(capacity=50)
 
 mem.absorb(Candidate("Alice", "city", "New York"), timestamp=10.0)
 result = mem.absorb(Candidate("Alice", "city", "Boston"), timestamp=20.0)
-print(result["action"])  # temporal_update
+print(result["action"])          # temporal_update
 
 for row in mem.query("what city is Alice in", top_k=3):
     print(row["text"], row["valid_from"], row["valid_until"])
@@ -318,54 +214,118 @@ for row in mem.recall("Alice", "city", as_of=15.0):
 # Alice city New York. 10.0 20.0
 ```
 
-`absorb()` also accepts a `(subject, predicate, object)` tuple or a simple
-`"Subject Predicate Object."` string. Query rows are dictionaries; see
-[Retrieval](docs/architecture/retrieval.md#query-api) for every field.
-
-### Save and restore
+Save the memory and load it in a new engine:
 
 ```python
 mem.save_checkpoint("state/memory.npz", create_backup=True)
 
 restored = BlackHoleMemory.from_checkpoint("state/memory.npz")
-print(restored.status()["active_slots"])
+print(restored.status()["active_slots"])   # 1
 ```
 
-`from_checkpoint` constructs a new engine. To load into an existing engine, use
-`mem.load_checkpoint(path)`. See [Recovery](docs/operations/recovery.md).
+`absorb()` also accepts a `(subject, predicate, object)` tuple or a simple
+`"Subject Predicate Object."` string. Strings are split into three parts; they
+are a convenience for structured facts, not a natural-language extractor.
 
-### Canonical-only retrieval
+## Use it from Python
+
+The engine is an in-process library. A typical application writes observations
+after a turn and reads memory before generating an answer.
 
 ```python
-mem = BlackHoleMemory(capacity=100, retrieval_mode="canonical")
+from minemos import BlackHoleMemory, Candidate, answer_contract
+
+mem = BlackHoleMemory(capacity=10_000)
+
+# Write path: store one durable fact per observation.
+mem.absorb(Candidate("user", "preferred_language", "Python"),
+           timestamp=turn_timestamp)
+
+# Read path: retrieve facts that actually answer the question.
+outcome = mem.eligible_query("what is the user's preferred language", top_k=5)
+presentation = answer_contract(
+    outcome["status"], outcome["reason"],
+    outcome["temporal"], len(outcome["rows"]),
+)
+
+if presentation["answer_status"] == "settled":
+    context = "\n".join(row["text"] for row in outcome["rows"])
+else:
+    context = ""   # contested, ambiguous, or unsupported: do not assert
 ```
 
-No Qdrant client is constructed and no Qdrant environment variable is read.
+`eligible_query()` verifies that the named subject exists and stores the asked
+attribute, and that the returned rows contain the question's content. It
+abstains with a reason instead of returning the closest guess. `answer_contract()`
+turns that outcome into a presentation decision (`settled`, `contested`,
+`ambiguous`, `abstained`, `unverified`, `empty`, or `ungated`).
 
-### Production retrieval with Qdrant
+See [Integration](docs/integration.md) for persistence, multi-user scoping,
+conversation follow-ups, and agent patterns.
 
-Start a Qdrant server, then provide a server URL. Values below are placeholders.
+## Persistence and retrieval
 
-```bash
-export QDRANT_URL="https://qdrant.example.com:6333"
-export QDRANT_API_KEY="YOUR_QDRANT_API_KEY"
-export MINEMOS_RETRIEVAL_MODE="production"
-```
+**Canonical state** is the authoritative memory: a fixed-capacity set of slots,
+each with a frozen key, a consolidated value, confidence, timestamps, a validity
+window, a stable `memory_id`, and supersession links.
+
+**Checkpoints** write that state to an atomic, checksummed `.npz` archive.
+Saving can keep the previous archive as `.bak`, and loading validates schema,
+bounds, checksums, and path confinement. A restored engine rebuilds its text
+map, dense embeddings, BM25 index, anchors, and telemetry. Older archives load
+unchanged; schema v4 added stable IDs and schema v5 added redaction tombstones.
+
+**Retrieval** ranks eligible canonical slots by exact dense similarity and
+slices to `top_k`. `as_of` selects a point in time; `active_only` selects the
+current state; `filters` restrict subject, predicate, confidence, update count,
+or memory IDs. `recall()` and `get_history()` return exact attribute lookups in
+validity order.
+
+**Redaction** destroys a slot's content while keeping a chain-safe tombstone, so
+the record is excluded from reads, checkpoints, and the index without breaking
+supersession links. A `.bak` archive written before redaction still contains the
+earlier content.
+
+Optional in-process snapshot backends (`optimized`, `incremental`) serve an
+exact vectorized scan with the same ranking as canonical retrieval. They are
+opt-in and reversible at runtime.
+
+## Qdrant's role
+
+Qdrant is optional retrieval infrastructure, not the memory authority.
+
+| Concern | MINEMOS | Qdrant |
+|---|---|---|
+| Whether a fact is remembered | Owns | Not involved |
+| Consolidation and value updates | Owns | Not involved |
+| Contradiction, supersession, validity | Owns | Not involved |
+| Retention and eviction | Owns | Not involved |
+| Canonical state and checkpoints | Owns | Not stored authoritatively |
+| Dense candidate search | Configures and re-ranks | Executes |
+| Temporal and metadata filters | Re-applies exactly | Pre-filters |
+| Index recovery | Rebuilds from canonical state | Rebuildable derived index |
+
+Every Qdrant hit is resolved back to a live canonical slot. Unknown or stale IDs
+are dropped, and filters are re-applied in MINEMOS, so the index cannot widen or
+mis-rank the final result. If Qdrant is unavailable, queries fall back to
+canonical retrieval and `retrieval_stats()` reports `degraded`.
 
 ```python
-from phase2.black_hole_memory import BlackHoleMemory
+from minemos import BlackHoleMemory, QdrantConfig
 
-mem = BlackHoleMemory()  # fails fast if production configuration is invalid
+mem = BlackHoleMemory(
+    capacity=1000,
+    retrieval_backend="qdrant",
+    qdrant_config=QdrantConfig(
+        url="http://127.0.0.1:6333",
+        collection="minemos_memories",
+        tenant_id="customer-a",
+    ),
+)
 ```
 
-Production validation requires a server-mode `QDRANT_URL`, rejects embedded
-`QDRANT_PATH`, requires HTTPS and an API key for non-loopback hosts, and rejects
-`QDRANT_RECREATE=true`. Loopback hosts are exempt from the TLS and API-key rules.
-A runtime outage does not lose accepted memories: the index is marked dirty,
-queries fall back to canonical retrieval, and `retrieval_stats()` reports
-`degraded`.
-
----
+Configuration, lifecycle, tenancy, and failure isolation are documented in
+[Qdrant Integration](docs/architecture/qdrant-integration.md).
 
 ## Configuration
 
@@ -374,158 +334,75 @@ Common constructor parameters:
 
 | Parameter | Default | Purpose |
 |---|---|---|
-| `capacity` | `100` | Maximum stored slots, including superseded history |
+| `capacity` | `100` | Maximum stored slots, including history |
 | `retention_policy` | `"tiered"` | Eviction policy |
-| `verification_mode` | `"bidirectional"` | NLI comparison mode |
 | `consolidation_mode` | `"hybrid"` | Value update mode |
+| `verification_mode` | `"bidirectional"` | NLI comparison mode |
 | `retrieval_mode` | `None` | `legacy`, `production`, or `canonical` |
 | `retrieval_backend` | `None` | `canonical`, `optimized`, `incremental`, or `qdrant` |
+| `exclusive_predicates` | `None` | Predicates that hold one active value |
+| `strict_entity_identity` | `False` | Treat one-edit name differences as uncertain |
 
-Frozen research parameters (`delta_max=0.25`, `lambda_anchor=0.20`, anchor
-weights) are experimental controls, not tuning knobs. The full parameter and
-environment-variable reference is in
+`retrieval_mode="canonical"` never constructs or contacts Qdrant. The
+`production` profile requires a server-mode Qdrant URL and validates its
+configuration at startup. Full parameters and environment variables are in
 [Configuration](docs/guides/configuration.md).
 
----
+```python
+from minemos import BlackHoleMemory
 
-## Tests
+canonical_only = BlackHoleMemory(capacity=100, retrieval_mode="canonical")
+```
+
+## Requirements
+
+- Python 3.12.
+- CPU-only PyTorch; no GPU required.
+- Disk space for the virtual environment and two model downloads.
+- Optional: a Qdrant server for the `production` retrieval profile.
+
+Runtime dependencies are declared in `pyproject.toml`. `requirements.txt` pins
+the complete development and CI environment.
+
+Run the test suite with:
 
 ```bash
 python -m pytest tests/ -q
 ```
-
-The suite collects **660 tests**. Cache both model weights first (see
-[Quick start](#quick-start)). Qdrant integration tests use an embedded Qdrant
-database by default; run them against a server with:
-
-```bash
-MINEMOS_QDRANT_URL=http://127.0.0.1:6333 \
-  python -m pytest tests/test_qdrant_integration.py -q
-```
-
-CI runs the suite on Python 3.12 and performs a dependency vulnerability audit.
-A green suite is evidence that the tested behaviors hold; it is not a
-correctness guarantee for untested workloads.
-
----
 
 ## Documentation
 
 | Topic | Document |
 |---|---|
 | Documentation index | [docs/README.md](docs/README.md) |
+| Getting started | [docs/getting-started.md](docs/getting-started.md) |
+| Python API | [docs/python-api.md](docs/python-api.md) |
+| Integration guide | [docs/integration.md](docs/integration.md) |
 | Architecture overview | [docs/architecture/overview.md](docs/architecture/overview.md) |
 | Memory lifecycle | [docs/architecture/memory-lifecycle.md](docs/architecture/memory-lifecycle.md) |
 | Retrieval | [docs/architecture/retrieval.md](docs/architecture/retrieval.md) |
 | Qdrant integration | [docs/architecture/qdrant-integration.md](docs/architecture/qdrant-integration.md) |
 | Installation | [docs/guides/installation.md](docs/guides/installation.md) |
 | Configuration | [docs/guides/configuration.md](docs/guides/configuration.md) |
-| Deployment | [docs/guides/deployment.md](docs/guides/deployment.md) |
-| Research overview | [docs/research/README.md](docs/research/README.md) |
-| Phase history | [docs/research/history.md](docs/research/history.md) |
-| Benchmark methodology and results | [docs/research/benchmark-methodology.md](docs/research/benchmark-methodology.md) |
-| Monitoring | [docs/operations/monitoring.md](docs/operations/monitoring.md) |
+| Data ingestion | [docs/guides/data-ingestion.md](docs/guides/data-ingestion.md) |
 | Recovery | [docs/operations/recovery.md](docs/operations/recovery.md) |
 | Troubleshooting | [docs/operations/troubleshooting.md](docs/operations/troubleshooting.md) |
-| Historical reports | [reports/](reports/) |
-| Raw benchmark results | [benchmarks/results/](benchmarks/results/) |
+| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 Repository layout:
 
 ```text
-phase2/                  Engine, memory state, checkpoints, retrieval backends
-core/                    Phase 1 reference implementation
-benchmarks/              Experiment runners and raw results
-reports/                 Historical phase and audit reports
-tests/                   Test suite
-docs/                    Architecture, guides, research, and operations
+minemos/        Public import surface
+minemos_engine/         Engine, memory state, checkpoints, retrieval backends
+tests/          Test suite
+docs/           Architecture, guides, and operations
 ```
-
----
-
-## Research evidence
-
-All numbers below are from controlled synthetic experiments and retain their
-original caveats. They are not production guarantees. Raw artifacts are in
-[`benchmarks/results/`](benchmarks/results/) and the reports linked from
-[Phase history](docs/research/history.md).
-
-| Phase | Question | Reported result |
-|---|---|---|
-| 23 | Where do end-to-end failures originate? | Eviction (Category D) accounted for 48.2% of failures at scale; oracle retention moved accuracy from 0.0% to 40.0% |
-| 24–28 | Does tiered retention plus calibrated verification close those failures? | Target survival 100.0% (20/20) at C=25, N=320; contradiction detection 100.0%; false merge 0.00% on the held-out synthetic set |
-| 28 | Does anchor-bounded consolidation resist drift? | Minimum cosine to `v0` rose from 0.9520 to 0.9826 over a 9-update paraphrase chain (63.65% less drift) |
-| 28 | Does adaptive retrieval resist interference? | R@1 = MRR = 1.000 in all four conditions; all five methods tied at this ceiling |
-| 2026-11-03 | Does Qdrant reproduce canonical ranking? | Dense results matched canonical dense results on synthetic corpora up to 1,000 target facts, because final ranking is exact and runs in MINEMOS |
-
-The Qdrant integration benchmark does not revise the Phase 31B/31C verdict and
-does not establish 100K-scale quality. See
-[Benchmark Methodology](docs/research/benchmark-methodology.md) for tables,
-environment, and reproduction commands.
-
----
-
-## Limitations
-
-- **Research, not production validation.** The system has not been validated on
-  real conversational workloads, at 100K scale, or against latency SLOs.
-- **Synthetic evaluation.** Reported accuracy figures come from controlled
-  datasets with known ground truth.
-- **Qdrant is derived.** It cannot override canonical state. Losing the index
-  affects retrieval latency and candidate recall, not the facts themselves.
-- **Capacity includes history.** Superseded slots occupy capacity until evicted.
-  Frequent supersession needs headroom beyond the active fact count.
-- **One writer per canonical memory.** In-process access is thread-safe, but
-  multiple processes writing the same checkpoint are not coordinated.
-- **Simple observation parsing.** `absorb()` accepts structured candidates,
-  tuples, or a simple three-part sentence split; it is not a general natural
-  language extraction pipeline.
-- **Residual paraphrase rejection.** The verification model rejected 13.3% of
-  valid paraphrases on the Phase 28 held-out synthetic set.
-- **Partial unlinked-conflict detection.** Conflicts between independent active
-  facts are detectable, but the broader U1 criteria remain partially resolved;
-  see [`reports/U1_AUDIT_REPORT.md`](reports/U1_AUDIT_REPORT.md).
-- **Backup semantics.** A `.bak` checkpoint can restore facts deleted after the
-  previous save. It is not secure erasure.
-- **Service boundary is not a hardened perimeter.** The bundled stdlib HTTP
-  service adds authentication, roles, validation and rate limiting, but there is
-  no container image, external identity provider, gateway, metrics exporter, or
-  multi-process ingestion coordinator. Do not expose the engine directly to
-  untrusted clients without those protections.
-- **Real-world evaluation is not run.** The ingestion and evaluation
-  environment is prepared and locally verified; the 30-day protocol has not
-  started and no real-world accuracy claim exists.
-
-Operational constraints and deployment expectations are in
-[Deployment](docs/guides/deployment.md) and
-[Troubleshooting](docs/operations/troubleshooting.md).
-
----
-
-## Contributing
-
-MINEMOS is a research codebase. Contributions that fix lifecycle defects, add
-controlled experiments, improve test coverage, or document existing behavior are
-welcome. Open an issue before changing frozen baselines, the verification gate,
-or the retrieval pipeline.
-
-Quantitative contributions must state dataset size, capacity, and seed, and must
-report negative findings as well as positive ones. See
-[CONTRIBUTING.md](CONTRIBUTING.md).
-
----
 
 ## License
 
 MINEMOS is licensed under the **GNU Affero General Public License v3.0
 (AGPL-3.0)**. See [LICENSE](LICENSE) for the complete text.
 
-The AGPL-3.0 requires that modified versions run as a network service make their
-source available to users of that service. For research and local use, it adds
-no restrictions beyond standard open-source attribution.
-
----
-
-*MINEMOS is an experimental research system. All benchmark results are from
-controlled experiments on synthetic data and should not be interpreted as
-guarantees of production performance.*
+The AGPL-3.0 requires that modified versions run as a network service make
+their source available to users of that service. For local use and integration,
+it adds no restrictions beyond standard open-source attribution.
