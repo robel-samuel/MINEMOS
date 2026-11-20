@@ -1,0 +1,905 @@
+{
+  "dataset": "v4_value_extraction",
+  "summary": {
+    "cases": 56,
+    "expected_facts": 54,
+    "emitted_facts": 52,
+    "matched_facts": 40,
+    "recall": 0.7407,
+    "precision": 0.7692,
+    "value_exactness": 1.0,
+    "evidence_exactness": 1.0,
+    "evidence_grounded": 1.0,
+    "no_fact_compliance": 1.0,
+    "no_fact_cases": 8
+  },
+  "by_category": {
+    "contrast": {
+      "cases": 3,
+      "expected": 4,
+      "emitted": 4,
+      "matched": 4,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "correction": {
+      "cases": 2,
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "hypothetical": {
+      "cases": 2,
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0,
+      "no_fact_cases": 2,
+      "no_fact_clean": 2,
+      "precision": null,
+      "recall": null,
+      "no_fact_compliance": 1.0
+    },
+    "intention": {
+      "cases": 2,
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0,
+      "no_fact_cases": 2,
+      "no_fact_clean": 2,
+      "precision": null,
+      "recall": null,
+      "no_fact_compliance": 1.0
+    },
+    "multiple_facts": {
+      "cases": 6,
+      "expected": 11,
+      "emitted": 11,
+      "matched": 11,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "negation": {
+      "cases": 4,
+      "expected": 4,
+      "emitted": 2,
+      "matched": 2,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 0.5,
+      "no_fact_compliance": null
+    },
+    "opinion": {
+      "cases": 2,
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1,
+      "no_fact_cases": 1,
+      "no_fact_clean": 1,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": 1.0
+    },
+    "org_location_role": {
+      "cases": 7,
+      "expected": 7,
+      "emitted": 7,
+      "matched": 7,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "possessive": {
+      "cases": 3,
+      "expected": 3,
+      "emitted": 3,
+      "matched": 3,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "question": {
+      "cases": 2,
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0,
+      "no_fact_cases": 2,
+      "no_fact_clean": 2,
+      "precision": null,
+      "recall": null,
+      "no_fact_compliance": 1.0
+    },
+    "relative_clause_guard": {
+      "cases": 4,
+      "expected": 4,
+      "emitted": 4,
+      "matched": 4,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "span_and_padding": {
+      "cases": 3,
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2,
+      "no_fact_cases": 1,
+      "no_fact_clean": 1,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": 1.0
+    },
+    "temporal": {
+      "cases": 3,
+      "expected": 3,
+      "emitted": 3,
+      "matched": 3,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "trailing_interrogative": {
+      "cases": 4,
+      "expected": 4,
+      "emitted": 4,
+      "matched": 0,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "no_fact_compliance": null
+    },
+    "trailing_language_adverbial": {
+      "cases": 5,
+      "expected": 5,
+      "emitted": 5,
+      "matched": 1,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 0.2,
+      "recall": 0.2,
+      "no_fact_compliance": null
+    },
+    "trailing_new_clause": {
+      "cases": 4,
+      "expected": 4,
+      "emitted": 4,
+      "matched": 0,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "no_fact_compliance": null
+    }
+  },
+  "cases": [
+    {
+      "case_id": "V4-001",
+      "category": "trailing_interrogative",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-002",
+      "category": "trailing_interrogative",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-003",
+      "category": "trailing_interrogative",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-004",
+      "category": "trailing_interrogative",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-005",
+      "category": "trailing_new_clause",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-006",
+      "category": "trailing_new_clause",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-007",
+      "category": "trailing_new_clause",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-008",
+      "category": "trailing_new_clause",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-009",
+      "category": "trailing_language_adverbial",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-010",
+      "category": "trailing_language_adverbial",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-011",
+      "category": "trailing_language_adverbial",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-012",
+      "category": "trailing_language_adverbial",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-013",
+      "category": "trailing_language_adverbial",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-014",
+      "category": "relative_clause_guard",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-015",
+      "category": "relative_clause_guard",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-016",
+      "category": "relative_clause_guard",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-017",
+      "category": "relative_clause_guard",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-018",
+      "category": "multiple_facts",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-019",
+      "category": "multiple_facts",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-020",
+      "category": "multiple_facts",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-021",
+      "category": "multiple_facts",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-022",
+      "category": "multiple_facts",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-023",
+      "category": "multiple_facts",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-024",
+      "category": "correction",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-025",
+      "category": "correction",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-026",
+      "category": "negation",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-027",
+      "category": "negation",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-028",
+      "category": "negation",
+      "expected": 1,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-029",
+      "category": "negation",
+      "expected": 1,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-030",
+      "category": "possessive",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-031",
+      "category": "possessive",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-032",
+      "category": "possessive",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-033",
+      "category": "temporal",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-034",
+      "category": "temporal",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-035",
+      "category": "temporal",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-036",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-037",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-038",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-039",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-040",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-041",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-042",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-043",
+      "category": "hypothetical",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-044",
+      "category": "hypothetical",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-045",
+      "category": "question",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-046",
+      "category": "question",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-047",
+      "category": "intention",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-048",
+      "category": "intention",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-049",
+      "category": "opinion",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-050",
+      "category": "opinion",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-051",
+      "category": "contrast",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-052",
+      "category": "contrast",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-053",
+      "category": "contrast",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-054",
+      "category": "span_and_padding",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-055",
+      "category": "span_and_padding",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-056",
+      "category": "span_and_padding",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    }
+  ],
+  "failures": [
+    {
+      "case_id": "V4-001",
+      "category": "trailing_interrogative",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "lives_in",
+        "value": "ethiopia",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "ethiopia"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-001",
+      "category": "trailing_interrogative",
+      "kind": "wrong_value",
+      "predicate": "lives_in",
+      "value": "ethiopia are they offering a visa for a job",
+      "subject": "speaker",
+      "expected_value": [
+        "ethiopia"
+      ]
+    },
+    {
+      "case_id": "V4-002",
+      "category": "trailing_interrogative",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "has",
+        "value": "3 k followers on youtube",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "3k followers on youtube"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-002",
+      "category": "trailing_interrogative",
+      "kind": "wrong_value",
+      "predicate": "has",
+      "value": "3 k followers on youtube how much can i make per month",
+      "subject": "speaker",
+      "expected_value": [
+        "3 k followers on youtube"
+      ]
+    },
+    {
+      "case_id": "V4-003",
+      "category": "trailing_interrogative",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "speaks",
+        "value": "amharic",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "amharic"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-003",
+      "category": "trailing_interrogative",
+      "kind": "wrong_value",
+      "predicate": "speaks",
+      "value": "amharic what about you",
+      "subject": "speaker",
+      "expected_value": [
+        "amharic"
+      ]
+    },
+    {
+      "case_id": "V4-004",
+      "category": "trailing_interrogative",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "works_at",
+        "value": "acme",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "acme"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-004",
+      "category": "trailing_interrogative",
+      "kind": "wrong_value",
+      "predicate": "works_at",
+      "value": "acme do you know them",
+      "subject": "speaker",
+      "expected_value": [
+        "acme"
+      ]
+    },
+    {
+      "case_id": "V4-005",
+      "category": "trailing_new_clause",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "salary",
+        "value": "crypto",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "crypto"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-005",
+      "category": "trailing_new_clause",
+      "kind": "wrong_value",
+      "predicate": "salary",
+      "value": "crypto the i use p 2 p to change it to birr on binance",
+      "subject": "speaker",
+      "expected_value": [
+        "crypto"
+      ]
+    },
+    {
+      "case_id": "V4-006",
+      "category": "trailing_new_clause",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "has",
+        "value": "4 crates of mangoes",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "4 crates of mangoes"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-006",
+      "category": "trailing_new_clause",
+      "kind": "wrong_value",
+      "predicate": "has",
+      "value": "4 crates of mangoes i need 20 crates for the market i have 7 left",
+      "subject": "speaker",
+      "expected_value": [
+        "4 crates of mangoes"
+      ]
+    },
+    {
+      "case_id": "V4-007",
+      "category": "trailing_new_clause",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "works_as",
+        "value": "nurse",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "nurse"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-007",
+      "category": "trailing_new_clause",
+      "kind": "wrong_value",
+      "predicate": "works_as",
+      "value": "nurse i want to move to dubai",
+      "subject": "speaker",
+      "expected_value": [
+        "nurse"
+      ]
+    },
+    {
+      "case_id": "V4-008",
+      "category": "trailing_new_clause",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "has",
+        "value": "two kids",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "two kids"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-008",
+      "category": "trailing_new_clause",
+      "kind": "wrong_value",
+      "predicate": "has",
+      "value": "two kids i need a bigger flat",
+      "subject": "speaker",
+      "expected_value": [
+        "two kids"
+      ]
+    },
+    {
+      "case_id": "V4-009",
+      "category": "trailing_language_adverbial",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "has",
+        "value": "migrated to superbase",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "migrated to superbase"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-009",
+      "category": "trailing_language_adverbial",
+      "kind": "wrong_value",
+      "predicate": "has",
+      "value": "migrated to superbase, in english",
+      "subject": "speaker",
+      "expected_value": [
+        "migrated to superbase"
+      ]
+    },
+    {
+      "case_id": "V4-010",
+      "category": "trailing_language_adverbial",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "works_at",
+        "value": "acme",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "acme"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-010",
+      "category": "trailing_language_adverbial",
+      "kind": "wrong_value",
+      "predicate": "works_at",
+      "value": "acme, in english",
+      "subject": "speaker",
+      "expected_value": [
+        "acme"
+      ]
+    },
+    {
+      "case_id": "V4-011",
+      "category": "trailing_language_adverbial",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "studies",
+        "value": "medicine",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "medicine"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-011",
+      "category": "trailing_language_adverbial",
+      "kind": "wrong_value",
+      "predicate": "studies",
+      "value": "medicine, in english",
+      "subject": "speaker",
+      "expected_value": [
+        "medicine"
+      ]
+    },
+    {
+      "case_id": "V4-012",
+      "category": "trailing_language_adverbial",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "lives_in",
+        "value": "addis ababa",
+        "subject": "speaker",
+        "polarity": "positive",
+        "evidence": "addis ababa"
+      },
+      "known_gap": null
+    },
+    {
+      "case_id": "V4-012",
+      "category": "trailing_language_adverbial",
+      "kind": "wrong_value",
+      "predicate": "lives_in",
+      "value": "addis ababa, in amharic",
+      "subject": "speaker",
+      "expected_value": [
+        "addis ababa"
+      ]
+    },
+    {
+      "case_id": "V4-028",
+      "category": "negation",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "lives_in",
+        "value": "oslo",
+        "subject": "derived:brother",
+        "polarity": "negative",
+        "evidence": "oslo"
+      },
+      "known_gap": "A negated third-party clause is not matched by the relation rules; today the safe outcome is no fact, so this row is a measured miss."
+    },
+    {
+      "case_id": "V4-029",
+      "category": "negation",
+      "kind": "missing_fact",
+      "expected": {
+        "predicate": "has",
+        "value": "car",
+        "subject": "speaker",
+        "polarity": "negative",
+        "evidence": "car"
+      },
+      "known_gap": "Negated possession has no speaker rule; no fact is emitted today."
+    }
+  ],
+  "variant": "v4-ablation-no-trailing-trims"
+}

@@ -1,8 +1,10 @@
 # Installation
 
-MINEMOS installs as a Python package from the repository. `pip install -e .`
-registers both the public `minemos` interface and the `minemos_engine` engine
-package in editable mode, so edits in the checkout take effect immediately.
+MINEMOS is published on PyPI as `minemos`. `pip install minemos` installs the
+public `minemos` interface and the `minemos_engine` engine package as a normal
+non-editable wheel, which is the recommended path for applications. For
+development, a source checkout installed in editable mode is described in
+[Install from source](#install-from-source).
 
 ## Requirements
 
@@ -16,12 +18,9 @@ Installation and the full suite are verified on Windows 10/11 with Python
 3.12.10. The code paths are platform-neutral and the CI workflow targets Ubuntu;
 run the suite on your platform before relying on it there.
 
-## 1. Clone and create a virtual environment
+## 1. Create a virtual environment
 
 ```bash
-git clone https://github.com/robel-samuel/MINEMOS.git
-cd MINEMOS
-
 python -m venv .venv
 
 # Windows
@@ -33,12 +32,11 @@ source .venv/bin/activate
 
 ## 2. Install the package
 
-Install CPU-only PyTorch first from the PyTorch index, then install MINEMOS in
-editable mode:
+Install CPU-only PyTorch first from the PyTorch index, then install MINEMOS:
 
 ```bash
 pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
-pip install -e .
+pip install minemos
 ```
 
 `pyproject.toml` declares the runtime dependencies (`numpy`, `scikit-learn`,
@@ -48,9 +46,9 @@ require the Qdrant client.
 Optional extras:
 
 ```bash
-pip install -e ".[qdrant]"    # Qdrant backend
-pip install -e ".[test]"      # pytest
-pip install -e ".[dev]"       # pytest + pip-audit
+pip install "minemos[qdrant]"    # Qdrant backend
+pip install "minemos[test]"      # pytest
+pip install "minemos[dev]"       # pytest + pip-audit
 ```
 
 `requirements.txt` pins the complete development and CI environment, including
@@ -102,10 +100,12 @@ missing, run step 3 again or check the Hugging Face cache location.
 
 ## 5. Run the tests
 
-Install the test extra first if it was skipped above, then run the suite from
-the repository root:
+The test suite lives in the source repository. Clone it, install the test extra
+in editable mode, and run pytest from the repository root:
 
 ```bash
+git clone https://github.com/robel-samuel/MINEMOS.git
+cd MINEMOS
 pip install -e ".[test]"
 python -m pytest tests/ -q
 ```
@@ -137,6 +137,21 @@ starting MINEMOS. Configuration details are in
 
 Embedded mode (`QDRANT_PATH`) is supported for development and tests. It is
 rejected by `retrieval_mode="production"`.
+
+## Install from source
+
+For development, install the checkout in editable mode so changes take effect
+without reinstalling:
+
+```bash
+git clone https://github.com/robel-samuel/MINEMOS.git
+cd MINEMOS
+pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[qdrant,test]"
+```
+
+`pip install -e .` registers the public `minemos` interface and the
+`minemos_engine` engine package in editable mode.
 
 ## Next steps
 

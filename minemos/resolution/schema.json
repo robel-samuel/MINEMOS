@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://minemos.dev/schema/resolution-1.json",
+  "title": "MINEMOS resolution record",
+  "description": "Output of the semantic resolution layer for one source message. Candidate-only: a record never mutates canonical memory.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version", "source", "original_text", "normalized", "language",
+    "entities", "facts", "attributions", "relationships", "stage_confidence",
+    "ambiguities", "abstentions", "provider"
+  ],
+  "properties": {
+    "version": {"const": "minemos.resolution/1"},
+    "provider": {"type": "string"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conversation_id", "message_id", "text"],
+      "properties": {
+        "conversation_id": {"type": "string", "minLength": 1},
+        "message_id": {"type": "string", "minLength": 1},
+        "message_key": {"type": ["string", "null"]},
+        "speaker": {"type": ["string", "null"]},
+        "timestamp": {"type": ["number", "null"]},
+        "order": {"type": "integer"},
+        "text": {"type": "string"}
+      }
+    },
+    "original_text": {"type": "string", "minLength": 1},
+    "normalized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["original", "text", "tokens", "edits"],
+      "properties": {
+        "original": {"type": "string"},
+        "text": {"type": "string"},
+        "tokens": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text", "source_start", "source_end"],
+            "properties": {
+              "text": {"type": "string"},
+              "source_start": {"type": "integer", "minimum": 0},
+              "source_end": {"type": "integer", "minimum": 0},
+              "edited": {"type": "boolean"}
+            }
+          }
+        },
+        "edits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "source_start", "source_end", "original", "replacement", "confidence", "reverse"],
+            "properties": {
+              "kind": {"type": "string"},
+              "source_start": {"type": "integer", "minimum": 0},
+              "source_end": {"type": "integer", "minimum": 0},
+              "original": {"type": "string"},
+              "replacement": {"type": "string"},
+              "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+              "reason": {"type": "string"},
+              "reverse": {
+                "type": "object",
+                "required": ["source_start", "source_end", "text"],
+                "properties": {
+                  "source_start": {"type": "integer"},
+                  "source_end": {"type": "integer"},
+                  "text": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "sentence_terminated": {"type": "boolean"},
+        "ambiguities": {"type": "array", "items": {"type": "string"}},
+        "reversible": {"type": "boolean"}
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary", "confidence"],
+      "properties": {
+        "primary": {"type": "string"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "mixed": {"type": "boolean"},
+        "alternates": {"type": "array", "items": {"type": "string"}},
+        "spans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["start", "end", "language", "confidence"],
+            "properties": {
+              "start": {"type": "integer", "minimum": 0},
+              "end": {"type": "integer", "minimum": 0},
+              "language": {"type": "string"},
+              "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+            }
+          }
+        }
+      }
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "type", "span", "confidence"],
+        "properties": {
+          "text": {"type": "string"},
+          "type": {"type": "string"},
+          "span": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "rule": {"type": "string"}
+        }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fact_id", "subject", "predicate", "value", "value_span", "confidence", "evidence"],
+        "properties": {
+          "fact_id": {"type": "string", "minLength": 1},
+          "subject": {
+            "type": "object",
+            "required": ["kind", "label", "confidence"],
+            "properties": {
+              "kind": {"enum": ["speaker", "named", "derived", "unknown"]},
+              "label": {"type": "string", "minLength": 1},
+              "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+              "owner": {"type": ["string", "null"]},
+              "relation": {"type": ["string", "null"]},
+              "entity_key": {"type": ["string", "null"]},
+              "resolved_from": {"type": "string"},
+              "status": {"enum": ["resolved", "ambiguous", "unknown"]},
+              "ambiguity": {"type": ["string", "null"]}
+            }
+          },
+          "predicate": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "value": {"type": "string", "minLength": 1},
+          "value_span": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "polarity": {"type": "string"},
+          "modality": {"type": "string"},
+          "rule": {"type": "string"},
+          "language": {"type": "string"},
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["message_id", "conversation_id", "start", "end", "text", "rule"],
+              "properties": {
+                "message_id": {"type": "string"},
+                "conversation_id": {"type": "string"},
+                "start": {"type": "integer", "minimum": 0},
+                "end": {"type": "integer", "minimum": 0},
+                "text": {"type": "string"},
+                "rule": {"type": "string"}
+              }
+            }
+          },
+          "entities": {"type": "array", "items": {"type": "object"}},
+          "temporal": {"type": "array", "items": {"type": "object"}}
+        }
+      }
+    },
+    "attributions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["speaker", "subject", "status"],
+        "properties": {
+          "speaker": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "confidence", "source"],
+            "properties": {
+              "id": {"type": "string"},
+              "label": {"type": "string"},
+              "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+              "source": {"type": "string"}
+            }
+          },
+          "subject": {"type": "object"},
+          "status": {"enum": ["resolved", "ambiguous", "unknown"]},
+          "evidence": {"type": "array", "items": {"type": "string"}},
+          "fact_id": {"type": ["string", "null"]},
+          "scope": {"enum": ["message", "conversation", "cross_conversation"]},
+          "referenced": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "confidence"],
+        "properties": {
+          "label": {"enum": ["duplicate", "temporal_update", "historical_observation", "distinct_fact", "unresolved"]},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "target_fact_id": {"type": ["string", "null"]},
+          "evidence": {
+            "type": "array",
+            "description": "Structural signals only; never raw private text.",
+            "items": {"type": "object"}
+          },
+          "reason": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "stage_confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalization", "interpretation", "identity", "relationships"],
+      "properties": {
+        "normalization": {"type": "number", "minimum": 0, "maximum": 1},
+        "interpretation": {"type": "number", "minimum": 0, "maximum": 1},
+        "identity": {"type": "number", "minimum": 0, "maximum": 1},
+        "relationships": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "ambiguities": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "abstentions": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "transitions": {
+      "type": "array",
+      "description": "Append-only identity transitions; earlier facts keep their original subject.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "message_id"],
+        "properties": {
+          "kind": {"enum": ["relation_linked", "speaker_change", "name_change", "ownership_change"]},
+          "message_id": {"type": "string", "minLength": 1},
+          "subject_key": {"type": ["string", "null"]},
+          "evidence": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

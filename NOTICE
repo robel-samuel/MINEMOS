@@ -1,0 +1,20 @@
+MINEMOS
+Copyright 2026 MINEMOS Research
+
+This product includes software developed by the MINEMOS project
+(https://github.com/robel-samuel/MINEMOS) and is licensed under the
+Apache License, Version 2.0 (see LICENSE).
+
+Third-party components are not bundled in this distribution. They are
+installed separately as dependencies and remain under their own licenses:
+
+  numpy                 BSD-3-Clause
+  scikit-learn          BSD-3-Clause
+  PyTorch (torch)       BSD-3-Clause
+  transformers          Apache-2.0
+  certifi               MPL-2.0
+  qdrant-client         Apache-2.0   (optional extra "qdrant")
+
+Pretrained model weights (cross-encoder/nli-distilroberta-base and
+sentence-transformers/all-MiniLM-L6-v2) are downloaded at runtime from
+their upstream publishers and are not distributed by this project.

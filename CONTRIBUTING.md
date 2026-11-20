@@ -103,4 +103,4 @@ workaround. Do not add comments that restate what the code does.
 ## License
 
 By contributing, you agree that your contributions are licensed under the
-GNU Affero General Public License v3.0, the license of this repository.
+Apache License, Version 2.0, the license of this repository.

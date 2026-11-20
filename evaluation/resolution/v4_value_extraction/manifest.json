@@ -1,0 +1,9 @@
+{
+  "dataset": "v4_value_extraction",
+  "version": "1.0.0",
+  "frozen": "2026-11-17",
+  "cases": 56,
+  "sha256": "4ad107635750c1fd5383949946932b7db02296c83aa705aebe1a5e65b56c3233",
+  "language": "en",
+  "provenance": "synthetic; authored for the V4 brief, no conversation text"
+}

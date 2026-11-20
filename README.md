@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/minemos-logo.png" alt="MINEMOS" width="100%">
+  <img src="https://raw.githubusercontent.com/robel-samuel/MINEMOS/main/docs/assets/minemos-logo.png" alt="MINEMOS" width="100%">
 </p>
 
 # MINEMOS
@@ -74,6 +74,12 @@ cases.
   temporal filters, and an optional Qdrant index.
 - **Answer awareness.** An opt-in eligibility gate that distinguishes a settled
   answer from a contested, ambiguous, or unsupported one.
+- **Semantic resolution (optional).** A candidate-only front end that
+  normalizes noisy text, proposes facts with evidence spans, separates speaker
+  from subject, and classifies fact relationships for diagnostics. It writes
+  nothing by default. An opt-in ingestion adapter (`minemos.semantic`) can hand
+  its facts to the engine or the service pool, and only when the host selects
+  `mode="active"`; the engine keeps every consolidation and retention decision.
 
 ## Architecture
 
@@ -154,13 +160,9 @@ authoritative.
 
 ## Installation
 
-Python 3.12 and CPU-only PyTorch are sufficient. No GPU and no external service
-are required.
+Python 3.12 is required. No GPU and no external service are required.
 
 ```bash
-git clone https://github.com/robel-samuel/MINEMOS.git
-cd MINEMOS
-
 python -m venv .venv
 
 # Windows
@@ -169,13 +171,35 @@ python -m venv .venv
 # Linux / macOS
 source .venv/bin/activate
 
-pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
-pip install -e .
+pip install minemos
 ```
 
-`pip install -e .` installs MINEMOS in editable mode from the repository root.
-Runtime dependencies are declared in `pyproject.toml`. For the optional Qdrant
-backend, use `pip install -e ".[qdrant]"` instead.
+CPU-only PyTorch keeps the environment small; install it from the PyTorch CPU
+index first, then install MINEMOS:
+
+```bash
+pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
+pip install minemos
+```
+
+Optional extras:
+
+```bash
+pip install "minemos[qdrant]"   # Qdrant retrieval backend
+pip install "minemos[test]"     # pytest
+pip install "minemos[dev]"      # pytest + pip-audit
+```
+
+To work from a checkout instead:
+
+```bash
+git clone https://github.com/robel-samuel/MINEMOS.git
+cd MINEMOS
+pip install -e ".[test]"
+```
+
+Runtime dependencies are declared in `pyproject.toml`; `requirements.txt` pins
+the exact development and CI environment.
 
 Download the two local models once while online:
 
@@ -264,7 +288,7 @@ abstains with a reason instead of returning the closest guess. `answer_contract(
 turns that outcome into a presentation decision (`settled`, `contested`,
 `ambiguous`, `abstained`, `unverified`, `empty`, or `ungated`).
 
-See [Integration](docs/integration.md) for persistence, multi-user scoping,
+See [Integration](https://github.com/robel-samuel/MINEMOS/blob/main/docs/integration.md) for persistence, multi-user scoping,
 conversation follow-ups, and agent patterns.
 
 ## Persistence and retrieval
@@ -329,7 +353,7 @@ mem = BlackHoleMemory(
 ```
 
 Configuration, lifecycle, tenancy, and failure isolation are documented in
-[Qdrant Integration](docs/architecture/qdrant-integration.md).
+[Qdrant Integration](https://github.com/robel-samuel/MINEMOS/blob/main/docs/architecture/qdrant-integration.md).
 
 ## Configuration
 
@@ -350,7 +374,7 @@ Common constructor parameters:
 `retrieval_mode="canonical"` never constructs or contacts Qdrant. The
 `production` profile requires a server-mode Qdrant URL and validates its
 configuration at startup. Full parameters and environment variables are in
-[Configuration](docs/guides/configuration.md).
+[Configuration](https://github.com/robel-samuel/MINEMOS/blob/main/docs/guides/configuration.md).
 
 ```python
 from minemos import BlackHoleMemory
@@ -368,7 +392,7 @@ canonical_only = BlackHoleMemory(capacity=100, retrieval_mode="canonical")
 Runtime dependencies are declared in `pyproject.toml`. `requirements.txt` pins
 the complete development and CI environment.
 
-Run the test suite with:
+Run the test suite from a source checkout with:
 
 ```bash
 python -m pytest tests/ -q
@@ -378,20 +402,21 @@ python -m pytest tests/ -q
 
 | Topic | Document |
 |---|---|
-| Documentation index | [docs/README.md](docs/README.md) |
-| Getting started | [docs/getting-started.md](docs/getting-started.md) |
-| Python API | [docs/python-api.md](docs/python-api.md) |
-| Integration guide | [docs/integration.md](docs/integration.md) |
-| Architecture overview | [docs/architecture/overview.md](docs/architecture/overview.md) |
-| Memory lifecycle | [docs/architecture/memory-lifecycle.md](docs/architecture/memory-lifecycle.md) |
-| Retrieval | [docs/architecture/retrieval.md](docs/architecture/retrieval.md) |
-| Qdrant integration | [docs/architecture/qdrant-integration.md](docs/architecture/qdrant-integration.md) |
-| Installation | [docs/guides/installation.md](docs/guides/installation.md) |
-| Configuration | [docs/guides/configuration.md](docs/guides/configuration.md) |
-| Data ingestion | [docs/guides/data-ingestion.md](docs/guides/data-ingestion.md) |
-| Recovery | [docs/operations/recovery.md](docs/operations/recovery.md) |
-| Troubleshooting | [docs/operations/troubleshooting.md](docs/operations/troubleshooting.md) |
-| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Documentation index | [docs/README.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/README.md) |
+| Getting started | [docs/getting-started.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/getting-started.md) |
+| Python API | [docs/python-api.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/python-api.md) |
+| Integration guide | [docs/integration.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/integration.md) |
+| Architecture overview | [docs/architecture/overview.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/architecture/overview.md) |
+| Memory lifecycle | [docs/architecture/memory-lifecycle.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/architecture/memory-lifecycle.md) |
+| Retrieval | [docs/architecture/retrieval.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/architecture/retrieval.md) |
+| Qdrant integration | [docs/architecture/qdrant-integration.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/architecture/qdrant-integration.md) |
+| Semantic resolution layer | [docs/architecture/semantic-resolution.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/architecture/semantic-resolution.md) |
+| Installation | [docs/guides/installation.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/guides/installation.md) |
+| Configuration | [docs/guides/configuration.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/guides/configuration.md) |
+| Data ingestion | [docs/guides/data-ingestion.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/guides/data-ingestion.md) |
+| Recovery | [docs/operations/recovery.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/operations/recovery.md) |
+| Troubleshooting | [docs/operations/troubleshooting.md](https://github.com/robel-samuel/MINEMOS/blob/main/docs/operations/troubleshooting.md) |
+| Contributing | [CONTRIBUTING.md](https://github.com/robel-samuel/MINEMOS/blob/main/CONTRIBUTING.md) |
 
 Repository layout:
 
@@ -404,9 +429,11 @@ docs/           Architecture, guides, and operations
 
 ## License
 
-MINEMOS is licensed under the **GNU Affero General Public License v3.0
-(AGPL-3.0)**. See [LICENSE](LICENSE) for the complete text.
+MINEMOS is licensed under the **Apache License, Version 2.0**. See
+[LICENSE](https://github.com/robel-samuel/MINEMOS/blob/main/LICENSE) for the
+complete text and [NOTICE](https://github.com/robel-samuel/MINEMOS/blob/main/NOTICE)
+for attribution and third-party component notices.
 
-The AGPL-3.0 requires that modified versions run as a network service make
-their source available to users of that service. For local use and integration,
-it adds no restrictions beyond standard open-source attribution.
+The Apache-2.0 license includes an express patent grant and permits commercial
+and closed-source use, modification, and redistribution under its terms,
+including the attribution and NOTICE requirements.

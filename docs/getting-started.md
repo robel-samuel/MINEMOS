@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide takes you from a checkout to a working memory that absorbs
+This guide takes you from a fresh environment to a working memory that absorbs
 observations, resolves a changed fact, answers a query, and survives a restart.
 
 ## Requirements
@@ -11,11 +11,12 @@ observations, resolves a changed fact, answers a query, and survives a restart.
 - Optional: a Qdrant server. The canonical engine does not need one.
 
 Full setup, including the model download step, is in
-[Installation](guides/installation.md).
+[Installation](guides/installation.md). The short version is
+`pip install minemos` (or `pip install -e ".[test]"` from a source checkout).
 
 ## Create a memory
 
-Run this from the repository root.
+The examples below run wherever the package is installed.
 
 ```python
 from minemos import BlackHoleMemory, Candidate

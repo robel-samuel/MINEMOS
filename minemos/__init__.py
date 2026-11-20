@@ -33,12 +33,40 @@ __all__ = [
     "RetrievalConfigurationError",
     "ANSWER_STATUSES",
     "answer_contract",
+    "ResolutionConfig",
+    "ResolutionRecord",
+    "Resolver",
+    "ShadowRunner",
+    "SourceMessage",
+    "EngineSink",
+    "SemanticIngestionError",
+    "SemanticIngestionReport",
+    "SemanticIngestor",
+    "ServiceSink",
     "__version__",
 ]
+
+_RESOLUTION_EXPORTS = frozenset({
+    "ResolutionConfig", "ResolutionRecord", "Resolver", "ShadowRunner",
+    "SourceMessage",
+})
+
+_SEMANTIC_EXPORTS = frozenset({
+    "EngineSink", "SemanticIngestionError", "SemanticIngestionReport",
+    "SemanticIngestor", "ServiceSink",
+})
 
 
 def __getattr__(name: str):
     if name == "BlackHoleMemory":
         from minemos_engine.black_hole_memory import BlackHoleMemory
         return BlackHoleMemory
+    if name in _RESOLUTION_EXPORTS:
+        from minemos import resolution
+
+        return getattr(resolution, name)
+    if name in _SEMANTIC_EXPORTS:
+        from minemos import semantic
+
+        return getattr(semantic, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

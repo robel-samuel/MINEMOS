@@ -8,12 +8,16 @@ version = "0.1.0"
 description = "Persistent memory intelligence for AI applications"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-license = "AGPL-3.0-only"
-license-files = ["LICENSE"]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [
+    { name = "MINEMOS Research" },
+]
 keywords = ["memory", "ai", "retrieval", "qdrant", "llm"]
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
     "Topic :: Software Development :: Libraries",
 ]
 
@@ -27,6 +31,13 @@ dependencies = [
     # TLS trust store used by the Hugging Face client and Qdrant client.
     "certifi==2026.10.23",
 ]
+
+[project.urls]
+Homepage = "https://github.com/robel-samuel/MINEMOS"
+Repository = "https://github.com/robel-samuel/MINEMOS"
+Issues = "https://github.com/robel-samuel/MINEMOS/issues"
+Documentation = "https://github.com/robel-samuel/MINEMOS/tree/main/docs"
+
 
 [project.optional-dependencies]
 qdrant = [
@@ -43,6 +54,10 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["minemos*", "minemos_engine*"]
 namespaces = false
+
+# schema.json is opened at import time by minemos.resolution.schema.
+[tool.setuptools.package-data]
+"minemos.resolution" = ["schema.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

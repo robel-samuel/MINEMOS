@@ -205,6 +205,26 @@ mem.absorb(Candidate("account:acme", "renewal_date", result["renewal"]))
 Transient tool output that is only valid for one turn should stay in the agent's
 working context, not in persistent memory. Store what a later session would need.
 
+## Optional: resolving noisy text before writing
+
+If your write path receives raw chat text, the optional resolution layer can
+normalize it and propose candidate facts with speaker attribution before you
+call `absorb()`. It is a separate package (`minemos.resolution`), it never
+writes memory itself, and it is not wired into the engine: you call it, inspect
+the candidates, and keep the final decision. See
+[Semantic Resolution Layer](architecture/semantic-resolution.md).
+
+If you want the adapter that segments, resolves and writes in one call, use
+`minemos.semantic.SemanticIngestor` with an `EngineSink` or `ServiceSink`; it is
+opt-in (`ResolutionConfig(mode="active")`) and still routes every write through
+`absorb()`. See
+[Semantic ingestion](python-api.md#semantic-ingestion-opt-in) and
+[`examples/semantic_ingestion.py`](../examples/semantic_ingestion.py).
+
+Whatever produces the observation, the `(subject, predicate, object)` you pass
+to `absorb()` remains your statement about what the text means. The engine
+still owns consolidation, contradiction, temporal validity and retention.
+
 ## Serving memory to other processes
 
 The public repository does not ship an HTTP service. If your application is not

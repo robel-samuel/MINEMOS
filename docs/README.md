@@ -31,6 +31,9 @@ or [Getting Started](getting-started.md) to run the engine.
   candidates, filters, snapshot backends, and fallback.
 - [Qdrant Integration](architecture/qdrant-integration.md) — deployment modes,
   index lifecycle, tenancy, and failure isolation.
+- [Semantic Resolution Layer](architecture/semantic-resolution.md) —
+  candidate-only normalization, fact interpretation, identity resolution and
+  relationship proposals, run in shadow mode in front of the engine.
 
 ## Guides
 
@@ -53,6 +56,7 @@ or [Getting Started](getting-started.md) to run the engine.
 | Add memory to an application | [Integration](integration.md) |
 | Understand memory decisions | [Memory Lifecycle](architecture/memory-lifecycle.md) |
 | Learn the API | [Python API](python-api.md) |
+| Use the resolution layer | [Semantic Resolution Layer](architecture/semantic-resolution.md) |
 | Enable Qdrant | [Configuration](guides/configuration.md) then [Qdrant Integration](architecture/qdrant-integration.md) |
 | Recover or erase state | [Recovery](operations/recovery.md) |
 | Contribute | [CONTRIBUTING.md](../CONTRIBUTING.md) |

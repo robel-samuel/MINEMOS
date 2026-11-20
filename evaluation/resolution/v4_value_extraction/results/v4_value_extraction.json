@@ -1,0 +1,590 @@
+{
+  "dataset": "v4_value_extraction",
+  "summary": {
+    "cases": 56,
+    "expected_facts": 54,
+    "emitted_facts": 54,
+    "matched_facts": 54,
+    "recall": 1.0,
+    "precision": 1.0,
+    "value_exactness": 1.0,
+    "evidence_exactness": 1.0,
+    "evidence_grounded": 1.0,
+    "no_fact_compliance": 1.0,
+    "no_fact_cases": 8
+  },
+  "by_category": {
+    "contrast": {
+      "cases": 3,
+      "expected": 4,
+      "emitted": 4,
+      "matched": 4,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "correction": {
+      "cases": 2,
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "hypothetical": {
+      "cases": 2,
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0,
+      "no_fact_cases": 2,
+      "no_fact_clean": 2,
+      "precision": null,
+      "recall": null,
+      "no_fact_compliance": 1.0
+    },
+    "intention": {
+      "cases": 2,
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0,
+      "no_fact_cases": 2,
+      "no_fact_clean": 2,
+      "precision": null,
+      "recall": null,
+      "no_fact_compliance": 1.0
+    },
+    "multiple_facts": {
+      "cases": 6,
+      "expected": 11,
+      "emitted": 11,
+      "matched": 11,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "negation": {
+      "cases": 4,
+      "expected": 4,
+      "emitted": 4,
+      "matched": 4,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "opinion": {
+      "cases": 2,
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1,
+      "no_fact_cases": 1,
+      "no_fact_clean": 1,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": 1.0
+    },
+    "org_location_role": {
+      "cases": 7,
+      "expected": 7,
+      "emitted": 7,
+      "matched": 7,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "possessive": {
+      "cases": 3,
+      "expected": 3,
+      "emitted": 3,
+      "matched": 3,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "question": {
+      "cases": 2,
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0,
+      "no_fact_cases": 2,
+      "no_fact_clean": 2,
+      "precision": null,
+      "recall": null,
+      "no_fact_compliance": 1.0
+    },
+    "relative_clause_guard": {
+      "cases": 4,
+      "expected": 4,
+      "emitted": 4,
+      "matched": 4,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "span_and_padding": {
+      "cases": 3,
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2,
+      "no_fact_cases": 1,
+      "no_fact_clean": 1,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": 1.0
+    },
+    "temporal": {
+      "cases": 3,
+      "expected": 3,
+      "emitted": 3,
+      "matched": 3,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "trailing_interrogative": {
+      "cases": 4,
+      "expected": 4,
+      "emitted": 4,
+      "matched": 4,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "trailing_language_adverbial": {
+      "cases": 5,
+      "expected": 5,
+      "emitted": 5,
+      "matched": 5,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    },
+    "trailing_new_clause": {
+      "cases": 4,
+      "expected": 4,
+      "emitted": 4,
+      "matched": 4,
+      "no_fact_cases": 0,
+      "no_fact_clean": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "no_fact_compliance": null
+    }
+  },
+  "cases": [
+    {
+      "case_id": "V4-001",
+      "category": "trailing_interrogative",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-002",
+      "category": "trailing_interrogative",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-003",
+      "category": "trailing_interrogative",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-004",
+      "category": "trailing_interrogative",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-005",
+      "category": "trailing_new_clause",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-006",
+      "category": "trailing_new_clause",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-007",
+      "category": "trailing_new_clause",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-008",
+      "category": "trailing_new_clause",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-009",
+      "category": "trailing_language_adverbial",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-010",
+      "category": "trailing_language_adverbial",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-011",
+      "category": "trailing_language_adverbial",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-012",
+      "category": "trailing_language_adverbial",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-013",
+      "category": "trailing_language_adverbial",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-014",
+      "category": "relative_clause_guard",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-015",
+      "category": "relative_clause_guard",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-016",
+      "category": "relative_clause_guard",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-017",
+      "category": "relative_clause_guard",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-018",
+      "category": "multiple_facts",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-019",
+      "category": "multiple_facts",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-020",
+      "category": "multiple_facts",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-021",
+      "category": "multiple_facts",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-022",
+      "category": "multiple_facts",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-023",
+      "category": "multiple_facts",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-024",
+      "category": "correction",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-025",
+      "category": "correction",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-026",
+      "category": "negation",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-027",
+      "category": "negation",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-028",
+      "category": "negation",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-029",
+      "category": "negation",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-030",
+      "category": "possessive",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-031",
+      "category": "possessive",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-032",
+      "category": "possessive",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-033",
+      "category": "temporal",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-034",
+      "category": "temporal",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-035",
+      "category": "temporal",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-036",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-037",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-038",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-039",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-040",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-041",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-042",
+      "category": "org_location_role",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-043",
+      "category": "hypothetical",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-044",
+      "category": "hypothetical",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-045",
+      "category": "question",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-046",
+      "category": "question",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-047",
+      "category": "intention",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-048",
+      "category": "intention",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-049",
+      "category": "opinion",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    },
+    {
+      "case_id": "V4-050",
+      "category": "opinion",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-051",
+      "category": "contrast",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-052",
+      "category": "contrast",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-053",
+      "category": "contrast",
+      "expected": 2,
+      "emitted": 2,
+      "matched": 2
+    },
+    {
+      "case_id": "V4-054",
+      "category": "span_and_padding",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-055",
+      "category": "span_and_padding",
+      "expected": 1,
+      "emitted": 1,
+      "matched": 1
+    },
+    {
+      "case_id": "V4-056",
+      "category": "span_and_padding",
+      "expected": 0,
+      "emitted": 0,
+      "matched": 0
+    }
+  ],
+  "failures": [],
+  "variant": "v4"
+}
