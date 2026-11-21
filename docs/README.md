@@ -41,6 +41,8 @@ or [Getting Started](getting-started.md) to run the engine.
   models, smoke test, and optional Qdrant.
 - [Configuration](guides/configuration.md) — engine parameters, retrieval modes,
   and environment variables.
+- [Releasing](guides/releasing.md) — Trusted Publishing setup and the PyPI
+  release workflow.
 
 ## Operations
 
