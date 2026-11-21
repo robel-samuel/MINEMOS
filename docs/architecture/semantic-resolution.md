@@ -442,11 +442,12 @@ processed.
 The layer is local-first. There is no bundled network client and no default
 endpoint. The built-in similarity providers are deterministic: a hash-based
 lexical provider, and an optional wrapper around the engine's local encoder.
-The engine encoder loads with `local_files_only=True`; if the engine package
-or its cached model files are unavailable, `local` falls back to the hash
-provider and the record reports `deterministic:hash`. Nothing is transmitted
-anywhere unless a host explicitly configures a provider it wrote itself, and no
-such provider ships with the project.
+The engine encoder is read from the Hugging Face cache and downloaded once on
+first use when absent; if the engine package or its model files are
+unavailable (including an empty cache in offline mode), `local` falls back to
+the hash provider and the record reports `deterministic:hash`. Nothing is
+transmitted anywhere unless a host explicitly configures a provider it wrote
+itself, and no such provider ships with the project.
 
 Diagnostics are counters, stage names, hashes and ids. Raw message text and
 fact values belong to the host and stay there.

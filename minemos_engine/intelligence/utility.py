@@ -17,8 +17,8 @@ Configuration presets (the ``system`` argument):
 Core Invariants:
   - MATCH_THRESHOLD: 0.75 (production default)
   - Core Update Equation: slot.value = (1 - alpha_t) * slot.value + alpha_t * x_t (identical across configurations)
-  - NLI Gate: cross-encoder/nli-distilroberta-base (local_files_only=True)
-  - Dense Encoder: sentence-transformers/all-MiniLM-L6-v2 (local_files_only=True)
+  - NLI Gate: cross-encoder/nli-distilroberta-base (provisioned on first use)
+  - Dense Encoder: sentence-transformers/all-MiniLM-L6-v2 (provisioned on first use)
   - Seed: 42
   - Causal / Online Operation: Zero future labels, zero oracle concept IDs.
 """

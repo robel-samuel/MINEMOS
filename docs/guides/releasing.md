@@ -60,7 +60,7 @@ The workflow job also refuses to run unless
    .venv-testpypi/bin/python -m pip install \
      --index-url https://test.pypi.org/simple/ \
      --extra-index-url https://pypi.org/simple \
-     minemos==0.1.0
+     minemos==0.1.1
    ```
 
    TestPyPI does not host the runtime dependencies, so the extra index resolves
@@ -72,7 +72,7 @@ The workflow job also refuses to run unless
 
 1. Confirm `version` in `pyproject.toml`.
 2. Merge to `main` with the `tests` workflow green.
-3. Create a GitHub release with tag `v<version>` (for example `v0.1.0`). The
+3. Create a GitHub release with tag `v<version>` (for example `v0.1.1`). The
    published release triggers the `publish` workflow on the release commit, and
    the build job rejects a tag that does not match the package version.
    Alternatively, run the workflow manually with target `pypi`.

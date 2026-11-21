@@ -4,8 +4,10 @@ Public developer surface:
 
     from minemos import BlackHoleMemory, Candidate
 
-``BlackHoleMemory`` is imported lazily so that ``import minemos`` stays cheap;
-the first attribute access loads the engine and its encoder models.
+``BlackHoleMemory`` is imported lazily so that ``import minemos`` stays cheap.
+The engine's transformer models are provisioned from the Hugging Face cache
+(and downloaded once when absent) only when an operation needs them, never at
+import or construction time.
 """
 
 from minemos_engine.memory_state import MemoryState, MemorySlot
@@ -21,7 +23,7 @@ try:
     from importlib.metadata import version as _distribution_version
     __version__ = _distribution_version("minemos")
 except Exception:  # running from a checkout before installation
-    __version__ = "0.1.0"
+    __version__ = "0.1.1"
 
 __all__ = [
     "BlackHoleMemory",
@@ -43,6 +45,7 @@ __all__ = [
     "SemanticIngestionReport",
     "SemanticIngestor",
     "ServiceSink",
+    "ModelProvisioningError",
     "__version__",
 ]
 
@@ -61,6 +64,9 @@ def __getattr__(name: str):
     if name == "BlackHoleMemory":
         from minemos_engine.black_hole_memory import BlackHoleMemory
         return BlackHoleMemory
+    if name == "ModelProvisioningError":
+        from minemos_engine.model_provisioning import ModelProvisioningError
+        return ModelProvisioningError
     if name in _RESOLUTION_EXPORTS:
         from minemos import resolution
 

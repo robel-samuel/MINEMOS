@@ -34,9 +34,10 @@ from minemos_engine.structured_candidate import Candidate
 from minemos_engine.memory_state import MemoryState, MemorySlot
 from minemos_engine.memory_update import cosine_similarity, novelty
 from minemos_engine.encoders import FieldAwareLexicalEncoder
-from minemos_engine.intelligence.nli import NliSemanticGate
+from minemos_engine.intelligence.nli import NliSemanticGate, LazyNliSemanticGate
 from minemos_engine.intelligence.dense import (
     DenseSemanticEncoder,
+    LazyDenseSemanticEncoder,
     D_LEX,
     D_DENSE,
     LEXICAL_ENCODER,
@@ -422,6 +423,7 @@ class BlackHoleMemory:
         qdrant_config: Optional[Any] = None,
         retrieval_mode: Optional[str] = None,
         strict_entity_identity: bool = False,
+        model_cache_dir: Optional[str] = None,
     ):
         self.memory = MemoryState(capacity=capacity, dim=dim)
         self.capacity = self.memory.capacity
@@ -459,9 +461,14 @@ class BlackHoleMemory:
         self.slot_contra_anchors: Dict[int, List[Tuple[np.ndarray, float]]] = {}
         self.bm25_index = LocalBM25Index()
 
-        # Models
-        self.dense_encoder = dense_encoder or DenseSemanticEncoder()
-        self.nli_gate = nli_gate or NliSemanticGate()
+        # Models.  The default encoders are lazy: constructing a memory, or
+        # restoring one, never downloads the Hugging Face checkpoints.  The
+        # first operation that actually encodes or verifies provisions them
+        # from the cache (or downloads them once) and reuses them afterwards.
+        self.dense_encoder = dense_encoder or LazyDenseSemanticEncoder(
+            cache_dir=model_cache_dir)
+        self.nli_gate = nli_gate or LazyNliSemanticGate(
+            cache_dir=model_cache_dir)
         self.verifier = verifier or CalibratedSemanticVerifier(self.nli_gate)
         self.lex_encoder = lex_encoder or LEXICAL_ENCODER
 

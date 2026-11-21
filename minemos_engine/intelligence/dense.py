@@ -12,7 +12,7 @@ Retrieval and eviction combinations:
   D: Dense Semantic Retrieval + Utility-Aware Eviction
 
 Core Invariants:
-  - NLI Model: cross-encoder/nli-distilroberta-base (local_files_only=True)
+  - NLI Model: cross-encoder/nli-distilroberta-base (provisioned on first use)
   - NLI Policy: entailment >= 0.50 -> SAME; contradiction >= 0.50 -> CONTRADICTION; abstain < 0.35
   - MATCH_THRESHOLD: 0.75
   - Core Update Equation: slot.value = (1 - alpha_t) * slot.value + alpha_t * x_t
@@ -20,20 +20,20 @@ Core Invariants:
 """
 
 from __future__ import annotations
-import os, sys, time
+import os, sys, time, threading
 from typing import Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import numpy as np
 import torch
-from transformers import AutoTokenizer, AutoModel
 
 from minemos_engine.structured_candidate import Candidate
 from minemos_engine.memory_state import MemoryState, MemorySlot
 from minemos_engine.memory_update import address, novelty, cosine_similarity, MATCH_THRESHOLD
 from minemos_engine.encoders import FieldAwareLexicalEncoder
 from minemos_engine.intelligence.nli import NliSemanticGate
+from minemos_engine.model_provisioning import load_base_model, load_tokenizer
 
 D_LEX = 4096
 D_DENSE = 384
@@ -52,15 +52,24 @@ class DenseSemanticEncoder:
     Embedding Dimension: 384
     Pooling: Mean pooling with attention mask
     Normalization: L2 normalization
-    Execution: Local PyTorch on CPU (local_files_only=True)
+    Execution: Local PyTorch on CPU
+
+    The weights are read from the Hugging Face cache and downloaded on first
+    use when absent; see :mod:`minemos_engine.model_provisioning`.
     """
 
-    def __init__(self, model_name: str = DENSE_MODEL_NAME, device: str = "cpu"):
+    def __init__(self, model_name: str = DENSE_MODEL_NAME, device: str = "cpu",
+                 cache_dir: Optional[str] = None,
+                 local_files_only: Optional[bool] = None):
         self.device = device
         self.model_name = model_name
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
-        self.model = AutoModel.from_pretrained(model_name, local_files_only=True).to(device)
-        self.model.eval()
+        self.cache_dir = cache_dir
+        self.tokenizer = load_tokenizer(
+            model_name, cache_dir=cache_dir,
+            local_files_only=local_files_only)
+        self.model = load_base_model(
+            model_name, cache_dir=cache_dir,
+            local_files_only=local_files_only, device=device)
         self.dim = D_DENSE
 
     def encode(self, text: str) -> np.ndarray:
@@ -90,6 +99,46 @@ class DenseSemanticEncoder:
             mean_pooled = sum_embeddings / sum_mask
             normalized = torch.nn.functional.normalize(mean_pooled, p=2, dim=1)
         return normalized.cpu().numpy().astype(np.float32)
+
+
+class LazyDenseSemanticEncoder:
+    """A :class:`DenseSemanticEncoder` that loads its weights on first use.
+
+    The engine builds this by default so that constructing a memory, restoring
+    a checkpoint or running a lexical-only path never downloads a model.
+    """
+
+    def __init__(self, model_name: str = DENSE_MODEL_NAME, device: str = "cpu",
+                 cache_dir: Optional[str] = None,
+                 local_files_only: Optional[bool] = None):
+        self.model_name = model_name
+        self.device = device
+        self.cache_dir = cache_dir
+        self.local_files_only = local_files_only
+        self.dim = D_DENSE
+        self._encoder: Optional[DenseSemanticEncoder] = None
+        self._load_lock = threading.Lock()
+
+    def _resolve(self) -> DenseSemanticEncoder:
+        if self._encoder is None:
+            with self._load_lock:
+                if self._encoder is None:
+                    self._encoder = DenseSemanticEncoder(
+                        self.model_name, device=self.device,
+                        cache_dir=self.cache_dir,
+                        local_files_only=self.local_files_only)
+        return self._encoder
+
+    def encode(self, text: str) -> np.ndarray:
+        return self._resolve().encode(text)
+
+    def encode_batch(self, texts: list[str]) -> np.ndarray:
+        return self._resolve().encode_batch(texts)
+
+    def __getattr__(self, name: str):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self._resolve(), name)
 
 
 def dense_address(slot_embeddings: list[np.ndarray], cand_embedding: np.ndarray,

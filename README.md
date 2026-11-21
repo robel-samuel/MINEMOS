@@ -160,7 +160,8 @@ authoritative.
 
 ## Installation
 
-Python 3.12 is required. No GPU and no external service are required.
+Python 3.12 is required. No GPU, no external service and no manual model
+download are required.
 
 ```bash
 python -m venv .venv
@@ -174,13 +175,40 @@ source .venv/bin/activate
 pip install minemos
 ```
 
-CPU-only PyTorch keeps the environment small; install it from the PyTorch CPU
-index first, then install MINEMOS:
+The package declares its runtime dependencies, so `pip install minemos`
+installs PyTorch, Transformers and the rest. The default PyPI PyTorch wheel is
+CPU-capable on Windows and macOS. On Linux that wheel also bundles the CUDA
+runtime; if you want the smaller CPU-only build, install it first and then
+install MINEMOS:
 
 ```bash
 pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
 pip install minemos
 ```
+
+This preinstall cannot be expressed in package metadata: a requirement cannot
+select an extra package index, and a `+cpu` requirement would not resolve on
+platforms that only have the plain PyPI wheel. The declared `torch==2.14.0`
+accepts the `2.14.0+cpu` local version, so the same two-command sequence works
+and keeps the smaller CPU build on Linux.
+
+The two local models (`cross-encoder/nli-distilroberta-base` and
+`sentence-transformers/all-MiniLM-L6-v2`, about 420 MB together) are not
+bundled in the wheel. They are downloaded on first use, once, through
+Transformers (with its normal progress bars) into the standard Hugging Face
+cache, `~/.cache/huggingface`. Later runs, including offline runs, read them
+from that cache. `HF_HOME` selects another cache root, and
+`MINEMOS_MODEL_CACHE` or `BlackHoleMemory(model_cache_dir=...)` selects the
+model directory explicitly.
+
+Nothing is downloaded when the package is imported, when a `BlackHoleMemory`
+is created, when a checkpoint is restored, or when the structured types
+(`MemoryState`, `Candidate`) are used. The first operation that actually
+encodes or verifies text provisions the model it needs; a single-fact insert
+loads only the sentence encoder, and the NLI model follows the first time a
+comparison is needed. If `HF_HUB_OFFLINE=1` or `TRANSFORMERS_OFFLINE=1` is set
+before the cache is populated, provisioning fails with an explicit error
+instead of falling back silently.
 
 Optional extras:
 
@@ -200,24 +228,6 @@ pip install -e ".[test]"
 
 Runtime dependencies are declared in `pyproject.toml`; `requirements.txt` pins
 the exact development and CI environment.
-
-Download the two local models once while online:
-
-```bash
-python - <<'PY'
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel
-
-AutoTokenizer.from_pretrained("cross-encoder/nli-distilroberta-base")
-AutoModelForSequenceClassification.from_pretrained("cross-encoder/nli-distilroberta-base")
-AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-print("Models ready.")
-PY
-```
-
-Models are cached under `~/.cache/huggingface` by default. Set `HF_HOME` before
-this step to store them elsewhere, and `TRANSFORMERS_OFFLINE=1` for later
-offline runs.
 
 ## Quick start
 

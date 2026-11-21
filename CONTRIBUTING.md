@@ -36,16 +36,9 @@ pip install -e ".[test]"
 Use `pip install -e ".[qdrant,test]"` when working on the Qdrant backend, or
 `pip install -r requirements.txt` for the exact pinned CI environment.
 
-Download the two models once while online:
-
-```python
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel
-
-AutoTokenizer.from_pretrained("cross-encoder/nli-distilroberta-base")
-AutoModelForSequenceClassification.from_pretrained("cross-encoder/nli-distilroberta-base")
-AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-```
+The two models are provisioned automatically when the suite first needs them
+(or reused from the Hugging Face cache). No manual download step is required;
+set `MINEMOS_MODEL_CACHE` or `HF_HOME` to keep that cache inside the checkout.
 
 ## Running tests
 
@@ -64,6 +57,18 @@ MINEMOS_QDRANT_URL=http://127.0.0.1:6333 \
 A change is ready when the full suite passes. If a test fails only under heavy
 load, reproduce it in isolation and report the conditions instead of weakening
 the assertion.
+
+To verify the built distribution the way users install it — clean virtual
+environment, empty model cache, real first-use download, cache reuse, offline
+reuse and the optional Qdrant extra:
+
+```bash
+python -m build
+python scripts/install_acceptance.py --wheel dist/minemos-*.whl
+```
+
+On Linux, add `--cpu-torch` to verify the documented CPU-only PyTorch
+preinstall. CI runs this acceptance on Ubuntu, macOS and Windows.
 
 ## Engineering guidelines
 

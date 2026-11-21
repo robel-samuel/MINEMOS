@@ -15,17 +15,21 @@ is identical across all configurations.
 """
 
 from __future__ import annotations
-import os, sys, time
+import os, sys, time, threading
+from typing import Optional
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import numpy as np
 import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 from minemos_engine.structured_candidate import Candidate
 from minemos_engine.memory_state import MemoryState, MemorySlot
 from minemos_engine.memory_update import address, novelty, cosine_similarity, MATCH_THRESHOLD
 from minemos_engine.encoders import FieldAwareLexicalEncoder
+from minemos_engine.model_provisioning import (
+    load_sequence_classification_model,
+    load_tokenizer,
+)
 
 D = 4096
 ENCODER = FieldAwareLexicalEncoder()
@@ -35,12 +39,18 @@ MODEL_NAME = "cross-encoder/nli-distilroberta-base"
 class NliSemanticGate:
     """Verified pretrained cross-encoder NLI classifier."""
 
-    def __init__(self, model_name: str = MODEL_NAME, device: str = "cpu"):
+    def __init__(self, model_name: str = MODEL_NAME, device: str = "cpu",
+                 cache_dir: Optional[str] = None,
+                 local_files_only: Optional[bool] = None):
         self.device = device
         self.model_name = model_name
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_name, local_files_only=True).to(device)
-        self.model.eval()
+        self.cache_dir = cache_dir
+        self.tokenizer = load_tokenizer(
+            model_name, cache_dir=cache_dir,
+            local_files_only=local_files_only)
+        self.model = load_sequence_classification_model(
+            model_name, cache_dir=cache_dir,
+            local_files_only=local_files_only, device=device)
         # Verified configuration indices: 0: contradiction, 1: entailment, 2: neutral
         self.id2label = self.model.config.id2label
 
@@ -107,6 +117,45 @@ class NliSemanticGate:
                 confidence=max_prob
             ))
         return results
+
+
+class LazyNliSemanticGate:
+    """A :class:`NliSemanticGate` that loads its weights on first use.
+
+    Creating a memory or restoring a checkpoint does not need the NLI model;
+    it is downloaded and loaded only when the first pair is actually verified.
+    """
+
+    def __init__(self, model_name: str = MODEL_NAME, device: str = "cpu",
+                 cache_dir: Optional[str] = None,
+                 local_files_only: Optional[bool] = None):
+        self.model_name = model_name
+        self.device = device
+        self.cache_dir = cache_dir
+        self.local_files_only = local_files_only
+        self._gate: Optional[NliSemanticGate] = None
+        self._load_lock = threading.Lock()
+
+    def _resolve(self) -> NliSemanticGate:
+        if self._gate is None:
+            with self._load_lock:
+                if self._gate is None:
+                    self._gate = NliSemanticGate(
+                        self.model_name, device=self.device,
+                        cache_dir=self.cache_dir,
+                        local_files_only=self.local_files_only)
+        return self._gate
+
+    def predict_pair(self, premise: str, hypothesis: str, **kwargs) -> dict:
+        return self._resolve().predict_pair(premise, hypothesis, **kwargs)
+
+    def predict_batch(self, pairs: list[tuple[str, str]], **kwargs) -> list[dict]:
+        return self._resolve().predict_batch(pairs, **kwargs)
+
+    def __getattr__(self, name: str):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self._resolve(), name)
 
 
 def lexical_absorb(memory: MemoryState, candidate: Candidate,

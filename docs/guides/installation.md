@@ -32,16 +32,29 @@ source .venv/bin/activate
 
 ## 2. Install the package
 
-Install CPU-only PyTorch first from the PyTorch index, then install MINEMOS:
+```bash
+pip install minemos
+```
+
+This installs the runtime dependencies declared in `pyproject.toml` (`numpy`,
+`scikit-learn`, `torch`, `transformers`, `certifi`). The canonical engine does
+not import or require the Qdrant client.
+
+The default PyPI PyTorch wheel is CPU-capable on Windows and macOS. On Linux it
+also bundles the CUDA runtime; to use the smaller CPU-only build instead,
+install it first and then MINEMOS:
 
 ```bash
 pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
 pip install minemos
 ```
 
-`pyproject.toml` declares the runtime dependencies (`numpy`, `scikit-learn`,
-`torch`, `transformers`, `certifi`). The canonical engine does not import or
-require the Qdrant client.
+This preinstall cannot be automated from the package metadata: a PEP 508
+requirement cannot point pip at an additional package index, and requiring
+`torch==2.14.0+cpu` would make `pip install minemos` unresolvable on platforms
+where only the plain PyPI wheel exists. Because `torch==2.14.0` accepts the
+`2.14.0+cpu` local version, the second command keeps the CPU build and works
+with the same requirement on every platform.
 
 Optional extras:
 
@@ -56,30 +69,35 @@ transitive packages, and can still be used when an exact environment is
 required. Installing `qdrant-client` does not start or connect to a Qdrant
 server.
 
-## 3. Download the two models
+## 3. Models are provisioned on first use
 
-MINEMOS uses:
+MINEMOS uses two local checkpoints:
 
-- `cross-encoder/nli-distilroberta-base` for the verification gate;
-- `sentence-transformers/all-MiniLM-L6-v2` for dense addressing and retrieval.
+- `cross-encoder/nli-distilroberta-base` for the verification gate (~330 MB);
+- `sentence-transformers/all-MiniLM-L6-v2` for dense addressing and retrieval
+  (~90 MB).
 
-Download them once while online:
+Neither is bundled in the wheel. They are downloaded automatically the first
+time an operation needs them, through the normal `transformers` download path,
+with its progress bars and resumable files. The download goes to the standard
+Hugging Face cache (`~/.cache/huggingface`).
 
-```bash
-python - <<'PY'
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel
+- Importing the package, creating a `BlackHoleMemory`, restoring a checkpoint
+  and using `MemoryState`/`Candidate` do not download anything. A first
+  single-fact `absorb` loads only the sentence encoder; the NLI model is loaded
+  when the first semantic comparison runs (`absorb` with existing slots, or a
+  query that needs the dense encoder).
+- Later processes read the cached models without contacting the network.
+- `HF_HOME` selects a different cache root. `MINEMOS_MODEL_CACHE` (environment)
+  or `BlackHoleMemory(model_cache_dir=...)` selects the model directory
+  explicitly.
+- With `HF_HUB_OFFLINE=1` or `TRANSFORMERS_OFFLINE=1` set, a missing model
+  raises `minemos.ModelProvisioningError` naming the cache path instead of
+  attempting the network. This is the correct setting for air-gapped hosts
+  once the cache has been populated elsewhere and copied in.
 
-AutoTokenizer.from_pretrained("cross-encoder/nli-distilroberta-base")
-AutoModelForSequenceClassification.from_pretrained("cross-encoder/nli-distilroberta-base")
-AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-print("Models ready.")
-PY
-```
-
-Models are cached under `~/.cache/huggingface` by default. Set `HF_HOME` before
-this step to place them elsewhere. For offline runs after caching, set
-`TRANSFORMERS_OFFLINE=1`.
+If a download is interrupted, run the same operation again: the partial files
+are resumed rather than downloaded from scratch.
 
 ## 4. Smoke test
 
@@ -95,8 +113,10 @@ rows = mem.query("where does alice work", top_k=3)
 print(rows[0]["text"], rows[0]["similarity"])
 ```
 
-The first run loads both models and may take a few seconds. If the models are
-missing, run step 3 again or check the Hugging Face cache location.
+On the first run this provisions the sentence encoder (and, from the second
+absorb onward, the NLI model). Later runs load them from the cache. If the
+download fails, the error names the model, the cache location and the
+environment variables that control it.
 
 ## 5. Run the tests
 
@@ -110,9 +130,10 @@ pip install -e ".[test]"
 python -m pytest tests/ -q
 ```
 
-The suite uses the model cache from step 3 and creates temporary Qdrant embedded
-databases for the integration tests. To run the Qdrant integration tests against
-a server instead:
+The suite provisions the two models automatically on its first run (or reuses
+the cache from earlier runs) and creates temporary Qdrant embedded databases
+for the integration tests. To run the Qdrant integration tests against a server
+instead:
 
 ```bash
 MINEMOS_QDRANT_URL=http://127.0.0.1:6333 \
@@ -146,9 +167,11 @@ without reinstalling:
 ```bash
 git clone https://github.com/robel-samuel/MINEMOS.git
 cd MINEMOS
-pip install torch==2.14.0+cpu --index-url https://download.pytorch.org/whl/cpu
 pip install -e ".[qdrant,test]"
 ```
+
+Add the CPU-only PyTorch wheel first if you are on Linux and do not want the
+CUDA runtime that the default PyPI wheel pulls in.
 
 `pip install -e .` registers the public `minemos` interface and the
 `minemos_engine` engine package in editable mode.

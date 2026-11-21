@@ -42,18 +42,10 @@ jobs:
         run: |
           pip install -e ".[qdrant,test]"
 
-      - name: Download required Hugging Face models
-        run: |
-          python - <<'EOF'
-          from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel
-          print("Downloading cross-encoder/nli-distilroberta-base ...")
-          AutoTokenizer.from_pretrained("cross-encoder/nli-distilroberta-base")
-          AutoModelForSequenceClassification.from_pretrained("cross-encoder/nli-distilroberta-base")
-          print("Downloading sentence-transformers/all-MiniLM-L6-v2 ...")
-          AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-          AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-          print("Models downloaded.")
-          EOF
+      # The suite provisions both models on first use; no pre-download step is
+      # needed, and this exercises the same code path an installed user runs.
+      # The install job below separately proves the cold-cache path with an
+      # empty HF_HOME.
 
       - name: Run dependency vulnerability audit
         run: |
@@ -63,3 +55,55 @@ jobs:
       - name: Run test suite
         run: |
           python -m pytest tests/ -v --tb=short
+
+  install:
+    name: Clean install acceptance (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+          python -m build
+          python -m twine check --strict dist/*
+
+      - name: Install the wheel in a clean environment and verify it
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            # Exercise the documented CPU-only path: the CPU wheel is
+            # installed first and must satisfy the declared torch==2.14.0.
+            python scripts/install_acceptance.py \
+              --wheel dist/*.whl \
+              --cpu-torch \
+              --repo-root "$GITHUB_WORKSPACE" \
+              --evidence-dir "$RUNNER_TEMP/evidence"
+          else
+            python scripts/install_acceptance.py \
+              --wheel dist/*.whl \
+              --repo-root "$GITHUB_WORKSPACE" \
+              --evidence-dir "$RUNNER_TEMP/evidence"
+          fi
+
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-${{ matrix.os }}
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: ignore

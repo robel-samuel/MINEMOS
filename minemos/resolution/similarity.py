@@ -2,8 +2,10 @@
 
 The default provider is a hashed character n-gram cosine: local, dependency
 free, stable across processes and platforms.  ``none`` keeps only exact
-normalized matches.  ``local`` reuses the engine's sentence encoder when it is
-importable; it never contacts a remote service.
+normalized matches.  ``local`` reuses the engine's sentence encoder; it never
+contacts a remote service, and provisions the encoder from the Hugging Face
+cache (downloading it once when absent) before falling back to the hash
+provider.
 """
 
 from __future__ import annotations
@@ -140,9 +142,10 @@ _LOCAL_ENCODER_FAILED = False
 def _local_encoder():
     """Load the engine's local sentence encoder once per process.
 
-    Returns ``None`` when the engine package or its local model files are
-    unavailable.  The engine encoder loads with ``local_files_only=True``, so
-    this path never reaches the network; callers fall back to the hash
+    Returns ``None`` when the engine package or its model files are
+    unavailable.  The encoder is read from the Hugging Face cache and
+    downloaded on first use when absent; when offline mode is enabled and the
+    cache is empty the load fails fast.  Callers fall back to the hash
     provider and report that through :attr:`LocalEncoderSimilarity.name`.
     """
     global _LOCAL_ENCODER, _LOCAL_ENCODER_FAILED
